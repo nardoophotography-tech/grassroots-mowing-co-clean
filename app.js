@@ -1,12 +1,23 @@
+// ========================
+// DEBUG (REMOVE LATER IF YOU WANT)
+// ========================
+console.log("DEPLOY VERSION:", Date.now());
+
 const createError = require("http-errors");
 const express = require("express");
 const path = require("path");
+const fs = require("fs");
 const cookieParser = require("cookie-parser");
 const logger = require("morgan");
 
 const usersRouter = require("./routes/users");
 
 const app = express();
+
+// ========================
+// DEBUG CHECK (IMPORTANT)
+// ========================
+console.log("DIST EXISTS:", fs.existsSync(path.join(__dirname, "dist")));
 
 // ========================
 // MIDDLEWARE
@@ -26,36 +37,36 @@ app.get("/api/status", (req, res) => {
 });
 
 // ========================
-// SERVE FRONTEND (VITE BUILD)
+// SERVE VITE BUILD (FRONTEND)
 // ========================
-// IMPORTANT: Render must have `npm run build` producing /dist
-
 app.use(express.static(path.join(__dirname, "dist")));
 
-// SPA fallback (VERY IMPORTANT)
+// SPA fallback (must be last before error handlers)
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "dist", "index.html"));
 });
 
 // ========================
-// ERROR HANDLERS
+// 404 HANDLER
 // ========================
 app.use(function (req, res, next) {
   next(createError(404));
 });
 
+// ========================
+// ERROR HANDLER
+// ========================
 app.use(function (err, req, res, next) {
-  res.locals.message = err.message;
-  res.locals.error = req.app.get("env") === "development" ? err : {};
-
   res.status(err.status || 500);
-  res.json({ error: err.message });
+  res.json({
+    error: err.message,
+  });
 });
 
 // ========================
 // START SERVER (RENDER SAFE)
 // ========================
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 10000;
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
