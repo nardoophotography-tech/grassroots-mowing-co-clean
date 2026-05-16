@@ -9,12 +9,6 @@ const usersRouter = require("./routes/users");
 const app = express();
 
 // ========================
-// VIEW ENGINE (optional)
-// ========================
-app.set("views", path.join(__dirname, "views"));
-app.set("view engine", "jade");
-
-// ========================
 // MIDDLEWARE
 // ========================
 app.use(logger("dev"));
@@ -23,39 +17,43 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
 // ========================
-// STATIC FILES
-// ========================
-app.use(express.static(path.join(__dirname, "public")));
-
-// ========================
-// ROUTES
+// API ROUTES
 // ========================
 app.use("/users", usersRouter);
 
-app.get("/", function (req, res) {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+app.get("/api/status", (req, res) => {
+  res.json({ status: "ok" });
 });
 
 // ========================
-// 404 HANDLER
+// SERVE FRONTEND (VITE BUILD)
+// ========================
+// IMPORTANT: Render must have `npm run build` producing /dist
+
+app.use(express.static(path.join(__dirname, "dist")));
+
+// SPA fallback (VERY IMPORTANT)
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "dist", "index.html"));
+});
+
+// ========================
+// ERROR HANDLERS
 // ========================
 app.use(function (req, res, next) {
   next(createError(404));
 });
 
-// ========================
-// ERROR HANDLER
-// ========================
 app.use(function (err, req, res, next) {
   res.locals.message = err.message;
   res.locals.error = req.app.get("env") === "development" ? err : {};
 
   res.status(err.status || 500);
-  res.render("error");
+  res.json({ error: err.message });
 });
 
 // ========================
-// START SERVER (FIXED FOR RENDER)
+// START SERVER (RENDER SAFE)
 // ========================
 const PORT = process.env.PORT || 3001;
 
