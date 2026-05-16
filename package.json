@@ -2,7 +2,6 @@
   "name": "grassroots-mowing-co",
   "private": true,
   "version": "1.0.0",
-  
   "scripts": {
     "dev": "tsx server.ts",
     "start": "tsx server.ts",
@@ -20,8 +19,8 @@
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
     "clsx": "^2.1.1",
+    "cookie-parser": "^1.4.7",
     "date-fns": "^4.1.0",
-    "tsx": "^4.21.0",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "firebase": "^12.11.0",
@@ -38,6 +37,7 @@
     "resend": "^6.12.2",
     "stripe": "^22.0.2",
     "tailwind-merge": "^3.5.0",
+    "tsx": "^4.21.0",
     "twilio": "^6.0.0",
     "use-places-autocomplete": "^4.0.1",
     "vite": "^6.2.0",
