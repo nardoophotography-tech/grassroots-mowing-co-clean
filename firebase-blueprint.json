@@ -1,0 +1,273 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Stores user profile and business settings",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "staff"] },
+        "businessName": { "type": "string" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Client": {
+      "title": "Client",
+      "description": "Customer information",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "address": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "suburb": { "type": "string" },
+        "clientType": { "type": "string", "enum": ["one-off", "returning", "ultimate-gold", "real-estate"] },
+        "agencyName": { "type": "string" },
+        "accountStatus": { "type": "string", "enum": ["up-to-date", "payment-due", "overdue"] },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["name", "address", "clientType"]
+    },
+    "Job": {
+      "title": "Job",
+      "description": "Lawn care job details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "clientId": { "type": "string" },
+        "clientName": { "type": "string" },
+        "suburb": { "type": "string" },
+        "status": { "type": "string", "enum": ["quoted", "scheduled", "on-the-way", "in-progress", "completed", "invoiced", "paid", "cancelled"] },
+        "scheduledDate": { "type": "number" },
+        "timeSlot": { "type": "string", "enum": ["morning", "afternoon"] },
+        "clientType": { "type": "string", "enum": ["one-off", "returning", "ultimate-gold", "real-estate"] },
+        "servicePackage": { "type": "string", "enum": ["mow-and-go", "standard", "premium", "estate", "ultimate", "custom"] },
+        "serviceGrade": { "type": "string", "enum": ["standard", "medium", "heavy", "extreme"] },
+        "conditionFactors": {
+          "type": "object",
+          "properties": {
+            "timeSinceLastMow": { "type": "string" },
+            "grassHeight": { "type": "string" },
+            "thickness": { "type": "string" },
+            "obstacles": { "type": "string" },
+            "urgency": { "type": "string" }
+          }
+        },
+        "addOns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "price": { "type": "number" },
+              "selected": { "type": "boolean" }
+            }
+          }
+        },
+        "basePrice": { "type": "number" },
+        "gradeAdjustment": { "type": "number" },
+        "conditionSurcharge": { "type": "number" },
+        "addOnTotal": { "type": "number" },
+        "urgencySurcharge": { "type": "number" },
+        "price": { "type": "number" },
+        "manualOverride": { "type": "boolean" },
+        "packageNotes": { "type": "string" },
+        "billingType": { "type": "string", "enum": ["included", "extra", "quote-required"] },
+        "recurringSchedule": { "type": "string", "enum": ["weekly", "fortnightly", "monthly", "one-off"] },
+        "description": { "type": "string" },
+        "notes": { "type": "string" },
+        "photos": { "type": "array", "items": { "type": "string" } },
+        "beforePhotos": { "type": "array", "items": { "type": "string" } },
+        "afterPhotos": { "type": "array", "items": { "type": "string" } },
+        "onsitePhotos": { "type": "array", "items": { "type": "string" } },
+        "invoiceId": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" },
+        "notificationSent": { "type": "boolean" }
+      },
+      "required": ["clientId", "status", "scheduledDate", "price"]
+    },
+    "PricingConfig": {
+      "title": "Pricing Config",
+      "description": "Historical version of pricing rules",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "version": { "type": "number" },
+        "rules": { "$ref": "PricingRules" },
+        "updatedBy": { "type": "string" },
+        "updatedAt": { "type": "number" },
+        "notes": { "type": "string" }
+      },
+      "required": ["version", "rules", "updatedBy", "updatedAt"]
+    },
+    "BusinessSettings": {
+      "title": "Business Settings",
+      "description": "Global settings for the application",
+      "type": "object",
+      "properties": {
+        "pricing": { "$ref": "PricingRules" },
+        "nextClientNotificationEnabled": { "type": "boolean" },
+        "messageTemplate": { "type": "string" },
+        "paymentLinkTemplate": { "type": "string" },
+        "receiptTemplate": { "type": "string" },
+        "upfrontPaymentRequired": { "type": "boolean" },
+        "stripeConnected": { "type": "boolean" },
+        "images": {
+          "type": "object",
+          "properties": {
+            "placeholder": { "type": "string" },
+            "town_block": { "type": "string" },
+            "hero": { "type": "string" }
+          }
+        },
+        "assets": {
+          "type": "object",
+          "properties": {
+             "residential_standard": { "type": "object", "properties": { "url": { "type": "string" } } },
+             "premium_estate": { "type": "object", "properties": { "url": { "type": "string" } } }
+          }
+        }
+      }
+    },
+    "PricingRules": {
+      "title": "Pricing Rules",
+      "description": "Definition of all pricing parameters",
+      "type": "object",
+      "properties": {
+        "base": { "type": "object" },
+        "clientType": { "type": "object" },
+        "grade": { "type": "object" },
+        "conditions": { "type": "object" },
+        "addOns": { "type": "object" }
+      }
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "Historical record of processed payments",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "jobId": { "type": "string" },
+        "invoiceId": { "type": "string" },
+        "clientId": { "type": "string" },
+        "clientEmail": { "type": "string" },
+        "amount": { "type": "number" },
+        "status": { "type": "string" },
+        "stripeSessionId": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["jobId", "amount", "status", "createdAt"]
+    },
+    "Invoice": {
+      "title": "Invoice",
+      "description": "Customer billing statement",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "invoiceNumber": { "type": "string" },
+        "jobId": { "type": "string" },
+        "clientId": { "type": "string" },
+        "clientName": { "type": "string" },
+        "clientAddress": { "type": "string" },
+        "totalAmount": { "type": "number" },
+        "status": { "type": "string", "enum": ["sent", "paid", "overdue"] },
+        "paymentLink": { "type": "string" },
+        "dueDate": { "type": "number" },
+        "createdAt": { "type": "number" },
+        "paidAt": { "type": "number" },
+        "stripeSessionId": { "type": "string" }
+      },
+      "required": ["invoiceNumber", "jobId", "clientId", "totalAmount", "status", "createdAt"]
+    },
+    "StaffProfile": {
+      "title": "Staff Profile",
+      "description": "Stores private HR and identity details for staff",
+      "type": "object",
+      "properties": {
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "staff"] },
+        "employmentType": { "type": "string" },
+        "payType": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "inactive"] }
+      },
+      "required": ["firstName", "lastName", "email", "role"]
+    },
+    "Invitation": {
+      "title": "Invitation",
+      "description": "Secure sign-up invitations for new staff",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "role": { "type": "string" },
+        "used": { "type": "boolean" },
+        "expiresAt": { "type": "number" },
+        "createdAt": { "type": "number" },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["id", "role", "used", "createdAt"]
+    },
+    "OnboardingLink": {
+      "title": "Onboarding Link",
+      "description": "Links staff profiles to onboarding tokens",
+      "type": "object",
+      "properties": {
+        "staffId": { "type": "string" },
+        "used": { "type": "boolean" },
+        "token": { "type": "string" }
+      },
+      "required": ["staffId", "used"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "UserProfile",
+      "description": "User profiles"
+    },
+    "/clients/{clientId}": {
+      "schema": "Client",
+      "description": "Customer records"
+    },
+    "/jobs/{jobId}": {
+      "schema": "Job",
+      "description": "Job records"
+    },
+    "/invoices/{invoiceId}": {
+      "schema": "Invoice",
+      "description": "Customer invoices"
+    },
+    "/settings/business": {
+      "schema": "BusinessSettings",
+      "description": "Current business settings"
+    },
+    "/pricing_configs/{configId}": {
+      "schema": "PricingConfig",
+      "description": "Pricing history"
+    },
+    "/payments/{paymentId}": {
+      "schema": "Payment",
+      "description": "Payment records"
+    },
+    "/staff_profiles/{profileId}": {
+      "schema": "StaffProfile",
+      "description": "Staff HR profiles"
+    },
+    "/invitations/{invitationId}": {
+      "schema": "Invitation",
+      "description": "Staff onboarding invitations"
+    },
+    "/onboarding_links/{token}": {
+      "schema": "OnboardingLink",
+      "description": "Links for staff onboarding"
+    }
+  }
+}

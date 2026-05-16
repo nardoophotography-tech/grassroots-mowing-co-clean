@@ -1,0 +1,181 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isEmailVerified() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.email in ["nardoophotography@gmail.com", "jacka4687@gmail.com"]) ||
+        (isEmailVerified() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    function isStaff() {
+      return isEmailVerified() && (
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'staff'
+      );
+    }
+
+    function isWorkforce() {
+      return isAdmin() || isStaff();
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role']) &&
+             data.uid is string && data.uid == request.auth.uid &&
+             data.email is string && data.email.size() < 256 &&
+             data.role in ['admin', 'staff', 'client'] &&
+             (!('passcode' in data) || (data.passcode is string && data.passcode.matches('^\\d{4,6}$'))) &&
+             data.keys().size() <= 20;
+    }
+
+    function isValidStaffProfile(data) {
+      return data.keys().hasAll(['firstName', 'lastName', 'email', 'phone', 'role']) && 
+             data.firstName is string && data.firstName.size() < 100 &&
+             data.lastName is string && data.lastName.size() < 100 &&
+             data.phone is string &&
+             data.keys().size() <= 50;
+    }
+
+    function isValidJob(data) {
+      return data.keys().hasAll(['clientId', 'clientName', 'status', 'price', 'suburb', 'scheduledDate', 'timeSlot', 'clientType']) &&
+             data.clientId is string &&
+             data.status is string &&
+             data.price is number &&
+             data.clientType is string &&
+             data.keys().size() <= 100;
+    }
+
+    function isValidClient(data) {
+      return data.keys().hasAll(['name', 'phone', 'address', 'suburb', 'createdAt', 'accountStatus', 'clientType']) &&
+             data.name is string && data.name.size() > 0 &&
+             data.phone is string &&
+             data.address is string && 
+             data.suburb is string &&
+             data.keys().size() <= 30;
+    }
+
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
+
+    match /test/connection {
+      allow read: if isSignedIn();
+    }
+
+    match /test_connection/{id} {
+      allow read, write: if true; // Temporary for verification as requested
+    }
+
+    match /staff_profiles/{profileId} {
+      allow get: if isAdmin() || (isEmailVerified() && request.auth.uid == profileId);
+      allow list: if isAdmin();
+      allow create: if isAdmin() && isValidStaffProfile(incoming());
+      allow update: if isAdmin() || (isEmailVerified() && request.auth.uid == profileId);
+      allow delete: if isAdmin();
+    }
+
+    match /onboarding_links/{token} {
+      allow get: if true; 
+      allow list: if isAdmin();
+      allow create: if isAdmin();
+      allow update: if true; 
+      allow delete: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || isWorkforce());
+      allow list: if isWorkforce();
+      allow create: if isOwner(userId) && isValidUser(incoming()) && 
+                    (incoming().role != 'admin' || isAdmin());
+      allow update: if (isOwner(userId) && isValidUser(incoming()) && incoming().role == existing().role) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /invitations/{invitationId} {
+      allow get: if true; 
+      allow list: if isAdmin();
+      allow create: if isAdmin();
+      allow update: if true; 
+      allow delete: if isAdmin();
+    }
+
+    match /clients/{clientId} {
+      allow get: if isWorkforce() || (isEmailVerified() && request.auth.uid == clientId);
+      allow list: if isWorkforce();
+      allow create: if isEmailVerified() && isValidClient(incoming()); 
+      allow update: if isWorkforce() || (isEmailVerified() && request.auth.uid == clientId);
+      allow delete: if isAdmin();
+    }
+
+    match /jobs/{jobId} {
+      allow get: if true;
+      allow list: if isWorkforce() || (isEmailVerified() && resource.data.clientId == request.auth.uid);
+      allow create: if isEmailVerified() && isValidJob(incoming());
+      allow update: if isWorkforce() || (isEmailVerified() && existing().clientId == request.auth.uid) || 
+                    (incoming().diff(existing()).affectedKeys().hasOnly(['quoteStatus', 'quoteApprovedAt', 'quoteRejectedAt', 'status', 'updatedAt', 'paymentStatus', 'stripeSessionId', 'amountPaid']));
+      allow delete: if isAdmin();
+    }
+
+    match /invoices/{invoiceId} {
+      allow get: if true;
+      allow list: if isWorkforce() || (isEmailVerified() && resource.data.clientId == request.auth.uid);
+      allow create: if isWorkforce();
+      allow update: if isWorkforce() || (incoming().diff(existing()).affectedKeys().hasOnly(['status', 'paidAt', 'stripeSessionId']));
+      allow delete: if isAdmin();
+    }
+
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /pricing_configs/{configId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /payments/{paymentId} {
+      allow read: if isWorkforce();
+      allow write: if false; 
+    }
+  }
+}

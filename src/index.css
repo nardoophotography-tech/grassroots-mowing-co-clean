@@ -1,0 +1,50 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Playfair Display", ui-serif, Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Outback High-Contrast Palette */
+  --color-background: #f4e9d8;
+  --color-surface: #ffffff;
+  --color-surface-2: #e7d6bf;
+  --color-border: rgba(0, 0, 0, 0.15);
+
+  --color-primary: #1f4d3a;
+  --color-secondary: #6b4a2d;
+  --color-danger: #8b2e2e;
+  --color-accent: #c47a2c;
+  --color-charcoal: #1f1f1f;
+  --color-clay: #5a5a5a;
+  --color-ochre: #c47a2c;
+  --color-deep-red: var(--color-secondary);
+
+  --radius-lg: 14px;
+  --radius-md: 10px;
+  --radius-sm: 8px;
+
+  --shadow-premium: 0 6px 18px rgba(0, 0, 0, 0.12);
+  --shadow-hover: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-charcoal font-sans antialiased;
+  }
+}
+
+@layer components {
+  .subtle-grid {
+    background-image: radial-gradient(circle at 2px 2px, var(--color-border) 1px, transparent 0);
+    background-size: 40px 40px;
+  }
+
+  .glass-card {
+    @apply bg-surface/80 backdrop-blur-md border border-border/50 shadow-premium;
+  }
+}
