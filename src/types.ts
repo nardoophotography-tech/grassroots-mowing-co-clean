@@ -216,13 +216,14 @@ export interface Invoice {
   items: InvoiceItem[];
   totalAmount: number;
   pricingSnapshot?: PricingSnapshot;
-  status: 'draft' | 'sent' | 'paid' | 'overdue';
+  status: 'draft' | 'sent' | 'paid' | 'overdue' | 'pending-cash';
   paymentLink?: string;
   invoicePdfUrl?: string; // Link to stored PDF
   paymentMethod?: PaymentMethod;
   paidAt?: number;
   dueDate: number;
   createdAt: number;
+  propertyAddress?: string;
 }
 
 export interface Payment {

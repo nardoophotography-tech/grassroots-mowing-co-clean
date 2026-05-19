@@ -1,78 +1,98 @@
 import * as React from 'react';
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  Navigate,
-  Link,
-  useLocation,
-  useNavigate
-} from 'react-router-dom';
-
+import { BrowserRouter, Link, Route, Routes } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-
-import {
-  LayoutDashboard,
-  Calendar,
-  Users,
-  ClipboardList,
-  Settings,
-  PlusCircle,
-  Menu,
-  X,
-  LogOut,
-  MapPin,
-  ExternalLink,
-  TrendingUp,
-  Clock,
-  CheckCircle2,
-  FileText,
-  DollarSign,
-  ArrowLeft,
-  Home
-} from 'lucide-react';
-
-import { motion, AnimatePresence } from 'motion/react';
-
-import { Button } from './components/ui/Button';
-import { cn } from './lib/utils';
-
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { useJobs, useClients } from './hooks/useFirebase';
-
-import { JOB_STATUS_LABELS, JOB_STATUS_COLORS, TIME_SLOT_LABELS } from './constants';
-
-import { format } from 'date-fns';
-
-import { Badge } from './components/ui/Badge';
-import { Card, CardHeader, CardTitle, CardContent } from './components/ui/Card';
-
-import { JobList } from './pages/JobList';
-import { NewJob } from './pages/NewJob';
-import { ClientList } from './pages/ClientList';
-import { ClientDetail } from './pages/ClientDetail';
-import { JobDetail } from './pages/JobDetail';
-import { ScheduleManager } from './pages/ScheduleManager';
-import { CalendarPage } from './pages/CalendarPage';
-import { Booking } from './pages/Booking';
+import Booking from './pages/Booking';
+import AdminAccess from './pages/services/AdminAccess';
 import { BookingSuccess } from './pages/BookingSuccess';
-import { InvoiceList } from './pages/InvoiceList';
-import { InvoicePayment } from './pages/InvoicePayment';
-import { LandingPage } from './pages/LandingPage';
-import { Login } from './pages/Login';
-import { Packages } from './pages/Packages';
-import { QuoteApproval } from './pages/QuoteApproval';
-import { LockScreen } from './components/LockScreen';
-import { GrassRootsLogo } from './components/GrassRootsLogo';
-import AppLogo from './components/AppLogo';
-import { ImagePlaceholder } from './components/ImagePlaceholder';
-import { WarriorMan } from './components/WarriorMan';
-import { Dashboard } from './pages/Dashboards';
-import { EmployeeOnboarding } from './pages/EmployeeOnboarding';
 
-import { PricingManagement } from './pages/admin/PricingManagement';
-import { AdminAccess } from './pages/admin/AdminAccess';
-import { StaffList } from './pages/admin/StaffList';
-import { StaffOnboardingPortal } from './pages/StaffOnboardingPortal';
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: Error | null }
+> {
+  state = { error: null };
 
-import { NavItem, GlobalHeader, Sidebar } from './components/Navigation';
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error('[App]: Unhandled render error', error);
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <main className="min-h-screen bg-slate-50 p-8 text-slate-900">
+          <div className="mx-auto max-w-2xl rounded-lg border border-red-200 bg-white p-6 shadow-sm">
+            <p className="text-sm font-semibold uppercase tracking-wide text-red-700">
+              Something went wrong
+            </p>
+            <h1 className="mt-2 text-2xl font-bold">The page could not be rendered.</h1>
+            <p className="mt-3 text-slate-600">
+              Refresh the page or return home. The error has been logged in the console.
+            </p>
+            <Link className="mt-5 inline-flex rounded-md bg-green-700 px-4 py-2 font-semibold text-white" to="/">
+              Back home
+            </Link>
+          </div>
+        </main>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+function HomePage() {
+  return (
+    <main className="min-h-screen bg-slate-50 p-8 text-slate-900">
+      <section className="mx-auto max-w-4xl">
+        <p className="text-sm font-semibold uppercase tracking-wide text-green-700">
+          GrassRoots Mowing Co
+        </p>
+        <h1 className="mt-3 text-4xl font-black tracking-tight">Lawn mowing bookings</h1>
+        <p className="mt-4 max-w-2xl text-lg text-slate-600">
+          Book a mowing service and manage incoming booking requests from one local app.
+        </p>
+        <div className="mt-8 flex flex-wrap gap-3">
+          <Link className="rounded-md bg-green-700 px-5 py-3 font-semibold text-white" to="/booking">
+            Make a booking
+          </Link>
+          <Link className="rounded-md border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-900" to="/admin">
+            Admin dashboard
+          </Link>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function NotFound() {
+  return (
+    <main className="min-h-screen bg-slate-50 p-8 text-slate-900">
+      <div className="mx-auto max-w-2xl rounded-lg border bg-white p-6 shadow-sm">
+        <h1 className="text-2xl font-bold">Page not found</h1>
+        <Link className="mt-4 inline-flex rounded-md bg-green-700 px-4 py-2 font-semibold text-white" to="/">
+          Back home
+        </Link>
+      </div>
+    </main>
+  );
+}
+
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Toaster position="top-right" />
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/booking" element={<Booking />} />
+          <Route path="/booking-success" element={<BookingSuccess />} />
+          <Route path="/admin" element={<AdminAccess />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </BrowserRouter>
+    </ErrorBoundary>
+  );
+}

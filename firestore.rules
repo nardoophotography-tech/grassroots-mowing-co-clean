@@ -93,6 +93,21 @@ service cloud.firestore {
              data.keys().size() <= 30;
     }
 
+    function isValidBooking(data) {
+      return data.keys().hasAll(['name', 'phone', 'address', 'suburb', 'serviceDate', 'timeSlot', 'status', 'createdAtMs']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 120 &&
+             data.phone is string && data.phone.size() > 0 && data.phone.size() <= 40 &&
+             (!('email' in data) || data.email is string) &&
+             data.address is string && data.address.size() > 0 && data.address.size() <= 240 &&
+             data.suburb is string && data.suburb.size() > 0 && data.suburb.size() <= 120 &&
+             data.serviceDate is string && data.serviceDate.size() > 0 &&
+             data.timeSlot in ['morning', 'afternoon'] &&
+             data.status == 'pending' &&
+             data.createdAtMs is number &&
+             (!('notes' in data) || data.notes is string) &&
+             data.keys().size() <= 12;
+    }
+
     // ===============================================================
     // Collection Rules
     // ===============================================================
@@ -153,6 +168,12 @@ service cloud.firestore {
       allow update: if isWorkforce() || (isEmailVerified() && existing().clientId == request.auth.uid) || 
                     (incoming().diff(existing()).affectedKeys().hasOnly(['quoteStatus', 'quoteApprovedAt', 'quoteRejectedAt', 'status', 'updatedAt', 'paymentStatus', 'stripeSessionId', 'amountPaid']));
       allow delete: if isAdmin();
+    }
+
+    match /bookings/{bookingId} {
+      allow create: if isValidBooking(incoming());
+      allow get, list: if true;
+      allow update, delete: if isWorkforce();
     }
 
     match /invoices/{invoiceId} {
