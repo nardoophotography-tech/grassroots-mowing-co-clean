@@ -1,52 +1,42 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Link } from "react-router-dom";
 
-import LandingPage from './pages/LandingPage';
-import Booking from './pages/Booking';
-import AdminAccess from './pages/services/AdminAccess';
-import { BookingSuccess } from './pages/BookingSuccess';
-
-class ErrorBoundary extends React.Component<
-  { children: React.ReactNode },
-  { hasError: boolean }
-> {
-  constructor(props: { children: React.ReactNode }) {
-    super(props);
-    this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <main className="min-h-screen flex items-center justify-center bg-red-50">
-          <div className="rounded-xl bg-white p-10 shadow-xl">
-            <h1 className="text-2xl font-bold text-red-700">
-              Something went wrong.
-            </h1>
-          </div>
-        </main>
-      );
-    }
-
-    return this.props.children;
-  }
-}
-
-export default function App() {
+export default function LandingPage() {
   return (
-    <ErrorBoundary>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/booking" element={<Booking />} />
-          <Route path="/booking-success" element={<BookingSuccess />} />
-          <Route path="/admin" element={<AdminAccess />} />
-        </Routes>
-      </BrowserRouter>
-    </ErrorBoundary>
+    <main className="min-h-screen bg-[#e8decd] text-[#1f2937]">
+      <section className="mx-auto flex min-h-screen max-w-7xl flex-col items-center justify-center px-6 py-12 text-center">
+
+        <img
+          src="/logo.png"
+          alt="GrassRoots Mowing Co"
+          className="mb-8 w-full max-w-md drop-shadow-2xl"
+        />
+
+        <h1 className="text-5xl font-black leading-tight md:text-7xl">
+          GRASSROOTS
+          <br />
+          MOWING CO.
+        </h1>
+
+        <p className="mt-6 max-w-2xl text-lg text-slate-700 md:text-2xl">
+          Professional lawn care services for Mount Isa and surrounding areas.
+        </p>
+
+        <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+          <Link
+            to="/booking"
+            className="rounded-2xl bg-green-800 px-10 py-5 text-lg font-bold text-white shadow-xl transition hover:scale-105 hover:bg-green-900"
+          >
+            BOOK NOW
+          </Link>
+
+          <Link
+            to="/admin"
+            className="rounded-2xl border-2 border-slate-800 px-10 py-5 text-lg font-bold transition hover:bg-slate-900 hover:text-white"
+          >
+            ADMIN LOGIN
+          </Link>
+        </div>
+      </section>
+    </main>
   );
 }
