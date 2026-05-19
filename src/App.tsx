@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
+import SplashPage from './pages/SplashPage';
 import LandingPage from './pages/LandingPage';
 import Booking from './pages/Booking';
 import AdminAccess from './pages/services/AdminAccess';
@@ -41,10 +42,22 @@ export default function App() {
     <ErrorBoundary>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<LandingPage />} />
+
+          {/* Splash / Logo Page */}
+          <Route path="/" element={<SplashPage />} />
+
+          {/* Main Original GrassRoots App */}
+          <Route path="/app" element={<LandingPage />} />
+
+          {/* Booking */}
           <Route path="/booking" element={<Booking />} />
+
+          {/* Booking Success */}
           <Route path="/booking-success" element={<BookingSuccess />} />
+
+          {/* Admin */}
           <Route path="/admin" element={<AdminAccess />} />
+
         </Routes>
       </BrowserRouter>
     </ErrorBoundary>
