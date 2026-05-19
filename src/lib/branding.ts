@@ -12,5 +12,5 @@ export const defaultBranding: BrandingSettings = {
     "Professional lawn care services for Mount Isa and surrounding areas.",
   primaryButtonText: "BOOK NOW",
   secondaryButtonText: "ADMIN LOGIN",
-  logoUrl: "/logo.png",
+  logoUrl: "/GR logo thumbnail app_v4.png",
 };
