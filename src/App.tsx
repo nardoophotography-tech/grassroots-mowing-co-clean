@@ -1,65 +1,29 @@
-import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
 import SplashPage from './pages/SplashPage';
-import LandingPage from './pages/LandingPage';
+import { LandingPage } from './pages/LandingPage';
+
 import Booking from './pages/Booking';
 import AdminAccess from './pages/services/AdminAccess';
-import { BookingSuccess } from './pages/BookingSuccess';
-
-class ErrorBoundary extends React.Component<
-  { children: React.ReactNode },
-  { hasError: boolean }
-> {
-  constructor(props: { children: React.ReactNode }) {
-    super(props);
-    this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <main className="min-h-screen flex items-center justify-center bg-red-50">
-          <div className="rounded-xl bg-white p-10 shadow-xl">
-            <h1 className="text-2xl font-bold text-red-700">
-              Something went wrong.
-            </h1>
-          </div>
-        </main>
-      );
-    }
-
-    return this.props.children;
-  }
-}
 
 export default function App() {
   return (
-    <ErrorBoundary>
-      <BrowserRouter>
-        <Routes>
+    <BrowserRouter>
+      <Routes>
 
-          {/* Splash / Logo Page */}
-          <Route path="/" element={<SplashPage />} />
+        {/* Splash page */}
+        <Route path="/" element={<SplashPage />} />
 
-          {/* Main Original GrassRoots App */}
-          <Route path="/app" element={<LandingPage />} />
+        {/* Original app landing page */}
+        <Route path="/app" element={<LandingPage />} />
 
-          {/* Booking */}
-          <Route path="/booking" element={<Booking />} />
+        {/* Booking */}
+        <Route path="/booking" element={<Booking />} />
 
-          {/* Booking Success */}
-          <Route path="/booking-success" element={<BookingSuccess />} />
+        {/* Admin */}
+        <Route path="/admin" element={<AdminAccess />} />
 
-          {/* Admin */}
-          <Route path="/admin" element={<AdminAccess />} />
-
-        </Routes>
-      </BrowserRouter>
-    </ErrorBoundary>
+      </Routes>
+    </BrowserRouter>
   );
 }
