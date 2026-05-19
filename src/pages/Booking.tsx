@@ -1,7 +1,11 @@
 import * as React from 'react';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { useNavigate } from 'react-router-dom';
+import { ArrowRight, CalendarDays, Clock3, MapPin, Phone, User, BadgeCheck, Leaf } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { db, getFirestoreErrorMessage } from '../firebase';
+import { GrassRootsLogo } from '../components/GrassRootsLogo';
+import { Button } from '../components/ui/Button';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 
 type BookingForm = {
   name: string;
@@ -35,6 +39,12 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs = 12000) {
 
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timeoutId));
 }
+
+const summaryItems = [
+  { label: 'Service', value: 'Residential mowing, tidy-up, and regular maintenance' },
+  { label: 'Coverage', value: 'Town blocks, suburban lots, and larger properties' },
+  { label: 'Update path', value: 'Bookings write straight into Firestore' },
+];
 
 export function Booking() {
   const navigate = useNavigate();
@@ -79,65 +89,154 @@ export function Booking() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 p-6 text-slate-900">
-      <form onSubmit={submit} className="mx-auto max-w-2xl rounded-lg border bg-white p-6 shadow-sm">
-        <p className="text-sm font-semibold uppercase tracking-wide text-green-700">
-          GrassRoots Mowing Co
-        </p>
-        <h1 className="mt-2 text-3xl font-black tracking-tight">Book a mowing service</h1>
+    <main className="min-h-screen bg-background text-charcoal">
+      <section className="relative overflow-hidden">
+        <div className="absolute inset-0 subtle-grid opacity-30" />
+        <div className="absolute inset-x-0 top-0 h-[22rem] bg-[linear-gradient(180deg,rgba(31,77,58,0.14),rgba(244,233,216,0.92),rgba(244,233,216,1))]" />
 
-        {error && (
-          <div className="mt-5 rounded-md border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-800">
-            {error}
+        <div className="relative mx-auto max-w-7xl px-6 py-6 lg:px-10 lg:py-8">
+          <div className="flex items-center justify-between gap-4">
+            <GrassRootsLogo showText className="scale-110" />
+            <Link
+              to="/"
+              className="text-xs font-black uppercase tracking-[0.2em] text-primary transition-colors hover:text-secondary"
+            >
+              Back to home
+            </Link>
           </div>
-        )}
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <label className="grid gap-2 text-sm font-semibold">
-            Name
-            <input className="rounded-md border px-3 py-2" value={form.name} onChange={updateField('name')} />
-          </label>
-          <label className="grid gap-2 text-sm font-semibold">
-            Phone
-            <input className="rounded-md border px-3 py-2" value={form.phone} onChange={updateField('phone')} />
-          </label>
-          <label className="grid gap-2 text-sm font-semibold sm:col-span-2">
-            Email
-            <input className="rounded-md border px-3 py-2" type="email" value={form.email} onChange={updateField('email')} />
-          </label>
-          <label className="grid gap-2 text-sm font-semibold sm:col-span-2">
-            Address
-            <input className="rounded-md border px-3 py-2" value={form.address} onChange={updateField('address')} />
-          </label>
-          <label className="grid gap-2 text-sm font-semibold">
-            Suburb
-            <input className="rounded-md border px-3 py-2" value={form.suburb} onChange={updateField('suburb')} />
-          </label>
-          <label className="grid gap-2 text-sm font-semibold">
-            Preferred date
-            <input className="rounded-md border px-3 py-2" type="date" value={form.serviceDate} onChange={updateField('serviceDate')} />
-          </label>
-          <label className="grid gap-2 text-sm font-semibold">
-            Time slot
-            <select className="rounded-md border px-3 py-2" value={form.timeSlot} onChange={updateField('timeSlot')}>
-              <option value="morning">Morning</option>
-              <option value="afternoon">Afternoon</option>
-            </select>
-          </label>
-          <label className="grid gap-2 text-sm font-semibold sm:col-span-2">
-            Notes
-            <textarea className="min-h-24 rounded-md border px-3 py-2" value={form.notes} onChange={updateField('notes')} />
-          </label>
+          <div className="grid gap-8 py-10 lg:grid-cols-[0.88fr_1.12fr] lg:gap-10 lg:py-16">
+            <Card className="glass-card bg-surface/92">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-3">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-white">
+                    <Leaf className="h-5 w-5" />
+                  </span>
+                  Book a mowing service
+                </CardTitle>
+                <p className="text-sm leading-7 text-clay">
+                  Use this form to send a booking request directly into the GrassRoots workflow. The admin dashboard reads the same booking collection.
+                </p>
+              </CardHeader>
+
+              <CardContent className="space-y-4">
+                {summaryItems.map((item) => (
+                  <div key={item.label} className="rounded-2xl border border-border/60 bg-background/80 p-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.25em] text-primary">{item.label}</p>
+                    <p className="mt-1 text-sm leading-6 text-clay">{item.value}</p>
+                  </div>
+                ))}
+
+                <div className="rounded-2xl border border-border/60 bg-primary/5 p-4">
+                  <div className="flex items-center gap-2 text-sm font-black uppercase tracking-[0.15em] text-primary">
+                    <BadgeCheck className="h-4 w-4" />
+                    What to expect
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-clay">
+                    A saved booking will be visible to the admin view after Firestore writes complete.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-3 pt-2">
+                  <Button variant="outline" size="sm" onClick={() => navigate('/')}>
+                    Home
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => navigate('/admin')}>
+                    Admin
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="glass-card bg-surface/95">
+              <CardHeader className="border-b border-border/60 bg-white/30">
+                <CardTitle className="flex items-center gap-3">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-secondary text-white">
+                    <CalendarDays className="h-5 w-5" />
+                  </span>
+                  Booking details
+                </CardTitle>
+                <p className="text-sm leading-7 text-clay">
+                  Tell us what needs mowing and when you want the job done.
+                </p>
+              </CardHeader>
+
+              <CardContent className="space-y-5">
+                {error && (
+                  <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-800">
+                    {error}
+                  </div>
+                )}
+
+                <form onSubmit={submit} className="space-y-5">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="grid gap-2 text-sm font-semibold">
+                      Name
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-clay" />
+                        <input className="w-full rounded-2xl border border-border/70 bg-white px-10 py-3 outline-none transition focus:border-primary" value={form.name} onChange={updateField('name')} />
+                      </div>
+                    </label>
+                    <label className="grid gap-2 text-sm font-semibold">
+                      Phone
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-clay" />
+                        <input className="w-full rounded-2xl border border-border/70 bg-white px-10 py-3 outline-none transition focus:border-primary" value={form.phone} onChange={updateField('phone')} />
+                      </div>
+                    </label>
+                    <label className="grid gap-2 text-sm font-semibold sm:col-span-2">
+                      Email
+                      <input className="w-full rounded-2xl border border-border/70 bg-white px-4 py-3 outline-none transition focus:border-primary" type="email" value={form.email} onChange={updateField('email')} />
+                    </label>
+                    <label className="grid gap-2 text-sm font-semibold sm:col-span-2">
+                      Address
+                      <div className="relative">
+                        <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-clay" />
+                        <input className="w-full rounded-2xl border border-border/70 bg-white px-10 py-3 outline-none transition focus:border-primary" value={form.address} onChange={updateField('address')} />
+                      </div>
+                    </label>
+                    <label className="grid gap-2 text-sm font-semibold">
+                      Suburb
+                      <input className="w-full rounded-2xl border border-border/70 bg-white px-4 py-3 outline-none transition focus:border-primary" value={form.suburb} onChange={updateField('suburb')} />
+                    </label>
+                    <label className="grid gap-2 text-sm font-semibold">
+                      Preferred date
+                      <div className="relative">
+                        <CalendarDays className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-clay" />
+                        <input className="w-full rounded-2xl border border-border/70 bg-white px-10 py-3 outline-none transition focus:border-primary" type="date" value={form.serviceDate} onChange={updateField('serviceDate')} />
+                      </div>
+                    </label>
+                    <label className="grid gap-2 text-sm font-semibold sm:col-span-2">
+                      Time slot
+                      <div className="relative">
+                        <Clock3 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-clay" />
+                        <select className="w-full rounded-2xl border border-border/70 bg-white px-10 py-3 outline-none transition focus:border-primary" value={form.timeSlot} onChange={updateField('timeSlot')}>
+                          <option value="morning">Morning</option>
+                          <option value="afternoon">Afternoon</option>
+                        </select>
+                      </div>
+                    </label>
+                    <label className="grid gap-2 text-sm font-semibold sm:col-span-2">
+                      Notes
+                      <textarea className="min-h-28 rounded-2xl border border-border/70 bg-white px-4 py-3 outline-none transition focus:border-primary" value={form.notes} onChange={updateField('notes')} />
+                    </label>
+                  </div>
+
+                  <Button
+                    className="w-full shadow-premium"
+                    disabled={isSubmitting}
+                    type="submit"
+                    size="lg"
+                  >
+                    {isSubmitting ? 'Saving booking...' : 'Submit booking'}
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
         </div>
-
-        <button
-          className="mt-6 w-full rounded-md bg-green-700 px-5 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={isSubmitting}
-          type="submit"
-        >
-          {isSubmitting ? 'Saving booking...' : 'Submit booking'}
-        </button>
-      </form>
+      </section>
     </main>
   );
 }

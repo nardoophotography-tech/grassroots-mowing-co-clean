@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast';
 import Booking from './pages/Booking';
 import AdminAccess from './pages/services/AdminAccess';
 import { BookingSuccess } from './pages/BookingSuccess';
+import { LandingPage } from './pages/LandingPage';
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -43,30 +44,6 @@ class ErrorBoundary extends React.Component<
   }
 }
 
-function HomePage() {
-  return (
-    <main className="min-h-screen bg-slate-50 p-8 text-slate-900">
-      <section className="mx-auto max-w-4xl">
-        <p className="text-sm font-semibold uppercase tracking-wide text-green-700">
-          GrassRoots Mowing Co
-        </p>
-        <h1 className="mt-3 text-4xl font-black tracking-tight">Lawn mowing bookings</h1>
-        <p className="mt-4 max-w-2xl text-lg text-slate-600">
-          Book a mowing service and manage incoming booking requests from one local app.
-        </p>
-        <div className="mt-8 flex flex-wrap gap-3">
-          <Link className="rounded-md bg-green-700 px-5 py-3 font-semibold text-white" to="/booking">
-            Make a booking
-          </Link>
-          <Link className="rounded-md border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-900" to="/admin">
-            Admin dashboard
-          </Link>
-        </div>
-      </section>
-    </main>
-  );
-}
-
 function NotFound() {
   return (
     <main className="min-h-screen bg-slate-50 p-8 text-slate-900">
@@ -86,7 +63,7 @@ export default function App() {
       <BrowserRouter>
         <Toaster position="top-right" />
         <Routes>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<LandingPage />} />
           <Route path="/booking" element={<Booking />} />
           <Route path="/booking-success" element={<BookingSuccess />} />
           <Route path="/admin" element={<AdminAccess />} />
