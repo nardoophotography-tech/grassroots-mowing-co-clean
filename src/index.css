@@ -1,0 +1,67 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Playfair Display", ui-serif, Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Outback High-Contrast Palette */
+  --color-background: #f4e9d8;
+  --color-surface: #ffffff;
+  --color-surface-2: #e7d6bf;
+  --color-border: rgba(0, 0, 0, 0.15);
+
+  --color-primary: #1f4d3a;
+  --color-secondary: #6b4a2d;
+  --color-danger: #8b2e2e;
+  --color-accent: #c47a2c;
+  --color-charcoal: #1f1f1f;
+  --color-clay: #5a5a5a;
+  --color-ochre: #c47a2c;
+  --color-deep-red: var(--color-secondary);
+
+  --radius-lg: 14px;
+  --radius-md: 10px;
+  --radius-sm: 8px;
+
+  --shadow-premium: 0 6px 18px rgba(0, 0, 0, 0.12);
+  --shadow-hover: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-charcoal font-sans antialiased;
+  }
+}
+
+@layer components {
+  .subtle-grid {
+    background-image: radial-gradient(circle at 2px 2px, var(--color-border) 1px, transparent 0);
+    background-size: 40px 40px;
+  }
+
+  .glass-card {
+    @apply bg-surface/80 backdrop-blur-md border border-border/50 shadow-premium;
+  }
+
+  .cultural-pattern {
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%236b4a2d' fill-opacity='0.1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4v-4H4v4H0v2h4v4h2v-4h4v-2H6zM36 4v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  }
+
+  .bg-noise {
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  }
+
+  .interactive-lift {
+    @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-hover;
+  }
+
+  .text-punch {
+    font-size: clamp(3rem, 15vw, 9rem);
+    line-height: 0.85;
+  }
+}

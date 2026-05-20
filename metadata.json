@@ -1,0 +1,11 @@
+{
+  "name": "GrassRoots Mowing Co",
+  "description": "Professional lawn care and maintenance rooted in the culture and landscape of the Mount Isa region. Managing jobs, scheduling, and client availability with respect for the land.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
