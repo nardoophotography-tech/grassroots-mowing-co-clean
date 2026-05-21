@@ -6,6 +6,7 @@ import {
   CheckCircle2, 
   ArrowRight, 
   ArrowLeft,
+  Home,
   Users, 
   ShieldCheck, 
   UserCircle, 
@@ -72,8 +73,6 @@ export const LandingPage = () => {
   const { assets: galleryAssets } = useAssets('gallery');
 
   const handleLogoUpload = async (newUrl: string) => {
-    // In the new system, we'd use assetService.uploadAsset('logo')
-    // but for backward compatibility with the existing EditableImage prop
     toast("Manage branding in the Asset Portfolio");
   };
 
@@ -205,30 +204,94 @@ export const LandingPage = () => {
 
   return (
     <div className="min-h-screen bg-[#FDFCFB] selection:bg-primary/20 selection:text-primary">
-      <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-border px-6 py-3 shadow-sm">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-3 cursor-pointer group" onClick={() => navigate('/')}>
-            <AppLogo className="h-10 w-auto group-hover:scale-105 transition-transform" />
-            <div className="hidden lg:block ml-2 border-l border-border pl-4">
-              <p className="text-[8px] font-black text-clay uppercase tracking-[0.2em] leading-none">Operational</p>
-              <p className="text-[7px] font-bold text-primary uppercase tracking-widest leading-none mt-1">Ready</p>
+      <nav className="sticky top-0 z-50 border-b border-primary/20 bg-white/95 backdrop-blur-xl shadow-lg shadow-black/5">
+        <div className="relative overflow-hidden">
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute inset-0 bg-gradient-to-r from-[#174D33] via-[#7A542F] to-[#174D33] opacity-[0.08]" />
+            <div className="absolute -right-10 -top-20 opacity-[0.08] scale-75">
+              <GrassRootsGuardian size={220} />
             </div>
+            <div className="absolute left-0 bottom-0 h-1 w-full bg-gradient-to-r from-primary via-ochre to-secondary" />
           </div>
-          <div className="flex items-center gap-2">
-            <Button 
-                variant="ghost"
+
+          <div className="relative max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    if (window.history.state && window.history.state.idx > 0) {
+                      navigate(-1);
+                    } else {
+                      navigate('/');
+                    }
+                  }}
+                  className="flex items-center gap-2 px-3 py-2 rounded-full bg-charcoal text-white shadow-md border border-white/10 hover:opacity-95 touch-manipulation"
+                  title="Go Back"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <span className="text-[13px] font-black uppercase tracking-wider">Back</span>
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => navigate('/')}
+                  className="flex items-center gap-2 px-3 py-2 rounded-full bg-primary text-white shadow-md border border-white/10 hover:opacity-95 touch-manipulation"
+                  title="Home"
+                >
+                  <Home className="h-4 w-4" />
+                  <span className="text-[13px] font-black uppercase tracking-wider">Home</span>
+                </Button>
+              </div>
+
+              <div
+                className="flex items-center gap-3 cursor-pointer group min-w-0"
+                onClick={() => navigate('/')}
+              >
+                <div className="bg-white rounded-2xl border border-primary/10 shadow-sm px-3 py-2 flex items-center gap-3">
+                  <img src="/logo-header.webp" alt="GrassRoots Mowing Co" className="h-8 sm:h-10 w-auto object-contain" />
+
+                  <div className="hidden sm:block border-l border-primary/15 pl-3">
+                    <p className="text-[9px] font-black text-primary uppercase tracking-[0.25em] leading-none">
+                      GrassRoots
+                    </p>
+                    <p className="text-[8px] font-bold text-clay uppercase tracking-widest leading-none mt-1">
+                      Mowing Co
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              
+
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={() => navigate('/booking?type=one_off')}
+                  className="hidden sm:flex px-4 py-2 rounded-full bg-secondary text-white hover:bg-secondary/90 text-[10px] font-black uppercase tracking-widest italic h-10 shadow-md"
+                >
+                  Quick Book
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  onClick={() => navigate('/login')}
+                  className="h-10 px-4 rounded-full bg-primary/10 text-primary border border-primary/20 hover:bg-primary hover:text-white text-[10px] font-black uppercase tracking-widest shadow-sm"
+                >
+                  Secure Service Hub
+                </Button>
+              </div>
+            </div>
+
+            <div className="sm:hidden mt-3">
+              <Button
                 onClick={() => navigate('/booking?type=one_off')}
-                className="px-4 py-2 rounded-full bg-secondary text-white hover:bg-secondary/90 text-[10px] font-black uppercase tracking-widest italic h-9"
-            >
-              quick book
-            </Button>
-            <Button 
-                variant="ghost" 
-                onClick={() => navigate('/login')}
-                className="h-9 px-4 rounded-full bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 text-[10px] font-black uppercase tracking-widest"
-            >
-              Portal
-            </Button>
+                className="w-full h-11 rounded-2xl bg-secondary text-white hover:bg-secondary/90 text-[10px] font-black uppercase tracking-[0.2em] italic shadow-md"
+              >
+                Quick Book
+              </Button>
+            </div>
           </div>
         </div>
       </nav>
@@ -444,7 +507,6 @@ export const LandingPage = () => {
       <section className="py-8 bg-[#FDFCFB] cultural-pattern">
         <div className="max-w-7xl mx-auto px-6 relative z-10">
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {/* Total Care List */}
             <div className="lg:col-span-1">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-1 h-4 bg-secondary rounded-full" />
@@ -468,7 +530,6 @@ export const LandingPage = () => {
               </div>
             </div>
 
-            {/* Operational Add-Ons */}
             <div className="lg:col-span-1">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-1 h-4 bg-primary rounded-full" />
@@ -487,7 +548,6 @@ export const LandingPage = () => {
               </div>
             </div>
 
-            {/* Compact Portal Entry */}
             <div className="lg:col-span-1">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-1 h-4 bg-charcoal rounded-full" />
@@ -516,7 +576,6 @@ export const LandingPage = () => {
         </div>
       </section>
 
-      {/* Footer - Minimal */}
       <footer className="bg-slate-950 text-slate-400 py-12 px-6 border-t border-white/5">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
             <div className="flex flex-col items-center md:items-start gap-4">
@@ -545,10 +604,8 @@ export const LandingPage = () => {
         </div>
       </footer>
 
-      {/* AI Assistant Floating Button */}
       <AIBookingAssistant />
 
-      {/* goldLevels Dialog */}
       <AnimatePresence>
         {selectedGoldPackage && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">

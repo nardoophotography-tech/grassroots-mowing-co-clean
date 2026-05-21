@@ -1,0 +1,210 @@
+﻿C:\Users\nardo\Desktop\mowing\grassroots-mowing-conew
+package.json exists
+
+=== dir package.json ===
+
+Name         Length LastWriteTime        
+----         ------ -------------        
+package.json   1731 20/05/2026 3:24:56 PM
+
+
+
+=== findstr LandingPage ===
+src\App.tsx:import { LandingPage } from '@/pages/LandingPage';
+src\App.tsx:        <Route path="/" element={<LandingPage />} />
+src\App.tsx:        <Route path="/welcome" element={<LandingPage />} />
+src\pages\LandingPage.tsx:export const LandingPage = () => {
+
+=== findstr bg-white/95 ===
+src\components\AIBookingAssistant.tsx:            className="mb-4 w-[380px] h-[550px] shadow-2xl rounded-2xl overflow-hidden border border-orange-200/50 bg-white/95 backdrop-blur-xl flex flex-col"
+src\components\LocationPicker.tsx:                  className="shadow-premium h-12 w-12 p-0 rounded-xl bg-white/95 backdrop-blur-md border hover:bg-white active:scale-95 transition-all"
+src\components\LocationPicker.tsx:            "bg-white/95 backdrop-blur-md px-5 py-4 rounded-2xl border-2 shadow-premium flex items-center gap-4 transition-all",
+src\pages\ClientDetail.tsx:              <Card className="border-ochre/10 shadow-lg rounded-xl overflow-hidden bg-white/95">
+src\pages\ClientDetail.tsx:              <Card className="border-ochre/10 shadow-lg rounded-xl overflow-hidden bg-white/95">
+src\pages\LandingPage.tsx:      <nav className="sticky top-0 z-50 border-b border-primary/20 bg-white/95 backdrop-blur-xl shadow-lg shadow-black/5">
+
+=== findstr <nav ===
+src\App.tsx:    return <Navigate to="/login" replace />;
+src\App.tsx:    return <Navigate to="/dashboard" replace />;
+src\App.tsx:        <Route path="/staff-entry" element={<Navigate to="/login?intendedRole=staff" replace />} />
+src\App.tsx:        <Route path="/client-booking" element={<Navigate to="/booking" replace />} />
+src\App.tsx:        <Route path="/dashboard" element={user && profile ? <Layout><Dashboard /></Layout> : <Navigate to="/login" replace />} />
+src\App.tsx:        <Route path="/settings" element={user && profile ? <Layout><ScheduleManager /></Layout> : <Navigate to="/login" replace />} />
+src\App.tsx:        <Route path="*" element={<Navigate to="/" replace />} />
+src\components\Calendar\DailyCalendar.tsx:                    <Navigation className="h-3 w-3 mr-1" /> Open Maps
+src\components\LocationPicker.tsx:                  <Navigation className={cn("w-6 h-6 text-secondary", isDetecting && "animate-pulse")} />
+src\components\LocationPicker.tsx:          <Navigation className="w-4 h-4 text-secondary" />
+src\components\Navigation.tsx:          <nav className="flex-1 space-y-1.5 p-6 overflow-y-auto">
+src\components\Navigation.tsx:            <NavItem to="/" icon={Home} label="Public Website" active={location.pathname === '/'} onClick={onClose} />
+src\components\Navigation.tsx:                <NavItem to="/booking" icon={PlusCircle} label="Instant Booking" active={location.pathname === '/booking'} onClick={onClose} />
+src\components\Navigation.tsx:                <NavItem to="/welcome" icon={PhoneCall} label="Support Line" active={location.pathname === '/welcome'} onClick={onClose} />
+src\components\Navigation.tsx:                <NavItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" active={location.pathname === '/dashboard'} onClick={onClose} />
+src\components\Navigation.tsx:                <NavItem to="/booking" icon={PlusCircle} label="Rebook Service" active={location.pathname === '/booking'} onClick={onClose} />
+src\components\Navigation.tsx:                <NavItem to="/jobs" icon={History} label="Job History" active={location.pathname === '/jobs'} onClick={onClose} />
+src\components\Navigation.tsx:                <NavItem to="/invoices" icon={CreditCard} label="Payments" active={location.pathname === '/invoices'} onClick={onClose} />
+src\components\Navigation.tsx:                <NavItem to="/dashboard" icon={Star} label="Priority Dashboard" active={location.pathname === '/dashboard'} onClick={onClose} />
+src\components\Navigation.tsx:                <NavItem to="/booking" icon={Zap} label="Priority Booking" active={location.pathname === '/booking'} onClick={onClose} />
+src\components\Navigation.tsx:                <NavItem to="/packages" icon={ClipboardList} label="Mowing Plans" active={location.pathname === '/packages'} onClick={onClose} />
+src\components\Navigation.tsx:                <NavItem to="/jobs" icon={FileText} label="Detailed Reports" active={location.pathname === '/jobs'} onClick={onClose} />
+src\components\Navigation.tsx:                <NavItem to="/welcome" icon={PhoneCall} label="Fast Support" active={location.pathname === '/welcome'} onClick={onClose} />
+src\components\Navigation.tsx:                <NavItem to="/dashboard" icon={Building2} label="Asset Dashboard" active={location.pathname === '/dashboard'} onClick={onClose} />
+src\components\Navigation.tsx:                <NavItem to="/bulk-booking" icon={PlusCircle} label="Bulk Booking" active={location.pathname === '/bulk-booking'} onClick={onClose} />
+src\components\Navigation.tsx:                <NavItem to="/jobs" icon={Truck} label="Crew Tracking" active={location.pathname === '/jobs'} onClick={onClose} />
+src\components\Navigation.tsx:                <NavItem to="/invoices" icon={DollarSign} label="Invoice Center" active={location.pathname === '/invoices'} onClick={onClose} />
+src\components\Navigation.tsx:                <NavItem to="/reports" icon={FileText} label="Property Reports" active={location.pathname === '/reports'} onClick={onClose} />
+src\components\Navigation.tsx:                <NavItem to="/dashboard" icon={LayoutDashboard} label="Jobs Dashboard" active={location.pathname === '/dashboard'} onClick={onClose} />
+src\components\Navigation.tsx:                <NavItem to="/jobs" icon={ClipboardList} label="Job Queue" active={location.pathname === '/jobs'} onClick={onClose} />
+src\components\Navigation.tsx:                <NavItem to="/tech" icon={Navigation} label="Field View" active={location.pathname === '/tech'} onClick={onClose} />
+src\components\Navigation.tsx:                <NavItem to="/schedule" icon={Calendar} label="Schedule" active={location.pathname === '/schedule'} onClick={onClose} />
+src\components\Navigation.tsx:                <NavItem to="/admin" icon={ShieldCheck} label="ADMIN PORTAL" active={location.pathname === '/admin'} onClick={onClose} />
+src\components\Navigation.tsx:                <NavItem to="/invoices" icon={FileText} label="Invoicing & Finance" active={location.pathname === '/invoices'} onClick={onClose} />
+src\components\Navigation.tsx:                <NavItem to="/clients" icon={Users} label="Client Management" active={location.pathname === '/clients'} onClick={onClose} />
+src\components\Navigation.tsx:                <NavItem to="/admin/staff" icon={Users} label="Team Roster" active={location.pathname === '/admin/staff'} onClick={onClose} />
+src\components\Navigation.tsx:                <NavItem to="/admin/pricing" icon={DollarSign} label="Pricing" active={location.pathname === '/admin/pricing'} onClick={onClose} />
+src\components\Navigation.tsx:                <NavItem to="/admin/assets" icon={ImageIcon} label="Photos" active={location.pathname === '/admin/assets'} onClick={onClose} />
+src\components\Navigation.tsx:                <NavItem to="/admin/automations" icon={Zap} label="Notifications" active={location.pathname === '/admin/automations'} onClick={onClose} />
+src\components\Navigation.tsx:                <NavItem to="/admin/settings" icon={Settings} label="System Settings" active={location.pathname === '/admin/settings'} onClick={onClose} />
+src\components\Navigation.tsx:                <NavItem to="/admin/access" icon={PlusCircle} label="Admin Access" active={location.pathname === '/admin/access'} onClick={onClose} />
+src\components\Navigation.tsx:              <NavItem to="/settings" icon={Settings} label="Account Management" active={location.pathname === '/settings'} onClick={onClose} />
+src\pages\admin\SystemSettings.tsx:              <nav className="space-y-1">
+src\pages\Dashboards.tsx:              <Navigation className="h-6 w-6 text-primary" />
+src\pages\JobList.tsx:            <Navigation className="h-4 w-4 mr-2" />
+src\pages\LandingPage.tsx:      <nav className="sticky top-0 z-50 border-b border-primary/20 bg-white/95 backdrop-blur-xl shadow-lg shadow-black/5">
+src\pages\TechnicianDashboard.tsx:                    <Navigation className="w-4 h-4 text-blue-600" />
+
+=== findstr Quick Book ===
+src\App.tsx:import { Booking } from '@/pages/Booking';
+src\App.tsx:import { BookingSuccess } from '@/pages/BookingSuccess';
+src\App.tsx:        <Route path="/client-booking" element={<Navigate to="/booking" replace />} />
+src\App.tsx:        <Route path="/booking" element={<Booking />} />
+src\App.tsx:        <Route path="/booking-success" element={<BookingSuccess />} />
+src\components\AIBookingAssistant.tsx:export function AIBookingAssistant() {
+src\components\AIBookingAssistant.tsx:      content: "G'day! I'm your GrassRoots AI Assistant. I can help you get an instant quote and book your next mow. What's your address or property size?" 
+src\components\AIBookingAssistant.tsx:      setMessages(prev => [...prev, { role: 'assistant', content: "Mates, I'm having a bit of a technical glitch. Try jumping straight into our booking tool!" }]);
+src\components\AIBookingAssistant.tsx:            {/* Quick Actions */}
+src\components\AIBookingAssistant.tsx:                onClick={() => navigate('/booking')}
+src\components\AIBookingAssistant.tsx:                START INSTANT BOOK
+src\components\Calendar\ClientCalendar.tsx:                        {isAvailable ? 'Slots Available' : 'Fully Booked'}
+src\components\LocationPicker.tsx:            High-accuracy GPS required (&lt;100m). Rural properties may require manual pin placement or address lookups for better accuracy. <span className="text-secondary">All bookings require a confirmed pin.</span>
+src\components\Navigation.tsx:                onClick={() => navigate('/booking?type=one_off')}
+src\components\Navigation.tsx:                <p className="px-4 mb-2 text-[10px] font-black text-clay/40 uppercase tracking-[0.2em] italic">Quick Access</p>
+src\components\Navigation.tsx:                <NavItem to="/booking" icon={PlusCircle} label="Instant Booking" active={location.pathname === '/booking'} onClick={onClose} />
+src\components\Navigation.tsx:                <NavItem to="/booking" icon={PlusCircle} label="Rebook Service" active={location.pathname === '/booking'} onClick={onClose} />
+src\components\Navigation.tsx:                <NavItem to="/booking" icon={Zap} label="Priority Booking" active={location.pathname === '/booking'} onClick={onClose} />
+src\components\Navigation.tsx:                <NavItem to="/bulk-booking" icon={PlusCircle} label="Bulk Booking" active={location.pathname === '/bulk-booking'} onClick={onClose} />
+src\components\PaymentForm.tsx:        return_url: `${window.location.origin}/booking-success`,
+src\components\PaymentForm.tsx:          Pay ${amount.toFixed(2)} & Book
+src\pages\admin\PricingManagement.tsx:                      <p className="text-sm text-clay font-medium">Core service packages used in direct booking flow.</p>
+src\pages\admin\PricingManagement.tsx:              <p className="text-[10px] text-clay/60 font-medium tracking-tight">If disabled, this package is hidden from new bookings.</p>
+src\pages\admin\SystemSettings.tsx:                  <p className="text-[10px] text-clay/60 italic font-medium">Forces payment before booking confirmation.</p>
+src\pages\admin\SystemSettings.tsx:                    <Label className="text-sm font-black uppercase italic">Accepting New Bookings</Label>
+src\pages\admin\SystemSettings.tsx:                    <p className="text-xs text-clay font-medium italic">Master switch for the public booking engine.</p>
+src\pages\admin\SystemSettings.tsx:                    checked={formData.acceptingNewBookings ?? true}
+src\pages\admin\SystemSettings.tsx:                    onCheckedChange={(val) => setFormData({ ...formData, acceptingNewBookings: val })}
+src\pages\Booking.tsx:const bookingSchema = z.object({
+src\pages\Booking.tsx:type BookingFormValues = z.infer<typeof bookingSchema>;
+src\pages\Booking.tsx:export const Booking = () => {
+src\pages\Booking.tsx:  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<BookingFormValues>({
+src\pages\Booking.tsx:    resolver: zodResolver(bookingSchema) as any,
+src\pages\Booking.tsx:        // For booking, we might only want to show active ones
+src\pages\Booking.tsx:  const onSubmit = async (data: BookingFormValues) => {
+src\pages\Booking.tsx:        console.log('[Booking] No user found, initiating anonymous sign-in...');
+src\pages\Booking.tsx:        notes: `Lead from website booking. UID: ${currentUserId}`,
+src\pages\Booking.tsx:      console.log('[Booking] Upserting client for ID:', currentUserId);
+src\pages\Booking.tsx:        description: `Website Booking: ${snapshot.packageName}`,
+src\pages\Booking.tsx:      console.log('[Booking] Creating job:', jobData);
+src\pages\Booking.tsx:      if (!jobId) throw new Error('Could not save booking details to database.');
+src\pages\Booking.tsx:      const stage = (snapshot.isQuoteRequired ? 'lead-captured' : 'booking-created');
+src\pages\Booking.tsx:      console.log(`[Booking] Triggering notification flow: stage=${stage}, jobId=${jobId}`);
+src\pages\Booking.tsx:      console.error('Booking Process Error:', error);
+src\pages\Booking.tsx:      toast.error(error.message || 'The booking system encountered a critical error. Please contact us.');
+src\pages\Booking.tsx:  const finalizeBooking = async (data: BookingFormValues, currentSnapshot: any, paymentId?: string) => {
+src\pages\Booking.tsx:        notes: `Booked via website as ${data.clientType}. UID: ${currentUserId}`,
+src\pages\Booking.tsx:        description: `Online Booking: ${currentSnapshot.packageName}`,
+src\pages\Booking.tsx:      const stage = paymentId ? 'payment-successful' : (currentSnapshot.isQuoteRequired ? 'lead-captured' : 'booking-created');
+src\pages\Booking.tsx:      console.log(`[Booking] Triggering notification flow: stage=${stage}, jobId=${jobId}`);
+src\pages\Booking.tsx:      toast.error(err.message || 'Payment confirmed but failed to save booking. Please contact support.');
+src\pages\Booking.tsx:      Mythos.error("BOOKING_VALIDATION_FAILED", { field, message });
+src\pages\Booking.tsx:              : `Your booking is confirmed. Your digital invoice is ready below.`}
+src\pages\Booking.tsx:            <h1 className="text-4xl font-black mb-2 tracking-tight italic uppercase">Book Your Mow</h1>
+src\pages\Booking.tsx:        <ImagePlaceholder id={12} seed="booking-extra-1" height={120} label="Precision" />
+src\pages\Booking.tsx:        <ImagePlaceholder id={13} seed="booking-extra-2" height={120} label="Reliable" />
+src\pages\Booking.tsx:        <ImagePlaceholder id={14} seed="booking-extra-3" height={120} label="Local" />
+src\pages\BookingSuccess.tsx:export const BookingSuccess = () => {
+src\pages\BookingSuccess.tsx:          Thank you for your payment. Your booking has been successfully confirmed and your account is up to date.
+src\pages\BookingSuccess.tsx:            Go to My Bookings
+src\pages\ClientDetail.tsx:            Book Service
+src\pages\Dashboards.tsx:  const recentBookings = React.useMemo(() => {
+src\pages\Dashboards.tsx:            Quick Links
+src\pages\Dashboards.tsx:                  <h4 className="font-bold text-slate-900 text-lg">Booking Portal</h4>
+src\pages\Dashboards.tsx:                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Public Booking Link</p>
+src\pages\Dashboards.tsx:              <p className="text-sm text-slate-500 font-medium mb-8 leading-relaxed">Page for customers to book in their first service.</p>
+src\pages\Dashboards.tsx:                    toast.success('Booking link copied');
+src\pages\Dashboards.tsx:          <Button onClick={() => navigate('/booking?type=asset_management')} className="bg-slate-900 hover:bg-slate-800 text-white shadow-xl h-12 px-8 rounded-xl font-bold transition-all hover:-translate-y-0.5">
+src\pages\Dashboards.tsx:            <span className="hidden xs:inline">Initialize Asset Booking</span>
+src\pages\Dashboards.tsx:            <span className="xs:hidden">New Booking</span>
+src\pages\Dashboards.tsx:                {jobs.filter(j => j.quotePdfUrl || j.bookingPdfUrl || j.reportPdfUrl || j.invoicePdfUrl || j.receiptPdfUrl).map(job => (
+src\pages\Dashboards.tsx:                        {job.bookingPdfUrl && (
+src\pages\Dashboards.tsx:                          <Button variant="ghost" size="sm" onClick={() => window.open(job.bookingPdfUrl, '_blank')} className="h-8 text-[8px] font-black uppercase text-slate-500 hover:text-primary justify-start px-2">
+src\pages\Dashboards.tsx:                            <CheckCircle2 className="h-2.5 w-2.5 mr-1" /> Booking
+src\pages\Dashboards.tsx:                {jobs.filter(j => j.quotePdfUrl || j.bookingPdfUrl || j.reportPdfUrl || j.invoicePdfUrl || j.receiptPdfUrl).length === 0 && (
+src\pages\Dashboards.tsx:                      <Button onClick={() => navigate('/booking?type=asset_management')} className="bg-primary hover:bg-primary/90 text-white font-bold h-12 px-10 rounded-xl shadow-lg shadow-primary/20">
+src\pages\Dashboards.tsx:                        Book First Service
+src\pages\Dashboards.tsx:                      <p className="text-[10px] text-charcoal/30 mt-1 italic">Add members to help manage bookings and invoices.</p>
+src\pages\Dashboards.tsx:                navigate(`/booking?rebook=${latestJob.id}`);
+src\pages\Dashboards.tsx:                navigate('/booking');
+src\pages\Dashboards.tsx:            Quick Rebook
+src\pages\Dashboards.tsx:          <Button onClick={() => navigate('/booking')} className="flex-1 md:flex-none bg-deep-red hover:bg-deep-red/90 text-white shadow-lg h-12 rounded-xl font-black uppercase tracking-widest text-[10px] px-6">
+src\pages\Dashboards.tsx:            {jobs.filter(j => j.quotePdfUrl || j.bookingPdfUrl || j.reportPdfUrl || j.invoicePdfUrl || j.receiptPdfUrl).sort((a,b) => b.scheduledDate - a.scheduledDate).slice(0, 8).map(job => (
+src\pages\Dashboards.tsx:                  {job.bookingPdfUrl && (
+src\pages\Dashboards.tsx:                    <Button variant="ghost" size="sm" onClick={() => window.open(job.bookingPdfUrl, '_blank')} className="h-7 text-[8px] font-black uppercase text-ochre hover:text-deep-red justify-start px-2">
+src\pages\Dashboards.tsx:                      <CheckCircle2 className="h-2.5 w-2.5 mr-1" /> Booking Pass
+src\pages\Dashboards.tsx:            {jobs.filter(j => j.quotePdfUrl || j.bookingPdfUrl || j.reportPdfUrl || j.invoicePdfUrl || j.receiptPdfUrl).length === 0 && (
+src\pages\JobDetail.tsx:                {job.bookingPdfUrl && (
+src\pages\JobDetail.tsx:                    onClick={() => window.open(job.bookingPdfUrl, '_blank')}
+src\pages\JobDetail.tsx:                      <p className="text-[10px] font-black uppercase tracking-widest text-ochre">Booking Pass</p>
+src\pages\JobDetail.tsx:                {!job.quotePdfUrl && !job.bookingPdfUrl && !job.reportPdfUrl && !job.invoicePdfUrl && !job.receiptPdfUrl && (
+src\pages\JobList.tsx:  const handleQuickComplete = async (e: React.ChangeEvent<HTMLInputElement>, jobId: string) => {
+src\pages\JobList.tsx:                  <JobCard key={job.id} job={job} handleQuickComplete={handleQuickComplete} />
+src\pages\JobList.tsx:            <JobCard key={job.id} job={job} handleQuickComplete={handleQuickComplete} />
+src\pages\JobList.tsx:const JobCard: React.FC<{ job: any, handleQuickComplete: any }> = ({ job, handleQuickComplete }) => (
+src\pages\JobList.tsx:            <p className="text-[8px] font-black text-ochre uppercase tracking-widest mb-1">Quick Complete</p>
+src\pages\JobList.tsx:              onChange={(e) => handleQuickComplete(e, job.id)}
+src\pages\LandingPage.tsx:  Facebook,
+src\pages\LandingPage.tsx:import { AIBookingAssistant } from '@/components/AIBookingAssistant';
+src\pages\LandingPage.tsx:                  onClick={() => navigate('/booking?type=one_off')}
+src\pages\LandingPage.tsx:                  Quick Book
+src\pages\LandingPage.tsx:                onClick={() => navigate('/booking?type=one_off')}
+src\pages\LandingPage.tsx:                Quick Book
+src\pages\LandingPage.tsx:                onClick={() => navigate('/booking?type=one_off')}
+src\pages\LandingPage.tsx:                   <Zap size={16} /> ONE-OFF BOOKING
+src\pages\LandingPage.tsx:                   onClick={() => navigate('/booking?type=ultimate-gold')}
+src\pages\LandingPage.tsx:      <AIBookingAssistant />
+src\pages\LandingPage.tsx:                      navigate(`/booking?package=ultimate&type=ultimate-gold`);
+src\pages\Login.tsx:        description="Create a 4-6 digit PIN for quick access in the field."
+src\pages\NewJob.tsx:                    <Label htmlFor="urgent-toggle" className="text-deep-red font-black uppercase tracking-widest text-xs">Urgent Booking</Label>
+src\pages\Packages.tsx:      description: 'Quick and efficient. Perfect for well-maintained town blocks.',
+src\pages\Packages.tsx:                  onClick={() => navigate('/booking')}
+src\pages\Packages.tsx:                  Book This Plan <ArrowRight className="h-4 w-4 ml-2" />
+src\pages\Packages.tsx:                onClick={() => navigate('/booking')}
+src\pages\ScheduleManager.tsx:                Configure your service areas, available days, and daily job capacity. These settings directly impact dynamic pricing and booking availability for clients.
+
+=== npm run build ===
+
+> grassroots-mowing-co@1.0.0 build
+> npm run clean && vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs
+
+
+> grassroots-mowing-co@1.0.0 clean
+> rm -rf dist
+
+node.exe : 'rm' is not recognized as an internal or external command,
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ('rm' is not rec...ternal command, 
+   :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+operable program or batch file.
+
