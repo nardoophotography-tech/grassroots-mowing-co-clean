@@ -616,23 +616,34 @@ export const LandingPage = () => {
             </div>
           </div>
 
-          {/* Designer Details Section */}
-          <div className="border-t border-white/10 pt-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div>
-                <h3 className="text-slate-100 font-black uppercase tracking-widest text-[10px] mb-3 italic">Artwork / Designer Details</h3>
-                <div className="space-y-2 text-slate-300 text-[8px] font-medium leading-relaxed uppercase tracking-tight italic">
-                  <p><span className="font-black text-slate-100">Designer / Artist:</span> D. Nardoo</p>
-                  <p><span className="font-black text-slate-100">Design Studio:</span> Nardoo Photography</p>
+          {/* Credits Section */}
+          <div className="border-t border-white/10 pt-8 space-y-8">
+            {/* App Development */}
+            <div>
+              <h3 className="text-slate-100 font-black uppercase tracking-widest text-[10px] mb-3 italic">App Development</h3>
+              <p className="text-slate-300 text-[8px] font-medium leading-relaxed italic">
+                Built by Nardoo Photography
+              </p>
+            </div>
+
+            {/* Artwork / Designer Details */}
+            <div className="border-t border-white/10 pt-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                  <h3 className="text-slate-100 font-black uppercase tracking-widest text-[10px] mb-3 italic">Artwork / Designer Details</h3>
+                  <div className="space-y-2 text-slate-300 text-[8px] font-medium leading-relaxed uppercase tracking-tight italic">
+                    <p><span className="font-black text-slate-100">Designer / Artist:</span> D. Nardoo</p>
+                    <p><span className="font-black text-slate-100">Design Studio:</span> Nardoo Photography</p>
+                  </div>
                 </div>
-              </div>
-              <div>
-                <p className="text-slate-300 text-[8px] font-medium leading-relaxed italic mb-2">
-                  <span className="font-black text-slate-100 uppercase tracking-tight">Artwork Story:</span> Contemporary GrassRoots Mowing Co artwork inspired by SunRock's artwork and the natural landscapes of country. It represents connection to land, community, growth, hard work, family, and respect for Traditional Owners.
-                </p>
-                <p className="text-slate-300 text-[8px] font-medium leading-relaxed italic">
-                  <span className="font-black text-slate-100 uppercase tracking-tight">Usage:</span> Approved for GrassRoots Mowing Co brand use across website, app, client documents, social media, signage, and marketing.
-                </p>
+                <div>
+                  <p className="text-slate-300 text-[8px] font-medium leading-relaxed italic mb-2">
+                    <span className="font-black text-slate-100 uppercase tracking-tight">Artwork Story:</span> Contemporary GrassRoots Mowing Co artwork inspired by SunRock's artwork and the natural landscapes of country. It represents connection to land, community, growth, hard work, family, and respect for Traditional Owners.
+                  </p>
+                  <p className="text-slate-300 text-[8px] font-medium leading-relaxed italic">
+                    <span className="font-black text-slate-100 uppercase tracking-tight">Usage:</span> Approved for GrassRoots Mowing Co brand use across website, app, client documents, social media, signage, and marketing.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
