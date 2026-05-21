@@ -106,11 +106,11 @@ export const Login = () => {
           }
         }
 
-        navigate('/dashboard');
+        navigate(redirect || '/dashboard');
         return;
       }
 
-      if (!profile && redirect && redirect.includes('/onboarding')) {
+      if (!profile && redirect) {
         navigate(redirect);
       }
     };
@@ -159,6 +159,7 @@ export const Login = () => {
       } else {
         await signIn(cleanEmail, cleanPassword);
         toast.success('Authentication pattern matched. Welcome back.');
+        // Redirect will be handled by useEffect after profile updates
       }
     } catch (error: any) {
       console.error('Authentication Error:', error);
