@@ -207,9 +207,9 @@ export const Login = () => {
 
   return (
     <div
-      className={`min-h-dvh w-screen max-w-full overflow-x-hidden ${currentTheme.bg} transition-colors duration-500`}
+      className={`min-h-[100vh] w-full max-w-full overflow-x-hidden ${currentTheme.bg} transition-colors duration-500`}
     >
-      <div className="relative min-h-dvh w-full max-w-full overflow-x-hidden flex flex-col items-center justify-start sm:justify-center px-3 py-6 sm:p-6">
+      <div className="relative min-h-[100vh] w-full max-w-full overflow-x-hidden flex flex-col items-center justify-start sm:justify-center px-4 py-6 sm:p-6">
         <div className="absolute top-3 left-3 flex gap-2 z-20">
           <Button
             variant="ghost"
