@@ -17,8 +17,6 @@ import { SUBURBS, PRICING_RULES, ADD_ON_LABELS, CLIENT_TYPE_LABELS } from '@/con
 import { format, addDays, isSameDay, getDay } from 'date-fns';
 import { motion } from 'motion/react';
 import { CheckCircle2, ChevronRight, ChevronLeft, MapPin, Calendar, Clock, ClipboardList, Info, Home, Users, CreditCard, DollarSign, ArrowLeft, Zap, Sparkles, Building2 } from 'lucide-react';
-import AppLogo from '@/components/AppLogo';
-import { GrassRootsLogo } from '@/components/GrassRootsLogo';
 import { GrassRootsGuardian } from '@/components/GrassRootsGuardian';
 import { cn } from '@/lib/utils';
 import { Mythos } from '@/lib/mythos';
@@ -83,7 +81,7 @@ export const Booking = () => {
     defaultValues: {
       name: profile?.displayName || '',
       email: profile?.email || '',
-      phone: '', // Users don't have phone in UserProfile
+      phone: '',
       timeSlot: 'morning',
       clientType: (searchParams.get('type') as any) || (profile ? (profile.clientType || 'returning') : 'one_off'),
       serviceType: (searchParams.get('package') as any) || 'residential_standard',
@@ -91,7 +89,6 @@ export const Booking = () => {
       squareFootage: 0,
       addOns: Object.entries(settings?.pricing?.addOns || PRICING_RULES.addOns).map(([id, price]) => {
         const detail = settings?.pricing?.addOnDetails?.[id];
-        // For booking, we might only want to show active ones
         if (detail && !detail.active) return null;
         return {
           id,
@@ -120,16 +117,13 @@ export const Booking = () => {
     );
   }
 
-  // Availability Logic
   const getAvailableDates = () => {
     if (!settings || !watchedValues.suburb) return [];
     
-    // Find specific schedule or use default (Mon-Fri)
     const schedule = settings.suburbSchedules.find(s => s.suburb === watchedValues.suburb);
     const availableDays = schedule?.availableDays || [1, 2, 3, 4, 5];
 
     const dates = [];
-    // Show next 30 days
     for (let i = 1; i <= 30; i++) {
       const date = addDays(new Date(), i);
       const dayOfWeek = getDay(date);
@@ -177,19 +171,16 @@ export const Booking = () => {
     
     setIsSubmitting(true);
     try {
-      // 1. Ensure Identity (Anonymous or Authenticated)
       let currentUserId = user?.uid || profile?.uid || '';
       
       if (!currentUserId) {
         console.log('[Booking] No user found, initiating anonymous sign-in...');
         await signInAnonymously();
-        // Use auth directly for immediate access after sign-in
         const { auth } = await import('@/firebase');
         currentUserId = auth.currentUser?.uid || '';
         if (!currentUserId) throw new Error('Identity verification failed. Please try again.');
       }
 
-      // 2. Upsert Client Record (Tied to Auth UID)
       const clientPayload = {
         name: data.name,
         address: data.location?.address || '',
@@ -198,15 +189,13 @@ export const Booking = () => {
         email: data.email,
         suburb: data.suburb || '',
         clientType: data.clientType,
-        agencyName: data.agencyName,
-        notes: `Lead from website booking. UID: ${currentUserId}`,
+agencyName: data.agencyName || null,        notes: `Lead from website booking. UID: ${currentUserId}`,
       };
       
       console.log('[Booking] Upserting client for ID:', currentUserId);
       await addClient(clientPayload, currentUserId);
       const clientId = currentUserId;
 
-      // 3. Create "Pending" Job in Firestore
       const jobData: any = {
         clientId: clientId,
         clientName: data.name,
@@ -254,7 +243,6 @@ export const Booking = () => {
 
       setCreatedJobId(jobId);
 
-      // 2.1 Notify Admins via Internal Service
       await notificationService.notifyRole(
         'admin', 
         'New Deployment Authorized', 
@@ -263,7 +251,6 @@ export const Booking = () => {
         'success'
       );
 
-      // 2.2 Trigger External Notification Flow (Email/SMS/PDF)
       const stage = (snapshot.isQuoteRequired ? 'lead-captured' : 'booking-created');
       console.log(`[Booking] Triggering notification flow: stage=${stage}, jobId=${jobId}`);
       
@@ -272,14 +259,11 @@ export const Booking = () => {
         id: jobId
       } as any);
 
-      // 3. Handle Payment or Success
       if (!snapshot.isQuoteRequired && (data.clientType === 'one_off')) {
-         // Auto-confirm for one-off (payment on arrival)
          setStep(7);
       } else if (!snapshot.isQuoteRequired && data.clientType === 'returning') {
         setStep(6);
       } else {
-        // If quote required, go straight to success
         setStep(7);
       }
     } catch (error: any) {
@@ -343,7 +327,7 @@ export const Booking = () => {
         });
 
         if (!response.ok) throw new Error('Failed to confirm cash payment.');
-        setStep(7); // Show success screen
+        setStep(7);
       }
     } catch (err: any) {
       toast.error(err.message);
@@ -356,7 +340,6 @@ export const Booking = () => {
     setIsSubmitting(true);
     
     try {
-      // 1. Ensure Identity
       let currentUserId = user?.uid || profile?.uid || '';
       
       if (!currentUserId) {
@@ -367,7 +350,6 @@ export const Booking = () => {
 
       if (!currentUserId) throw new Error('Identity verification failed.');
 
-      // 2. Upsert Client
       await addClient({
         name: data.name,
         address: data.location?.address || '',
@@ -382,7 +364,6 @@ export const Booking = () => {
 
       const clientId = currentUserId;
 
-      // 3. Create Job
       const jobData = {
         clientId: clientId,
         clientName: data.name,
@@ -424,7 +405,6 @@ export const Booking = () => {
 
       if (!jobId) throw new Error('Failed to create job');
 
-      // 2.1 Notify Admins via Internal Service
       await notificationService.notifyRole(
         'admin', 
         'New Deployment Authorized', 
@@ -433,7 +413,6 @@ export const Booking = () => {
         'success'
       );
 
-      // 3. Trigger External Notification Flow (Email/SMS/PDF)
       const stage = paymentId ? 'payment-successful' : (currentSnapshot.isQuoteRequired ? 'lead-captured' : 'booking-created');
       console.log(`[Booking] Triggering notification flow: stage=${stage}, jobId=${jobId}`);
       
@@ -442,7 +421,7 @@ export const Booking = () => {
         id: jobId
       } as any);
 
-      setStep(7); // Show success screen
+      setStep(7);
     } catch (err: any) {
       console.error("Finalization Error:", err);
       toast.error(err.message || 'Payment confirmed but failed to save booking. Please contact support.');
@@ -484,8 +463,12 @@ export const Booking = () => {
           </p>
           
           <div className="bg-background p-6 rounded-3xl border-2 border-primary/20 mb-6 text-left relative overflow-hidden">
-             <div className="absolute top-0 right-0 p-4 opacity-5">
-               <AppLogo className="h-12 w-auto" />
+             <div className="absolute top-0 right-0 p-4 opacity-10">
+               <img
+                 src="/logo-header.webp"
+                 alt="GrassRoots Mowing Co"
+                 className="h-12 w-auto object-contain"
+               />
              </div>
              
              <div className="flex justify-between items-center mb-6">
@@ -547,7 +530,6 @@ export const Booking = () => {
     <div className="min-h-screen bg-background pb-32 relative overflow-hidden">
       <div className="absolute inset-0 subtle-grid opacity-10 pointer-events-none" />
       
-      {/* Background Watermarks */}
       <div className="fixed -top-10 -left-10 w-64 h-64 pointer-events-none select-none opacity-[0.02]">
         <GrassRootsGuardian size={250} />
       </div>
@@ -556,7 +538,6 @@ export const Booking = () => {
       </div>
 
       <div className="bg-charcoal text-white py-14 px-6 mb-12 relative overflow-hidden">
-        {/* Abstract topographic-like background */}
         <div className="absolute inset-0 opacity-10 mix-blend-overlay">
            <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_20%_30%,var(--color-ochre),transparent_50%),radial-gradient(circle_at_80%_70%,var(--color-primary),transparent_50%)]" />
         </div>
@@ -589,7 +570,11 @@ export const Booking = () => {
                 Home
               </Button>
             </div>
-            <AppLogo className="h-10 w-auto" textClassName="text-white" />
+            <img
+              src="/logo-header.webp"
+              alt="GrassRoots Mowing Co"
+              className="h-12 w-auto object-contain rounded-xl bg-white/90 p-1 shadow-sm"
+            />
           </div>
 
           <div className="text-center">
@@ -606,7 +591,6 @@ export const Booking = () => {
       </div>
 
       <div className="max-w-xl mx-auto px-4 relative z-10">
-        {/* Progress Bar */}
         <div className="flex justify-between mb-12 sm:mb-16 relative">
           <div className="absolute top-1/2 left-0 w-full h-1 bg-border -translate-y-1/2 z-0" />
           <motion.div 
