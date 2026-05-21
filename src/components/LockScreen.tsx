@@ -3,12 +3,14 @@ import { useAuth } from '../contexts/AuthContext';
 import { PasscodeModal } from './PasscodeModal';
 import { motion, AnimatePresence } from 'motion/react';
 import { Lock, Fingerprint, LogOut } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/Button';
 import { toast } from 'react-hot-toast';
 import AppLogo from './AppLogo';
 
 export const LockScreen: React.FC = () => {
   const { isLocked, unlock, logout, profile } = useAuth();
+  const navigate = useNavigate();
   const [error, setError] = React.useState('');
   const [showPasscode, setShowPasscode] = React.useState(false);
 
@@ -43,11 +45,26 @@ export const LockScreen: React.FC = () => {
           animate={{ y: 0, opacity: 1 }}
           className="w-full max-w-sm text-center space-y-8"
         >
-          <div className="flex flex-col items-center gap-6">
-            <AppLogo className="scale-150 mb-4" textClassName="text-white" showText={true} />
+          <div className="flex flex-col items-center gap-4">
+            <div
+              role="link"
+              title="Visit website"
+              onClick={() => navigate('/')}
+              className="cursor-pointer"
+            >
+              <img
+                src="/logo-header.webp"
+                onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => { e.currentTarget.src = '/logo.png'; }}
+                alt="GrassRoots Mowing Co"
+                className="h-24 sm:h-32 w-auto object-contain mb-2"
+              />
+            </div>
+            <p className="text-[11px] text-white/70">Tap logo to visit website</p>
+
             <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center border border-white/20">
               <Lock className="h-10 w-10 text-white" />
             </div>
+
             <div className="space-y-1">
               <h1 className="text-2xl font-bold">App Locked</h1>
               <p className="text-white/70 text-sm">
@@ -65,7 +82,7 @@ export const LockScreen: React.FC = () => {
                 setShowPasscode(true);
               }}
             >
-              Enter Passcode
+              OPEN APP
             </Button>
             
             {(profile as any)?.passkeyEnabled && (
