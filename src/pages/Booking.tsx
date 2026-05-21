@@ -358,7 +358,7 @@ agencyName: data.agencyName || null,        notes: `Lead from website booking. U
         email: data.email,
         suburb: data.suburb || '',
         clientType: data.clientType,
-        agencyName: data.agencyName,
+agencyName: data.agencyName || null,
         notes: `Booked via website as ${data.clientType}. UID: ${currentUserId}`,
       }, currentUserId);
 
