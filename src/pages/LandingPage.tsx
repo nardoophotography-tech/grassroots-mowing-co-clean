@@ -303,54 +303,66 @@ export const LandingPage = () => {
            <GrassRootsGuardian variant="spotlight" className="opacity-10 w-[600px] h-auto" />
         </div>
         <div className="max-w-7xl mx-auto flex flex-col items-center text-center relative z-10">
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="w-full max-w-4xl"
-          >
-            <h1 className="text-5xl lg:text-7xl font-black text-charcoal leading-[0.9] tracking-tighter uppercase italic mb-6">
-              Yard Care <span className="text-primary italic">On Demand.</span>
-            </h1>
-            
-            <p className="text-clay text-xs lg:text-sm font-bold max-w-xl mx-auto mb-10 leading-relaxed uppercase tracking-[0.15em]">
-              Professional maintenance for {settings?.serviceLocation || 'Mount Isa'}. <br />
-              Select your path below for instant processing.
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-10">
-              <Button 
-                onClick={() => navigate('/booking?type=one_off')}
-                className="h-20 bg-secondary hover:bg-secondary/90 text-white font-black uppercase tracking-[0.2em] text-[11px] rounded-2xl shadow-xl shadow-secondary/10 italic flex flex-col items-center justify-center gap-1 group"
-              >
-                <div className="flex items-center gap-2">
-                   <Zap size={16} /> ONE-OFF BOOKING
-                </div>
-                <span className="text-[8px] opacity-70 tracking-[0.3em] font-medium italic">Instant Quote • 5 Clicks to Success</span>
-              </Button>
-              
-              <Button 
-                variant="outline"
-                onClick={() => navigate('/login?intendedRole=returning')}
-                className="h-20 border-primary/20 text-primary hover:bg-primary/5 font-black uppercase tracking-[0.2em] text-[11px] rounded-2xl italic flex flex-col items-center justify-center gap-1"
-              >
-                <div className="flex items-center gap-2">
-                   <Users size={16} /> REGULAR CLIENTS
-                </div>
-                <span className="text-[8px] opacity-70 tracking-[0.3em] font-medium italic">Manage Plans • Job History</span>
-              </Button>
-
-              <Button 
-                variant="outline"
-                onClick={() => navigate('/login?intendedRole=asset_management')}
-                className="h-20 border-slate-900/20 text-slate-900 hover:bg-slate-50 font-black uppercase tracking-[0.2em] text-[11px] rounded-2xl italic flex flex-col items-center justify-center gap-1"
-              >
-                <div className="flex items-center gap-2">
-                   <Building2 size={16} /> ASSET MANAGERS
-                </div>
-                <span className="text-[8px] opacity-70 tracking-[0.3em] font-medium italic">Agency Portal • Bulk Invoicing</span>
-              </Button>
+          <div className="relative w-full max-w-4xl mx-auto overflow-hidden rounded-[40px] shadow-2xl border border-slate-200/10">
+            <div className="absolute inset-0 overflow-hidden">
+              <img
+                src="/battle-mountain.png"
+                alt="Battle Mountain landscape behind the hero section"
+                className="w-full h-full object-cover object-center"
+              />
+              <div className="absolute inset-0 bg-slate-950/30" />
+              <div className="absolute inset-0 bg-white/20" />
             </div>
-          </motion.div>
+
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="relative p-8 sm:p-12"
+            >
+              <h1 className="text-5xl lg:text-7xl font-black text-white leading-[0.9] tracking-tighter uppercase italic mb-6">
+                Yard Care <span className="text-primary italic">On Demand.</span>
+              </h1>
+              
+              <p className="text-slate-100 text-xs lg:text-sm font-bold max-w-xl mx-auto mb-10 leading-relaxed uppercase tracking-[0.15em]">
+                Professional maintenance for {settings?.serviceLocation || 'Mount Isa'}. <br />
+                Select your path below for instant processing.
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-10">
+                <Button 
+                  onClick={() => navigate('/booking?type=one_off')}
+                  className="h-20 bg-secondary hover:bg-secondary/90 text-white font-black uppercase tracking-[0.2em] text-[11px] rounded-2xl shadow-xl shadow-secondary/10 italic flex flex-col items-center justify-center gap-1 group"
+                >
+                  <div className="flex items-center gap-2">
+                     <Zap size={16} /> ONE-OFF BOOKING
+                  </div>
+                  <span className="text-[8px] opacity-70 tracking-[0.3em] font-medium italic">Instant Quote • 5 Clicks to Success</span>
+                </Button>
+                
+                <Button 
+                  variant="outline"
+                  onClick={() => navigate('/login?intendedRole=returning')}
+                  className="h-20 border-white/20 text-white hover:bg-white/10 font-black uppercase tracking-[0.2em] text-[11px] rounded-2xl italic flex flex-col items-center justify-center gap-1"
+                >
+                  <div className="flex items-center gap-2">
+                     <Users size={16} /> REGULAR CLIENTS
+                  </div>
+                  <span className="text-[8px] opacity-70 tracking-[0.3em] font-medium italic">Manage Plans • Job History</span>
+                </Button>
+
+                <Button 
+                  variant="outline"
+                  onClick={() => navigate('/login?intendedRole=asset_management')}
+                  className="h-20 border-white/20 text-white hover:bg-white/10 font-black uppercase tracking-[0.2em] text-[11px] rounded-2xl italic flex flex-col items-center justify-center gap-1"
+                >
+                  <div className="flex items-center gap-2">
+                     <Building2 size={16} /> ASSET MANAGERS
+                  </div>
+                  <span className="text-[8px] opacity-70 tracking-[0.3em] font-medium italic">Agency Portal • Bulk Invoicing</span>
+                </Button>
+              </div>
+            </motion.div>
+          </div>
         </div>
       </section>
 
