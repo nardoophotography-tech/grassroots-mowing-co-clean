@@ -215,7 +215,8 @@ export const LandingPage = () => {
           </div>
 
           <div className="relative max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-3">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col sm:flex-row items-center sm:justify-between gap-3 w-full max-w-full">
+              {/* Row 1: Back / Home (small) */}
               <div className="flex items-center gap-2">
                 <Button
                   type="button"
@@ -227,70 +228,78 @@ export const LandingPage = () => {
                       navigate('/');
                     }
                   }}
-                  className="flex items-center gap-2 px-3 py-2 rounded-full bg-charcoal text-white shadow-md border border-white/10 hover:opacity-95 touch-manipulation"
+                  className="flex items-center gap-2 px-2 sm:px-3 py-2 rounded-full bg-charcoal text-white shadow-md border border-white/10 hover:opacity-95 touch-manipulation text-[11px] sm:text-[13px]"
                   title="Go Back"
                 >
                   <ArrowLeft className="h-4 w-4" />
-                  <span className="text-[13px] font-black uppercase tracking-wider">Back</span>
+                  <span className="font-black uppercase tracking-wider">Back</span>
                 </Button>
 
                 <Button
                   type="button"
                   variant="ghost"
                   onClick={() => navigate('/')}
-                  className="flex items-center gap-2 px-3 py-2 rounded-full bg-primary text-white shadow-md border border-white/10 hover:opacity-95 touch-manipulation"
+                  className="flex items-center gap-2 px-2 sm:px-3 py-2 rounded-full bg-primary text-white shadow-md border border-white/10 hover:opacity-95 touch-manipulation text-[11px] sm:text-[13px]"
                   title="Home"
                 >
                   <Home className="h-4 w-4" />
-                  <span className="text-[13px] font-black uppercase tracking-wider">Home</span>
+                  <span className="font-black uppercase tracking-wider">Home</span>
                 </Button>
               </div>
 
-              <div
-                className="flex items-center gap-3 cursor-pointer group min-w-0"
-                onClick={() => navigate('/')}
-              >
-                <div className="bg-white rounded-2xl border border-primary/10 shadow-sm px-3 py-2 flex items-center gap-3">
+              {/* Row 2: Center logo */}
+              <div className="flex flex-1 items-center justify-center min-w-0">
+                <div
+                  className="bg-white rounded-2xl border border-primary/10 shadow-sm px-3 py-2 flex items-center gap-3 max-w-full w-full sm:w-auto cursor-pointer"
+                  onClick={() => navigate('/')}
+                  role="button"
+                >
                   <img src="/logo-header.webp" alt="GrassRoots Mowing Co" className="h-8 sm:h-10 w-auto object-contain" />
 
                   <div className="hidden sm:block border-l border-primary/15 pl-3">
-                    <p className="text-[9px] font-black text-primary uppercase tracking-[0.25em] leading-none">
-                      GrassRoots
-                    </p>
-                    <p className="text-[8px] font-bold text-clay uppercase tracking-widest leading-none mt-1">
-                      Mowing Co
-                    </p>
+                    <p className="text-[9px] font-black text-primary uppercase tracking-[0.25em] leading-none">GrassRoots</p>
+                    <p className="text-[8px] font-bold text-clay uppercase tracking-widest leading-none mt-1">Mowing Co</p>
                   </div>
                 </div>
               </div>
 
-              
-
+              {/* Row 3+: Actions (desktop inline, mobile stacked below) */}
               <div className="flex items-center gap-2">
-                <Button
-                  onClick={() => navigate('/booking?type=one_off')}
-                  className="hidden sm:flex px-4 py-2 rounded-full bg-secondary text-white hover:bg-secondary/90 text-[10px] font-black uppercase tracking-widest italic h-10 shadow-md"
-                >
-                  Quick Book
-                </Button>
+                <div className="hidden sm:flex items-center gap-2">
+                  <Button
+                    onClick={() => navigate('/booking?type=one_off')}
+                    className="px-4 py-2 rounded-full bg-secondary text-white hover:bg-secondary/90 text-[10px] font-black uppercase tracking-widest italic h-10 shadow-md"
+                  >
+                    Quick Book
+                  </Button>
 
-                <Button
-                  variant="ghost"
-                  onClick={() => navigate('/login')}
-                  className="h-10 px-4 rounded-full bg-primary/10 text-primary border border-primary/20 hover:bg-primary hover:text-white text-[10px] font-black uppercase tracking-widest shadow-sm"
-                >
-                  Secure Service Hub
-                </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => navigate('/login')}
+                    className="h-10 px-4 rounded-full bg-primary/10 text-primary border border-primary/20 hover:bg-primary hover:text-white text-[10px] font-black uppercase tracking-widest shadow-sm"
+                  >
+                    Secure Service Hub
+                  </Button>
+                </div>
+
+                {/* Mobile stacked actions: Secure Hub then Quick Book (full width) */}
+                <div className="sm:hidden w-full mt-2 flex flex-col gap-2">
+                  <Button
+                    variant="ghost"
+                    onClick={() => navigate('/login')}
+                    className="w-full h-10 px-4 rounded-2xl bg-primary/10 text-primary border border-primary/20 hover:bg-primary hover:text-white text-[12px] font-black uppercase tracking-wider shadow-sm"
+                  >
+                    Secure Service Hub
+                  </Button>
+
+                  <Button
+                    onClick={() => navigate('/booking?type=one_off')}
+                    className="w-full h-11 rounded-2xl bg-secondary text-white hover:bg-secondary/90 text-[12px] font-black uppercase tracking-wider italic shadow-md"
+                  >
+                    Quick Book
+                  </Button>
+                </div>
               </div>
-            </div>
-
-            <div className="sm:hidden mt-3">
-              <Button
-                onClick={() => navigate('/booking?type=one_off')}
-                className="w-full h-11 rounded-2xl bg-secondary text-white hover:bg-secondary/90 text-[10px] font-black uppercase tracking-[0.2em] italic shadow-md"
-              >
-                Quick Book
-              </Button>
             </div>
           </div>
         </div>
