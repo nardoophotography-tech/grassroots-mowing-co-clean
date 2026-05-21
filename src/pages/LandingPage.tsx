@@ -325,6 +325,7 @@ export const LandingPage = () => {
               
               <p className="text-slate-100 text-xs lg:text-sm font-bold max-w-xl mx-auto mb-10 leading-relaxed uppercase tracking-[0.15em]">
                 Professional maintenance for {settings?.serviceLocation || 'Mount Isa'}. <br />
+                GrassRoots Mowing Co. will look after you. <br />
                 Select your path below for instant processing.
               </p>
 
