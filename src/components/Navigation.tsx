@@ -90,7 +90,12 @@ export const GlobalHeader = ({ onMenuClick, profile }: { onMenuClick: () => void
         )}
         
         <Link to="/" className="flex items-center gap-2 group mr-2">
-          <AppLogo className="h-14 w-auto group-hover:rotate-3 transition-transform" showText={true} />
+          <img
+            src="/logo-header.webp"
+            onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => { e.currentTarget.src = '/logo.png'; }}
+            alt="GrassRoots Mowing Co"
+            className="h-12 w-auto object-contain group-hover:rotate-3 transition-transform"
+          />
         </Link>
         
         <div className="flex items-center space-x-1 sm:space-x-1.5 p-1 bg-surface-2/30 rounded-full border border-border shadow-inner max-w-[50vw] sm:max-w-none overflow-x-auto no-scrollbar backdrop-blur-sm">
@@ -260,7 +265,12 @@ export const Sidebar = ({ isOpen, onClose, variant = 'sidebar' }: { isOpen: bool
           <div className="flex h-24 items-center justify-between px-8 border-b border-border/50 bg-white/40 backdrop-blur-sm relative">
             <div className="absolute bottom-0 left-8 right-8 h-1 bg-gradient-to-r from-primary/30 to-transparent rounded-full" />
             <Link to="/dashboard" className="flex items-center" onClick={onClose}>
-              <AppLogo className="scale-125 origin-left" />
+              <img
+                src="/logo-header.webp"
+                onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => { e.currentTarget.src = '/logo.png'; }}
+                alt="GrassRoots Mowing Co"
+                className="h-10 w-auto object-contain scale-125 origin-left"
+              />
             </Link>
             <button onClick={onClose} className="lg:hidden p-2 text-clay hover:bg-ochre/10 rounded-lg">
               <X className="h-5 w-5" />

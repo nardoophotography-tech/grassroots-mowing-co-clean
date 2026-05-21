@@ -203,6 +203,78 @@ export function SystemSettings() {
                 />
               </div>
             </div>
+
+            <Card className="mt-6 border-border shadow-sm">
+              <CardHeader className="bg-surface border-b border-border/50">
+                <CardTitle className="text-sm font-black uppercase italic tracking-widest">Designer Details</CardTitle>
+                <CardDescription className="text-xs text-clay/60">Record the artist and licensing details for your logo and artwork.</CardDescription>
+              </CardHeader>
+              <CardContent className="p-6 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-clay italic tracking-widest">Designer / Artist Name</Label>
+                    <Input
+                      value={formData.designerDetails?.name || ''}
+                      onChange={(e) => setFormData({ ...formData, designerDetails: { ...(formData.designerDetails || {}), name: e.target.value } })}
+                      className="bg-white border-border shadow-sm rounded-xl font-bold italic"
+                      placeholder="Artist Name"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-clay italic tracking-widest">Design Studio / Business Name</Label>
+                    <Input
+                      value={formData.designerDetails?.studio || ''}
+                      onChange={(e) => setFormData({ ...formData, designerDetails: { ...(formData.designerDetails || {}), studio: e.target.value } })}
+                      className="bg-white border-border shadow-sm rounded-xl font-bold italic"
+                      placeholder="Studio or Business"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-clay italic tracking-widest">Artwork Story</Label>
+                  <Textarea
+                    value={formData.designerDetails?.story || ''}
+                    onChange={(e) => setFormData({ ...formData, designerDetails: { ...(formData.designerDetails || {}), story: e.target.value } })}
+                    className="min-h-[120px] bg-slate-50/50 border-border font-medium italic"
+                    placeholder="Describe the inspiration and meaning behind the artwork..."
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-clay italic tracking-widest">Logo Usage Notes</Label>
+                  <Textarea
+                    value={formData.designerDetails?.usageNotes || ''}
+                    onChange={(e) => setFormData({ ...formData, designerDetails: { ...(formData.designerDetails || {}), usageNotes: e.target.value } })}
+                    className="min-h-[80px] bg-slate-50/50 border-border font-medium italic"
+                    placeholder="Guidelines for logo usage, clear space, colour variants..."
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-clay italic tracking-widest">Website / Social Link</Label>
+                    <Input
+                      value={formData.designerDetails?.website || ''}
+                      onChange={(e) => setFormData({ ...formData, designerDetails: { ...(formData.designerDetails || {}), website: e.target.value } })}
+                      className="bg-white border-border shadow-sm rounded-xl font-bold italic"
+                      placeholder="https://example.com"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-clay italic tracking-widest">Permission / License Notes</Label>
+                    <Input
+                      value={formData.designerDetails?.permissionNotes || ''}
+                      onChange={(e) => setFormData({ ...formData, designerDetails: { ...(formData.designerDetails || {}), permissionNotes: e.target.value } })}
+                      className="bg-white border-border shadow-sm rounded-xl font-bold italic"
+                      placeholder="License or permission summary"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </section>
 
           {/* Communication Section */}
