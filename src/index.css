@@ -65,3 +65,26 @@
     line-height: 0.85;
   }
 }
+html,
+body,
+#root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  position: relative;
+  overscroll-behavior-x: none;
+}
+
+img,
+svg,
+canvas,
+video {
+  max-width: 100%;
+}

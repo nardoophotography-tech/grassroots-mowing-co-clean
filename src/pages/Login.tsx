@@ -31,17 +31,20 @@ export const Login = () => {
   const [showPasscodeSetup, setShowPasscodeSetup] = React.useState(false);
   const [unauthorized, setUnauthorized] = React.useState(false);
 
-  const themeVariants: Record<string, {
-    bg: string;
-    accent: string;
-    hoverAccent: string;
-    border: string;
-    text: string;
-    heading: string;
-    subheading: string;
-    iconColor: string;
-    cardBg?: string;
-  }> = {
+  const themeVariants: Record<
+    string,
+    {
+      bg: string;
+      accent: string;
+      hoverAccent: string;
+      border: string;
+      text: string;
+      heading: string;
+      subheading: string;
+      iconColor: string;
+      cardBg?: string;
+    }
+  > = {
     admin: {
       bg: 'bg-red-50',
       accent: 'bg-deep-red',
@@ -204,9 +207,9 @@ export const Login = () => {
 
   return (
     <div
-      className={`min-h-dvh w-full max-w-[100vw] overflow-x-hidden ${currentTheme.bg} transition-colors duration-500`}
+      className={`min-h-dvh w-screen max-w-full overflow-x-hidden ${currentTheme.bg} transition-colors duration-500`}
     >
-      <div className="relative min-h-dvh w-full max-w-[100vw] overflow-x-hidden flex flex-col items-center justify-start sm:justify-center px-4 py-6 sm:p-6">
+      <div className="relative min-h-dvh w-full max-w-full overflow-x-hidden flex flex-col items-center justify-start sm:justify-center px-3 py-6 sm:p-6">
         <div className="absolute top-3 left-3 flex gap-2 z-20">
           <Button
             variant="ghost"
@@ -254,7 +257,9 @@ export const Login = () => {
         <div className="w-full max-w-md text-center mb-5 mt-14 sm:mt-0 relative z-10">
           <GrassRootsLogo className="h-14 sm:h-16 w-auto mx-auto mb-3" />
 
-          <h1 className={`text-2xl sm:text-3xl font-serif font-black ${currentTheme.text} uppercase tracking-tighter leading-tight`}>
+          <h1
+            className={`text-2xl sm:text-3xl font-serif font-black ${currentTheme.text} uppercase tracking-tighter leading-tight`}
+          >
             {currentTheme.heading}
           </h1>
 
@@ -273,7 +278,9 @@ export const Login = () => {
           } rounded-[28px] sm:rounded-[40px] overflow-hidden transition-all border-x border-b border-white/10`}
         >
           <CardHeader className="text-center pt-7 sm:pt-8">
-            <CardTitle className={`text-lg sm:text-xl font-serif ${currentTheme.text} flex items-center justify-center gap-2 italic`}>
+            <CardTitle
+              className={`text-lg sm:text-xl font-serif ${currentTheme.text} flex items-center justify-center gap-2 italic`}
+            >
               Secure Gateway
             </CardTitle>
           </CardHeader>
@@ -300,7 +307,11 @@ export const Login = () => {
                     />
                   </div>
 
-                  <h3 className={`font-bold ${intendedRole === 'client' ? 'text-white' : 'text-amber-900'} mb-2`}>
+                  <h3
+                    className={`font-bold ${
+                      intendedRole === 'client' ? 'text-white' : 'text-amber-900'
+                    } mb-2`}
+                  >
                     Entry Restricted
                   </h3>
 
@@ -356,7 +367,7 @@ export const Login = () => {
                       <Input
                         id="displayName"
                         placeholder="Full Name"
-                        className={`pl-10 h-13 sm:h-14 rounded-2xl ${
+                        className={`pl-10 h-14 rounded-2xl ${
                           intendedRole === 'client'
                             ? 'bg-stone-800 border-stone-700 text-white placeholder:text-stone-600'
                             : 'bg-white border-ochre/10'
@@ -388,7 +399,7 @@ export const Login = () => {
                       id="email"
                       type="email"
                       placeholder="name@grassroots.com"
-                      className={`pl-10 h-13 sm:h-14 rounded-2xl ${
+                      className={`pl-10 h-14 rounded-2xl ${
                         intendedRole === 'client'
                           ? 'bg-stone-800 border-stone-700 text-white placeholder:text-stone-600'
                           : 'bg-white border-ochre/10'
@@ -419,7 +430,7 @@ export const Login = () => {
                       id="password"
                       type="password"
                       placeholder="••••••••"
-                      className={`pl-10 h-13 sm:h-14 rounded-2xl ${
+                      className={`pl-10 h-14 rounded-2xl ${
                         intendedRole === 'client'
                           ? 'bg-stone-800 border-stone-700 text-white placeholder:text-stone-600'
                           : 'bg-white border-ochre/10'
@@ -470,7 +481,7 @@ export const Login = () => {
                 <Button
                   type="button"
                   variant="outline"
-                  className={`w-full h-13 sm:h-14 rounded-2xl font-bold ${
+                  className={`w-full h-14 rounded-2xl font-bold ${
                     intendedRole === 'client'
                       ? 'border-stone-700 text-stone-300 hover:bg-stone-800'
                       : 'border-ochre/20 text-charcoal hover:bg-ochre/5'
