@@ -63,6 +63,8 @@ import { AutomationsManager } from '@/pages/admin/AutomationsManager';
 import { AssetManager } from '@/pages/admin/AssetManager';
 import { SystemSettings } from '@/pages/admin/SystemSettings';
 import { AuditLogs } from '@/pages/admin/AuditLogs';
+import { Privacy } from '@/pages/Privacy';
+import { Terms } from '@/pages/Terms';
 
 import { NavItem, GlobalHeader, Sidebar } from '@/components/Navigation';
 
@@ -192,6 +194,8 @@ const AppContent = () => {
         <Route path="/quote/:jobId" element={<QuoteApproval />} />
         <Route path="/booking-success" element={<BookingSuccess />} />
         <Route path="/packages" element={<Packages />} />
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/terms" element={<Terms />} />
         <Route path="/pay/:id" element={<InvoicePayment />} />
         <Route path="/tech" element={<RoleGuard roles={['admin', 'staff']}><Layout><TechnicianDashboard /></Layout></RoleGuard>} />
         

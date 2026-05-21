@@ -576,31 +576,66 @@ export const LandingPage = () => {
         </div>
       </section>
 
-      <footer className="bg-slate-950 text-slate-400 py-12 px-6 border-t border-white/5">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+      <footer className="bg-slate-950 py-12 px-6 border-t border-white/5">
+        <div className="max-w-7xl mx-auto space-y-12">
+          {/* Main footer grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+            {/* Logo & Copyright */}
             <div className="flex flex-col items-center md:items-start gap-4">
-              <AppLogo className="h-8 w-auto" textClassName="text-white" />
-              <p className="text-[8px] font-bold uppercase tracking-[0.3em] opacity-50 italic">© {new Date().getFullYear()} {settings?.businessName?.toUpperCase() || 'GRASSROOTS MOWING CO.'}</p>
+              <img
+                src="/logo-header.webp"
+                onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => { e.currentTarget.src = '/logo.png'; }}
+                alt="GrassRoots Mowing Co"
+                className="h-10 w-auto object-contain"
+              />
+              <p className="text-slate-300 text-[8px] font-bold uppercase tracking-[0.3em] italic">© {new Date().getFullYear()} {settings?.businessName?.toUpperCase() || 'GRASSROOTS MOWING CO.'}</p>
             </div>
-            
-            <div className="flex gap-12">
-              <div>
-                <p className="text-white font-black uppercase tracking-widest text-[9px] mb-4 italic">HQ Contact</p>
-                <p className="text-[9px] font-bold uppercase tracking-widest group cursor-pointer">
-                  <Mail className="inline h-3 w-3 mr-2 text-primary" /> {settings?.businessEmail || 'ops@grassrootsmowing.co'}
-                </p>
-                <p className="text-[9px] font-bold uppercase tracking-widest mt-2 group cursor-pointer">
-                  <Phone className="inline h-3 w-3 mr-2 text-primary" /> {settings?.businessPhone || '0400 000 000'}
-                </p>
+
+            {/* Contact Info */}
+            <div>
+              <p className="text-white font-black uppercase tracking-widest text-[9px] mb-4 italic">HQ Contact</p>
+              <p className="text-slate-200 text-[9px] font-bold uppercase tracking-widest group cursor-pointer">
+                <Mail className="inline h-3 w-3 mr-2 text-primary" /> {settings?.businessEmail || 'ops@grassrootsmowing.co'}
+              </p>
+              <p className="text-slate-200 text-[9px] font-bold uppercase tracking-widest mt-2 group cursor-pointer">
+                <Phone className="inline h-3 w-3 mr-2 text-primary" /> {settings?.businessPhone || '0400 000 000'}
+              </p>
+            </div>
+
+            {/* Legal Links */}
+            <div>
+              <p className="text-white font-black uppercase tracking-widest text-[9px] mb-4 italic">Legal</p>
+              <div className="flex flex-col gap-2">
+                <a href="/privacy" className="text-slate-200 text-[9px] font-bold uppercase tracking-widest hover:text-primary transition-colors">
+                  Privacy
+                </a>
+                <a href="/terms" className="text-slate-200 text-[9px] font-bold uppercase tracking-widest hover:text-primary transition-colors">
+                  Terms
+                </a>
               </div>
+            </div>
+          </div>
+
+          {/* Designer Details Section */}
+          <div className="border-t border-white/10 pt-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div>
-                <p className="text-white font-black uppercase tracking-widest text-[9px] mb-4 italic">Protocol</p>
-                <div className="flex gap-4 text-[9px] font-bold uppercase tracking-widest">
-                  <a href="#" className="hover:text-primary transition-colors">Privacy</a>
-                  <a href="#" className="hover:text-primary transition-colors">Terms</a>
+                <h3 className="text-slate-100 font-black uppercase tracking-widest text-[10px] mb-3 italic">Artwork / Designer Details</h3>
+                <div className="space-y-2 text-slate-300 text-[8px] font-medium leading-relaxed uppercase tracking-tight italic">
+                  <p><span className="font-black text-slate-100">Designer / Artist:</span> D. Nardoo</p>
+                  <p><span className="font-black text-slate-100">Design Studio:</span> Nardoo Photography</p>
                 </div>
               </div>
+              <div>
+                <p className="text-slate-300 text-[8px] font-medium leading-relaxed italic mb-2">
+                  <span className="font-black text-slate-100 uppercase tracking-tight">Artwork Story:</span> Contemporary GrassRoots Mowing Co artwork inspired by SunRock's artwork and the natural landscapes of country. It represents connection to land, community, growth, hard work, family, and respect for Traditional Owners.
+                </p>
+                <p className="text-slate-300 text-[8px] font-medium leading-relaxed italic">
+                  <span className="font-black text-slate-100 uppercase tracking-tight">Usage:</span> Approved for GrassRoots Mowing Co brand use across website, app, client documents, social media, signage, and marketing.
+                </p>
+              </div>
             </div>
+          </div>
         </div>
       </footer>
 
