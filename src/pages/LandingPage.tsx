@@ -275,7 +275,7 @@ export const LandingPage = () => {
 
                   <Button
                     variant="ghost"
-                    onClick={() => navigate('/login')}
+                    onClick={() => navigate('/login?intendedRole=admin&redirect=/dashboard')}
                     className="h-10 px-4 rounded-full bg-primary/10 text-primary border border-primary/20 hover:bg-primary hover:text-white text-[10px] font-black uppercase tracking-widest shadow-sm"
                   >
                     Secure Service Hub
@@ -286,7 +286,7 @@ export const LandingPage = () => {
                 <div className="sm:hidden w-full mt-2 flex flex-col gap-2">
                   <Button
                     variant="ghost"
-                    onClick={() => navigate('/login')}
+                    onClick={() => navigate('/login?intendedRole=admin&redirect=/dashboard')}
                     className="w-full h-10 px-4 rounded-2xl bg-primary/10 text-primary border border-primary/20 hover:bg-primary hover:text-white text-[12px] font-black uppercase tracking-wider shadow-sm"
                   >
                     Secure Service Hub
