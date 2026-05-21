@@ -37,6 +37,28 @@ const updateClientAccountStatus = async (clientId: string) => {
   await mythosUpdateDoc(doc(db, 'clients', clientId), { accountStatus: status }, updateDoc);
 };
 
+const removeUndefinedFields = (value: any): any => {
+  if (value === undefined) return undefined;
+  if (value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) {
+    return value
+      .map(removeUndefinedFields)
+      .filter(item => item !== undefined);
+  }
+
+  return Object.entries(value).reduce((acc, [key, fieldValue]) => {
+    const cleanedValue = removeUndefinedFields(fieldValue);
+    if (cleanedValue !== undefined) {
+      acc[key] = cleanedValue;
+    }
+    return acc;
+  }, {} as any);
+};
+
+const sanitizeFirestorePayload = <T extends Record<string, any>>(payload: T): T => {
+  return removeUndefinedFields(payload) as T;
+};
+
 export function useJobs() {
   const [jobs, setJobs] = React.useState<Job[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -793,21 +815,19 @@ export function useClients() {
   const addClient = async (clientData: Omit<Client, 'id' | 'createdAt' | 'accountStatus'>, id?: string) => {
     const path = 'clients';
     try {
-      if (id) {
-        await setDoc(doc(db, path, id), {
-          ...clientData,
-          clientType: clientData.clientType || 'one-off',
-          accountStatus: 'up-to-date',
-          createdAt: Date.now()
-        });
-        return id;
-      }
-      const docRef = await mythosAddDoc(collection(db, path), {
+      const clientPayload = sanitizeFirestorePayload({
         ...clientData,
         clientType: clientData.clientType || 'one-off',
         accountStatus: 'up-to-date',
-        createdAt: Date.now()
-      }, addDoc);
+        createdAt: Date.now(),
+        agencyName: clientData.agencyName || 'GrassRoots Mowing Co'
+      });
+
+      if (id) {
+        await setDoc(doc(db, path, id), clientPayload);
+        return id;
+      }
+      const docRef = await mythosAddDoc(collection(db, path), clientPayload, addDoc);
       return docRef.id;
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, path);
@@ -817,10 +837,11 @@ export function useClients() {
   const updateClient = async (id: string, clientData: Partial<Client>) => {
     const path = `clients/${id}`;
     try {
-      await mythosUpdateDoc(doc(db, 'clients', id), {
+      const updatedPayload = sanitizeFirestorePayload({
         ...clientData,
         updatedAt: Date.now()
-      }, updateDoc);
+      });
+      await mythosUpdateDoc(doc(db, 'clients', id), updatedPayload, updateDoc);
       toast.success('Client updated successfully');
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, path);

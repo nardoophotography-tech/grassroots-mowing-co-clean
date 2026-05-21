@@ -109,10 +109,6 @@ export const Login = () => {
         navigate(redirect || '/dashboard');
         return;
       }
-
-      if (!profile && redirect) {
-        navigate(redirect);
-      }
     };
 
     handleRoleRedirect();
