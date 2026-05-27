@@ -1,0 +1,188 @@
+﻿import { useEffect, useState } from "react";
+import "./App.css";
+
+type BookingStatus = "Pending" | "Accepted" | "Scheduled" | "Completed" | "Cancelled";
+
+type Booking = {
+  id: string;
+  createdAt: string;
+  name: string;
+  phone: string;
+  email: string;
+  address: string;
+  suburb: string;
+  serviceType: string;
+  notes: string;
+  status: BookingStatus;
+  adminNotes: string;
+};
+
+const STORAGE_KEY = "grassroots_bookings_stage_1";
+
+const initialForm = {
+  name: "",
+  phone: "",
+  email: "",
+  address: "",
+  suburb: "Mount Isa",
+  serviceType: "Lawn mowing",
+  notes: "",
+};
+
+function App() {
+  const [page, setPage] = useState<"home" | "book" | "admin">("home");
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [form, setForm] = useState(initialForm);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) setBookings(JSON.parse(saved));
+  }, []);
+
+  function save(nextBookings: Booking[]) {
+    setBookings(nextBookings);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(nextBookings));
+  }
+
+  function submitBooking(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!form.name || !form.phone || !form.address) {
+      setMessage("Please add name, phone, and address.");
+      return;
+    }
+
+    const booking: Booking = {
+      id: `GR-${Date.now()}`,
+      createdAt: new Date().toLocaleString("en-AU"),
+      name: form.name,
+      phone: form.phone,
+      email: form.email,
+      address: form.address,
+      suburb: form.suburb,
+      serviceType: form.serviceType,
+      notes: form.notes,
+      status: "Pending",
+      adminNotes: "",
+    };
+
+    save([booking, ...bookings]);
+    setForm(initialForm);
+    setMessage("Booking submitted successfully.");
+    setPage("admin");
+  }
+
+  function updateBooking(id: string, updates: Partial<Booking>) {
+    save(bookings.map((booking) => booking.id === id ? { ...booking, ...updates } : booking));
+  }
+
+  function deleteBooking(id: string) {
+    save(bookings.filter((booking) => booking.id !== id));
+  }
+
+  return (
+    <main className="app">
+      <header className="nav">
+        <button className="brand" onClick={() => setPage("home")}>
+          GrassRoots Mowing Co
+        </button>
+        <div>
+          <button onClick={() => setPage("home")}>Home</button>
+          <button onClick={() => setPage("book")}>Book Now</button>
+          <button onClick={() => setPage("admin")}>Admin</button>
+        </div>
+      </header>
+
+      {page === "home" && (
+        <section className="hero">
+          <p className="tag">Mount Isa lawn care</p>
+          <h1>GrassRoots Mowing Co</h1>
+          <p>
+            Stage 1 booking system: customers can submit mowing requests and admin can manage bookings.
+          </p>
+          <button className="primary" onClick={() => setPage("book")}>
+            Book a mowing job
+          </button>
+        </section>
+      )}
+
+      {page === "book" && (
+        <section className="card">
+          <h1>Book a mowing service</h1>
+          {message && <p className="notice">{message}</p>}
+
+          <form onSubmit={submitBooking} className="form">
+            <input placeholder="Customer name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <input placeholder="Phone number" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            <input placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            <input placeholder="Property address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+            <select value={form.suburb} onChange={(e) => setForm({ ...form, suburb: e.target.value })}>
+              <option>Mount Isa</option>
+              <option>Mornington</option>
+              <option>Healy</option>
+              <option>Pioneer</option>
+              <option>Townview</option>
+              <option>The Gap</option>
+              <option>Winston</option>
+              <option>Miles End</option>
+            </select>
+            <select value={form.serviceType} onChange={(e) => setForm({ ...form, serviceType: e.target.value })}>
+              <option>Lawn mowing</option>
+              <option>Mowing and whipper snipping</option>
+              <option>Ride-on mowing</option>
+              <option>Yard clean-up</option>
+              <option>Regular maintenance</option>
+              <option>Quote request</option>
+            </select>
+            <textarea placeholder="Notes, access details, dogs, overgrown areas..." value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+            <button className="primary" type="submit">Submit booking</button>
+          </form>
+        </section>
+      )}
+
+      {page === "admin" && (
+        <section className="card">
+          <h1>Admin booking dashboard</h1>
+          {bookings.length === 0 && (
+            <p>No bookings yet. Create a test booking first.</p>
+          )}
+
+          <div className="list">
+            {bookings.map((booking) => (
+              <article className="booking" key={booking.id}>
+                <h2>{booking.name}</h2>
+                <p><strong>Phone:</strong> {booking.phone}</p>
+                <p><strong>Email:</strong> {booking.email || "Not supplied"}</p>
+                <p><strong>Address:</strong> {booking.address}, {booking.suburb}</p>
+                <p><strong>Service:</strong> {booking.serviceType}</p>
+                <p><strong>Notes:</strong> {booking.notes || "None"}</p>
+                <p><strong>Created:</strong> {booking.createdAt}</p>
+
+                <select value={booking.status} onChange={(e) => updateBooking(booking.id, { status: e.target.value as BookingStatus })}>
+                  <option>Pending</option>
+                  <option>Accepted</option>
+                  <option>Scheduled</option>
+                  <option>Completed</option>
+                  <option>Cancelled</option>
+                </select>
+
+                <textarea
+                  placeholder="Admin notes"
+                  value={booking.adminNotes}
+                  onChange={(e) => updateBooking(booking.id, { adminNotes: e.target.value })}
+                />
+
+                <button className="danger" onClick={() => deleteBooking(booking.id)}>
+                  Delete booking
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+    </main>
+  );
+}
+
+export default App;

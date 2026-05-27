@@ -1,0 +1,142 @@
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+
+interface Job {
+  id: number;
+  client_name: string;
+  address: string;
+  service_type: string;
+  status: string;
+  weather_status: string;
+}
+
+interface Asset {
+  id: number;
+  asset_name: string;
+  current_hours: number;
+  maintenance_interval: number;
+}
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState('dispatch');
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [fleet, setFleet] = useState<Asset[]>([]);
+  const [formData, setFormData] = useState({ name: '', address: '', service: 'Yard Restoration' });
+
+  const fetchData = async () => {
+    const jobsRes = await axios.get('/api/jobs');
+    const fleetRes = await axios.get('/api/fleet');
+    setJobs(jobsRes.data);
+    setFleet(fleetRes.data);
+  };
+
+  useEffect(() => { fetchData(); }, []);
+
+  // Actions
+  const submitBooking = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await axios.post('/api/bookings', formData);
+    setFormData({ name: '', address: '', service: 'Yard Restoration' });
+    fetchData();
+    alert('Booking submitted to dispatch!');
+  };
+
+  const checkWeather = async (id: number) => {
+    await axios.post(`/api/jobs/${id}/weather`);
+    fetchData();
+  };
+
+  const updateJobStatus = async (id: number, status: string) => {
+    await axios.post(`/api/jobs/${id}/status`, { status });
+    fetchData();
+  };
+
+  // UI Components
+  const buttonStyle = { padding: '8px 12px', background: '#2c7a3f', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginRight: '5px' };
+
+  return (
+    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px', fontFamily: 'system-ui, sans-serif', color: '#333' }}>
+      
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #2c7a3f', paddingBottom: '10px', marginBottom: '20px' }}>
+        <h1 style={{ margin: 0, color: '#2c7a3f' }}>GrassRoots Mowing Co. | Operations Hub</h1>
+        <div>
+          <button style={{...buttonStyle, background: activeTab === 'booking' ? '#1a4f27' : '#2c7a3f'}} onClick={() => setActiveTab('booking')}>Client Booking</button>
+          <button style={{...buttonStyle, background: activeTab === 'dispatch' ? '#1a4f27' : '#2c7a3f'}} onClick={() => setActiveTab('dispatch')}>Logistics & Dispatch</button>
+          <button style={{...buttonStyle, background: activeTab === 'fleet' ? '#1a4f27' : '#2c7a3f'}} onClick={() => setActiveTab('fleet')}>Fleet Tracking</button>
+        </div>
+      </div>
+
+      {/* Tab: Booking */}
+      {activeTab === 'booking' && (
+        <div style={{ maxWidth: '500px', background: '#f9f9f9', padding: '20px', borderRadius: '8px', border: '1px solid #ddd' }}>
+          <h2>New Service Request</h2>
+          <form onSubmit={submitBooking} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            <input type="text" placeholder="Client Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required style={{ padding: '10px' }}/>
+            <input type="text" placeholder="Property Address" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} required style={{ padding: '10px' }}/>
+            <select value={formData.service} onChange={e => setFormData({...formData, service: e.target.value})} style={{ padding: '10px' }}>
+              <option>Yard Restoration</option>
+              <option>Project #156 Deep Clean</option>
+              <option>Routine Maintenance</option>
+            </select>
+            <button type="submit" style={{...buttonStyle, padding: '12px', fontSize: '16px'}}>Submit Booking</button>
+          </form>
+        </div>
+      )}
+
+      {/* Tab: Dispatch */}
+      {activeTab === 'dispatch' && (
+        <div>
+          <h2>Active Queue (Progress toward 156 target)</h2>
+          <div style={{ display: 'grid', gap: '15px' }}>
+            {jobs.map((job) => (
+              <div key={job.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f9f9f9', padding: '15px', borderRadius: '8px', borderLeft: job.status === 'Completed' ? '5px solid #aaa' : '5px solid #2c7a3f' }}>
+                <div>
+                  <h3 style={{ margin: '0 0 5px 0' }}>Job #{job.id} - {job.client_name}</h3>
+                  <p style={{ margin: 0, color: '#666' }}>📍 {job.address} | 🛠️ {job.service_type}</p>
+                  <p style={{ margin: '5px 0 0 0', fontWeight: 'bold', color: job.weather_status.includes('Rain') ? '#d9534f' : '#333' }}>
+                    Status: {job.status} | Weather: {job.weather_status}
+                  </p>
+                </div>
+                {job.status !== 'Completed' && (
+                  <div>
+                    <button style={{...buttonStyle, background: '#f0ad4e', color: '#000'}} onClick={() => checkWeather(job.id)}>Run Weather Check</button>
+                    {job.weather_status === 'Clear Skies' && job.status === 'Pending' && (
+                      <button style={buttonStyle} onClick={() => updateJobStatus(job.id, 'In Progress')}>Deploy Crew</button>
+                    )}
+                    {job.status === 'In Progress' && (
+                      <button style={{...buttonStyle, background: '#0275d8'}} onClick={() => updateJobStatus(job.id, 'Completed')}>Mark Completed</button>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Tab: Fleet */}
+      {activeTab === 'fleet' && (
+        <div>
+          <h2>Asset & Consumable Tracking</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+            {fleet.map((asset) => {
+              const needsMaintenance = asset.current_hours >= asset.maintenance_interval;
+              return (
+                <div key={asset.id} style={{ background: '#f9f9f9', padding: '20px', borderRadius: '8px', border: needsMaintenance ? '2px solid #d9534f' : '1px solid #ddd' }}>
+                  <h3 style={{ margin: '0 0 10px 0' }}>{asset.asset_name}</h3>
+                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: needsMaintenance ? '#d9534f' : '#2c7a3f' }}>
+                    {asset.current_hours} / {asset.maintenance_interval} Hrs
+                  </div>
+                  <p style={{ margin: '5px 0 0 0', color: '#666' }}>Until Next Service Protocol</p>
+                  {needsMaintenance && <p style={{ color: '#d9534f', fontWeight: 'bold' }}>⚠️ MAINTENANCE REQUIRED - Order Consumables</p>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}

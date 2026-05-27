@@ -1,0 +1,57 @@
+﻿rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isValidPublicBooking() {
+      return request.resource.data.keys().hasAny([
+        'name',
+        'phone',
+        'address',
+        'suburb',
+        'serviceType',
+        'createdAt'
+      ])
+      && request.resource.data.name is string
+      && request.resource.data.phone is string
+      && request.resource.data.address is string;
+    }
+
+    // Public customers can CREATE bookings only.
+    // Admin must be signed in to read, edit, or delete bookings.
+    match /bookings/{bookingId} {
+      allow create: if isValidPublicBooking();
+      allow read, update, delete: if signedIn();
+    }
+
+    // Business data is admin-only.
+    match /inventory/{itemId} {
+      allow read, write: if signedIn();
+    }
+
+    match /equipment/{itemId} {
+      allow read, write: if signedIn();
+    }
+
+    match /safetyRecords/{recordId} {
+      allow read, write: if signedIn();
+    }
+
+    match /settings/{settingId} {
+      allow read, write: if signedIn();
+    }
+
+    match /pricing/{pricingId} {
+      allow read, write: if signedIn();
+    }
+
+    // Deny everything else.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

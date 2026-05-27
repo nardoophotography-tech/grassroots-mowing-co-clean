@@ -3,8 +3,8 @@ import { motion, HTMLMotionProps } from 'motion/react';
 import { cn } from '@/lib/utils';
 
 interface ButtonProps extends HTMLMotionProps<'button'> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'success';
-  size?: 'sm' | 'md' | 'lg' | 'icon';
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'success' | 'link' | 'white' | 'destructive' | 'default';
+  size?: 'sm' | 'md' | 'lg' | 'icon' | 'default';
   isLoading?: boolean;
 }
 
@@ -17,6 +17,10 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       ghost: 'bg-transparent hover:bg-secondary/10 text-secondary hover:text-secondary transition-all duration-300 font-bold',
       danger: 'bg-danger text-white hover:bg-danger/90 shadow-lg shadow-danger/20 transition-all duration-300 font-bold',
       success: 'bg-[#1f4d3a] text-white hover:bg-opacity-90 shadow-lg transition-all duration-300 font-bold',
+      link: 'bg-transparent text-secondary underline-offset-4 hover:underline hover:text-secondary/80 transition-all duration-200',
+      white: 'bg-white text-secondary border border-gray-200 hover:bg-gray-100 transition-all duration-200',
+      destructive: 'bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-200 transition-all duration-300 font-bold',
+      default: 'bg-secondary text-white hover:bg-secondary/90 shadow-lg shadow-secondary/20 hover:shadow-secondary/30 transition-all duration-300 font-bold',
     };
 
     const sizes = {
@@ -24,6 +28,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       md: 'px-6 py-3 text-xs font-black uppercase tracking-[0.1em]',
       lg: 'px-10 py-4 text-sm font-black uppercase tracking-[0.2em] italic',
       icon: 'p-3',
+      default: 'px-6 py-3 text-xs font-black uppercase tracking-[0.1em]',
     };
 
     return (

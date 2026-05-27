@@ -45,7 +45,7 @@ const clientSchema = z.object({
   phone: z.string().min(1, 'Phone is required'),
   email: z.string().email('Invalid email').or(z.literal('')),
   notes: z.string().optional(),
-  clientType: z.enum(['one_off', 'returning', 'premium', 'asset_management']).optional(),
+  clientType: z.enum(['one_off', 'returning', 'premium', 'asset_management', 'real-estate']).optional(),
   organisationName: z.string().optional(),
 });
 

@@ -1,0 +1,491 @@
+:root {
+  /* GrassRoots Mowing Co. - Mt Isa Brand Palette */
+  --grassroots-ochre: #C05A30; /* The red dirt */
+  --foliage-green: #4A5D23;    /* The bushland */
+  --grassroots-dust: #E2C792;  /* Dry grass / sand */
+  --off-white-paper: #F8F5F0;  /* Clean, non-straining background */
+  --charcoal-grit: #2A2A2A;    /* Strong, legible text */
+  --pure-white: #FFFFFF;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--off-white-paper);
+  color: var(--charcoal-grit);
+  line-height: 1.6;
+}
+
+/* 1. The Global Container 
+*/
+.grassroots-app-container {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 4rem 2rem;
+  overflow-x: hidden;
+}
+
+/* 2. The Background Art Layers 
+*/
+.artwork-root-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  object-fit: cover;
+  opacity: 0.15;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.artwork-grass-clippings {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100vw;
+  height: 25vh;
+  object-fit: cover;
+  opacity: 0.9;
+  z-index: 50;
+  pointer-events: none;
+}
+
+/* 3. The Main Project #156 Assessment Card 
+*/
+.ui-booking-card {
+  position: relative;
+  z-index: 10;
+  background-color: var(--pure-white);
+  max-width: 800px;
+  width: 100%;
+  border-radius: 8px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.12);
+  border-top: 8px solid var(--foliage-green);
+  padding-bottom: 0;
+  overflow: visible;
+}
+
+/* 4. Header & Typography 
+*/
+.grassroots-header {
+  padding: 3rem 3rem 1.5rem 3rem;
+  border-bottom: 2px solid var(--grassroots-dust);
+}
+
+.font-block-display {
+  font-size: 2.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: -1px;
+  color: var(--charcoal-grit);
+  margin-bottom: 0.2rem;
+}
+
+.font-block-subtitle {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--grassroots-ochre);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+
+/* 5. Dave's Personal Touches (The Cutout & Badge) 
+*/
+.dave-cutout {
+  position: absolute;
+  bottom: -15px;
+  left: -260px;
+  width: 340px;
+  z-index: 30;
+  pointer-events: none;
+  filter: drop-shadow(-12px 15px 25px rgba(0,0,0,0.3));
+}
+
+.dave-intro-badge {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  background-color: var(--grassroots-dust);
+  border-left: 5px solid var(--grassroots-ochre);
+  border-radius: 4px;
+}
+
+.dave-intro-badge p {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--charcoal-grit);
+  margin: 0;
+}
+
+/* 6. The Form Interface 
+*/
+.project-details {
+  padding: 2.5rem 3rem;
+}
+
+.project-156-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.8rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.form-group label {
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: var(--charcoal-grit);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.project-156-form input,
+.project-156-form select {
+  padding: 1.2rem;
+  border: 2px solid var(--grassroots-dust);
+  border-radius: 4px;
+  font-size: 1.05rem;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  background-color: var(--off-white-paper);
+  color: var(--charcoal-grit);
+  font-weight: 500;
+}
+
+.project-156-form input:focus,
+.project-156-form select:focus {
+  outline: none;
+  border-color: var(--foliage-green);
+  background-color: var(--pure-white);
+  box-shadow: 0 0 0 4px rgba(74, 93, 35, 0.1);
+}
+
+.project-156-form select[multiple] {
+  min-height: 140px;
+}
+
+/* Submit Button */
+.project-156-form button {
+  margin-top: 1rem;
+  padding: 1.2rem;
+  border: none;
+  border-radius: 4px;
+  color: var(--pure-white);
+  font-size: 1.1rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.project-156-form button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px rgba(0,0,0,0.15);
+  filter: brightness(1.1);
+}
+
+.project-156-form button:disabled {
+  opacity: 0.9;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* 7. Mobile & Tablet Responsiveness 
+*/
+@media (max-width: 1100px) {
+  .dave-cutout {
+    position: static;
+    display: block;
+    width: 250px;
+    margin: 0 auto -30px auto;
+  }
+  
+  .ui-booking-card {
+    margin-top: 2rem;
+  }
+
+  .operator-bio {
+    flex-direction: column;
+    text-align: center;
+  }
+}
+
+@media (max-width: 600px) {
+  .grassroots-header, .project-details {
+    padding: 1.5rem;
+  }
+  
+  .font-block-display {
+    font-size: 2rem;
+  }
+}
+/* =========================================================
+   GrassRoots Firebase Job Dashboard
+   ========================================================= */
+
+.dashboard-mode {
+  align-items: flex-start;
+  padding: 2rem;
+}
+
+.grassroots-dashboard-shell {
+  position: relative;
+  z-index: 10;
+  width: min(1180px, 100%);
+  margin: 0 auto;
+}
+
+.dashboard-hero {
+  background:
+    linear-gradient(135deg, rgba(42, 42, 42, 0.94), rgba(74, 93, 35, 0.92)),
+    var(--charcoal-grit);
+  color: var(--pure-white);
+  border-radius: 18px;
+  padding: 2rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 2rem;
+  align-items: center;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(226, 199, 146, 0.4);
+}
+
+.eyebrow {
+  color: var(--grassroots-dust);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 800;
+  margin-bottom: 0.6rem;
+}
+
+.dashboard-hero h1 {
+  font-size: clamp(2.2rem, 5vw, 4.5rem);
+  line-height: 0.95;
+  text-transform: uppercase;
+  letter-spacing: -0.05em;
+  margin-bottom: 1rem;
+}
+
+.hero-copy {
+  max-width: 720px;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 1.05rem;
+}
+
+.hero-badge {
+  background: var(--off-white-paper);
+  color: var(--charcoal-grit);
+  border-radius: 14px;
+  padding: 1rem 1.2rem;
+  min-width: 210px;
+  border-left: 7px solid var(--grassroots-ochre);
+}
+
+.hero-badge span {
+  display: block;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  font-weight: 800;
+  color: var(--foliage-green);
+}
+
+.hero-badge strong {
+  font-size: 1.3rem;
+}
+
+.dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 1.2rem 0;
+}
+
+.dashboard-stats article {
+  background: var(--pure-white);
+  border-radius: 14px;
+  padding: 1.4rem;
+  border-top: 5px solid var(--grassroots-ochre);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+}
+
+.dashboard-stats span {
+  display: block;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 800;
+  color: var(--foliage-green);
+}
+
+.dashboard-stats strong {
+  display: block;
+  font-size: 2.4rem;
+  line-height: 1;
+  margin-top: 0.4rem;
+}
+
+.dashboard-controls {
+  background: rgba(248, 245, 240, 0.94);
+  border: 1px solid rgba(192, 90, 48, 0.2);
+  border-radius: 14px;
+  padding: 1.2rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1.2rem;
+}
+
+.dashboard-controls h2 {
+  text-transform: uppercase;
+  letter-spacing: -0.03em;
+  font-size: 1.6rem;
+}
+
+.dashboard-controls p {
+  color: rgba(42, 42, 42, 0.72);
+}
+
+.dashboard-controls select {
+  border: 2px solid var(--grassroots-dust);
+  background: var(--pure-white);
+  border-radius: 10px;
+  padding: 0.8rem 1rem;
+  font-weight: 800;
+  color: var(--charcoal-grit);
+}
+
+.dashboard-message,
+.dashboard-error {
+  background: var(--pure-white);
+  border-radius: 14px;
+  padding: 1.4rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+}
+
+.dashboard-error {
+  border-left: 7px solid #b42318;
+}
+
+.job-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1rem;
+}
+
+.job-card {
+  background: var(--pure-white);
+  border-radius: 16px;
+  padding: 1.2rem;
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.11);
+  border: 1px solid rgba(226, 199, 146, 0.9);
+}
+
+.job-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  border-bottom: 2px solid var(--grassroots-dust);
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+}
+
+.job-card h3 {
+  font-size: 1.35rem;
+  color: var(--charcoal-grit);
+}
+
+.job-card-top p {
+  color: rgba(42, 42, 42, 0.72);
+  font-weight: 600;
+}
+
+.status-pill {
+  border-radius: 999px;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  background: var(--grassroots-dust);
+  color: var(--charcoal-grit);
+  white-space: nowrap;
+}
+
+.status-approved,
+.status-paid,
+.status-completed {
+  background: rgba(74, 93, 35, 0.14);
+  color: var(--foliage-green);
+}
+
+.status-pending,
+.status-scheduled {
+  background: rgba(192, 90, 48, 0.14);
+  color: var(--grassroots-ochre);
+}
+
+.job-detail-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.job-detail-list p {
+  color: rgba(42, 42, 42, 0.82);
+}
+
+.job-detail-list strong {
+  color: var(--charcoal-grit);
+}
+
+.job-card-footer {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(226, 199, 146, 0.8);
+  display: grid;
+  gap: 0.3rem;
+}
+
+.job-card-footer span {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  font-weight: 900;
+  color: var(--foliage-green);
+}
+
+.job-card-footer code {
+  white-space: normal;
+  word-break: break-word;
+  color: rgba(42, 42, 42, 0.75);
+}
+
+@media (max-width: 760px) {
+  .dashboard-mode {
+    padding: 1rem;
+  }
+
+  .dashboard-hero,
+  .dashboard-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dashboard-stats {
+    grid-template-columns: 1fr;
+  }
+}

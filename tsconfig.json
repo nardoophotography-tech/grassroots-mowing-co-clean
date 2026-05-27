@@ -23,5 +23,6 @@
     "allowImportingTsExtensions": true,
     "noEmit": true,
     "types": ["vite/client", "node", "google.maps"]
-  }
+  },
+  "exclude": ["node_modules", "dist", "served_LandingPage.tsx"]
 }

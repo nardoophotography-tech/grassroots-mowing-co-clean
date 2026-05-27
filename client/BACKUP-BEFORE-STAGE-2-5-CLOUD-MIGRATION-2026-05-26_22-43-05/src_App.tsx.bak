@@ -1,0 +1,1802 @@
+﻿import { useEffect, useMemo, useRef, useState } from "react";
+import "./App.css";
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut, type User } from "firebase/auth";
+import { auth, firebaseEnabled, firebaseModeLabel } from "./firebase";
+import { addRecord, deleteRecord, firebaseStatusText, loadCollection, saveRecord, usingFirebaseData } from "./cloudStore";
+
+type Page =
+  | "login"
+  | "dashboard"
+  | "book"
+  | "bookings"
+  | "field"
+  | "schedule"
+  | "clients"
+  | "quotes"
+  | "invoices"
+  | "reports"
+  | "messages"
+  | "pricing"
+  | "equipment"
+  | "inventory"
+  | "safety"
+  | "data"
+  | "settings"
+  | "diagnostics"
+  | "automation";
+
+type BookingStatus =
+  | "Pending"
+  | "Accepted"
+  | "Quoted"
+  | "Scheduled"
+  | "In Progress"
+  | "Completed"
+  | "Cancelled";
+
+type PaymentStatus = "Unpaid" | "Deposit Paid" | "Paid" | "Overdue";
+type Priority = "Low" | "Normal" | "High" | "Urgent";
+
+type Booking = {
+  id: string;
+  createdAt: string;
+  name: string;
+  phone: string;
+  email: string;
+  address: string;
+  suburb: string;
+  propertyType: string;
+  lawnSize: string;
+  serviceType: string;
+  addOns: string[];
+  preferredDate: string;
+  preferredTime: string;
+  accessNotes: string;
+  dogWarning: string;
+  frequency: string;
+  estimatedPrice: number;
+  finalPrice: number;
+  status: BookingStatus;
+  paymentStatus: PaymentStatus;
+  priority: Priority;
+  assignedDateTime: string;
+  adminNotes: string;
+  beforePhotoNote: string;
+  afterPhotoNote: string;
+  completionNotes: string;
+  checklist: {
+    safetyChecked: boolean;
+    beforePhotos: boolean;
+    edgesDone: boolean;
+    mowingDone: boolean;
+    blowerDone: boolean;
+    wasteRemoved: boolean;
+    afterPhotos: boolean;
+    customerNotified: boolean;
+  };
+};
+
+type InventoryItem = {
+  id: string;
+  name: string;
+  category: string;
+  currentQty: number;
+  minimumQty: number;
+  unit: string;
+  notes: string;
+};
+
+type EquipmentItem = {
+  id: string;
+  name: string;
+  type: string;
+  status: "Ready" | "Needs service" | "Out of action";
+  hours: number;
+  nextServiceHours: number;
+  lastService: string;
+  notes: string;
+};
+
+type SafetyRecord = {
+  id: string;
+  createdAt: string;
+  type: string;
+  title: string;
+  location: string;
+  notes: string;
+  status: "Open" | "Reviewed" | "Closed";
+};
+
+type BusinessSettings = {
+  businessName: string;
+  phone: string;
+  email: string;
+  town: string;
+  serviceAreasText: string;
+  defaultDepositPercent: number;
+  quoteTerms: string;
+  invoiceTerms: string;
+};
+
+type PricingSettings = {
+  small: number;
+  medium: number;
+  large: number;
+  rideOn: number;
+  whipperMultiplier: number;
+  rideOnMultiplier: number;
+  overgrownMultiplier: number;
+  regularDiscountMultiplier: number;
+  greenWaste: number;
+  edging: number;
+  weedControl: number;
+  blower: number;
+  photos: number;
+  extraWhipper: number;
+};
+
+const BOOKINGS_KEY = "grassroots_stage_1_99_bookings";
+const INVENTORY_KEY = "grassroots_stage_1_99_inventory";
+const SAFETY_KEY = "grassroots_stage_1_99_safety";
+const SETTINGS_KEY = "grassroots_stage_1_99_settings";
+const PRICING_KEY = "grassroots_stage_1_99_pricing";
+const EQUIPMENT_KEY = "grassroots_stage_1_99_equipment";
+
+const defaultSettings: BusinessSettings = {
+  businessName: "GrassRoots Mowing Co",
+  phone: "",
+  email: "",
+  town: "Mount Isa",
+  serviceAreasText: "Mount Isa, Mornington, Healy, Pioneer, Townview, Menzies, The Gap, Winston, Miles End, Parkside, Ryan, Soldiers Hill",
+  defaultDepositPercent: 0,
+  quoteTerms: "This quote is a guide only and may be confirmed after inspection.",
+  invoiceTerms: "Thank you for choosing GrassRoots Mowing Co. Payment is due on completion unless otherwise agreed.",
+};
+
+const defaultPricing: PricingSettings = {
+  small: 70,
+  medium: 95,
+  large: 140,
+  rideOn: 220,
+  whipperMultiplier: 1.25,
+  rideOnMultiplier: 1.45,
+  overgrownMultiplier: 1.8,
+  regularDiscountMultiplier: 0.9,
+  greenWaste: 35,
+  edging: 20,
+  weedControl: 30,
+  blower: 15,
+  photos: 10,
+  extraWhipper: 25,
+};
+
+const starterInventory: InventoryItem[] = [
+  { id: "INV-1", name: "Zero-turn mower blades", category: "Blades", currentQty: 3, minimumQty: 3, unit: "blades", notes: "Keep one full spare set ready." },
+  { id: "INV-2", name: "Whipper snipper cord", category: "Consumables", currentQty: 2, minimumQty: 2, unit: "spools", notes: "Check weekly during peak season." },
+  { id: "INV-3", name: "Fuel", category: "Fuel", currentQty: 20, minimumQty: 15, unit: "litres", notes: "Keep enough for daily run plus backup." },
+  { id: "INV-4", name: "Safety glasses", category: "PPE", currentQty: 2, minimumQty: 2, unit: "pairs", notes: "Replace damaged PPE immediately." },
+];
+
+const starterEquipment: EquipmentItem[] = [
+  { id: "EQ-1", name: "Zero-turn mower", type: "Mower", status: "Ready", hours: 0, nextServiceHours: 50, lastService: "", notes: "Main mowing machine." },
+  { id: "EQ-2", name: "Whipper snipper", type: "Trimmer", status: "Ready", hours: 0, nextServiceHours: 25, lastService: "", notes: "Check cord head and guard." },
+  { id: "EQ-3", name: "Blower", type: "Clean-up", status: "Ready", hours: 0, nextServiceHours: 25, lastService: "", notes: "For final clean-up." },
+];
+
+const initialForm = {
+  name: "",
+  phone: "",
+  email: "",
+  address: "",
+  suburb: "Mount Isa",
+  propertyType: "Residential",
+  lawnSize: "Medium",
+  serviceType: "Mowing and whipper snipping",
+  addOns: [] as string[],
+  preferredDate: "",
+  preferredTime: "Morning",
+  accessNotes: "",
+  dogWarning: "No dogs",
+  frequency: "One-off",
+};
+
+const initialSafetyForm = {
+  type: "Job site risk assessment",
+  title: "",
+  location: "",
+  notes: "",
+};
+
+const ADMIN_SESSION_KEY = "grassroots_admin_session_v1";
+
+function getAdminPin() {
+  return import.meta.env.VITE_GRASSROOTS_ADMIN_PIN || "4176";
+}
+
+const protectedPages = new Set<Page>([
+  "dashboard",
+  "bookings",
+  "field",
+  "schedule",
+  "clients",
+  "quotes",
+  "invoices",
+  "reports",
+  "messages",
+  "pricing",
+  "equipment",
+  "inventory",
+  "safety",
+  "data",
+  "settings",
+  "diagnostics",
+  "automation",
+]);
+
+function isProtectedPage(page: Page) {
+  return protectedPages.has(page);
+}
+
+  function loadItem<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function saveItem<T>(key: string, data: T) {
+  localStorage.setItem(key, JSON.stringify(data));
+}
+
+function formatMoney(amount: number) {
+  return amount > 0 ? `$${amount} AUD` : "Quote required";
+}
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function blankChecklist() {
+  return {
+    safetyChecked: false,
+    beforePhotos: false,
+    edgesDone: false,
+    mowingDone: false,
+    blowerDone: false,
+    wasteRemoved: false,
+    afterPhotos: false,
+    customerNotified: false,
+  };
+}
+
+function toCsv(rows: Record<string, string | number | boolean>[]) {
+  if (!rows.length) return "";
+  const headers = Object.keys(rows[0]);
+  const escape = (value: string | number | boolean) => `"${String(value ?? "").replaceAll('"', '""')}"`;
+  return [headers.join(","), ...rows.map((row) => headers.map((header) => escape(row[header])).join(","))].join("\n");
+}
+
+function downloadText(filename: string, text: string, type = "text/plain") {
+  const blob = new Blob([text], { type });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+function App() {
+  const [page, setPage] = useState<Page>("dashboard");
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [equipment, setEquipment] = useState<EquipmentItem[]>([]);
+  const [safetyRecords, setSafetyRecords] = useState<SafetyRecord[]>([]);
+  const [settings, setSettings] = useState<BusinessSettings>(defaultSettings);
+  const [pricing, setPricing] = useState<PricingSettings>(defaultPricing);
+  const [form, setForm] = useState(initialForm);
+  const [safetyForm, setSafetyForm] = useState(initialSafetyForm);
+  const [notice, setNotice] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [pinInput, setPinInput] = useState("");
+  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authStatus, setAuthStatus] = useState("PIN fallback active");
+  const [cloudStatus, setCloudStatus] = useState("Local mode");
+  const [cloudBusy, setCloudBusy] = useState(false);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"All" | BookingStatus>("All");
+  const importRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    const loadedBookings = loadItem<Booking[]>(BOOKINGS_KEY, []);
+    setBookings(loadedBookings.map((booking) => ({
+      ...booking,
+      checklist: booking.checklist ?? blankChecklist(),
+      beforePhotoNote: booking.beforePhotoNote ?? "",
+      afterPhotoNote: booking.afterPhotoNote ?? "",
+      completionNotes: booking.completionNotes ?? "",
+    })));
+    setInventory(loadItem<InventoryItem[]>(INVENTORY_KEY, starterInventory));
+    setEquipment(loadItem<EquipmentItem[]>(EQUIPMENT_KEY, starterEquipment));
+    setSafetyRecords(loadItem<SafetyRecord[]>(SAFETY_KEY, []));
+    setSettings(loadItem<BusinessSettings>(SETTINGS_KEY, defaultSettings));
+    setPricing(loadItem<PricingSettings>(PRICING_KEY, defaultPricing));
+  }, []);
+
+  useEffect(() => {
+    setIsAdmin(localStorage.getItem(ADMIN_SESSION_KEY) === "active");
+  }, []);
+
+  useEffect(() => {
+    refreshCloudBookings();
+  }, []);
+
+  const serviceAreas = useMemo(
+    () => settings.serviceAreasText.split(",").map((area) => area.trim()).filter(Boolean),
+    [settings.serviceAreasText]
+  );
+
+  const basePrices = useMemo(() => ({
+    Small: pricing.small,
+    Medium: pricing.medium,
+    Large: pricing.large,
+    "Very large / ride-on required": pricing.rideOn,
+    "Unsure / quote needed": 0,
+  }), [pricing]);
+
+  const serviceMultipliers = useMemo(() => ({
+    "Standard lawn mowing": 1,
+    "Mowing and whipper snipping": pricing.whipperMultiplier,
+    "Ride-on mowing": pricing.rideOnMultiplier,
+    "Overgrown yard clean-up": pricing.overgrownMultiplier,
+    "Regular maintenance": pricing.regularDiscountMultiplier,
+    "Quote request": 0,
+  }), [pricing]);
+
+  const addOnPrices = useMemo(() => ({
+    "Green waste removal": pricing.greenWaste,
+    "Edging": pricing.edging,
+    "Weed control / poisoning": pricing.weedControl,
+    "Blower clean-up": pricing.blower,
+    "Before and after photos": pricing.photos,
+    "Extra whipper snipping": pricing.extraWhipper,
+  }), [pricing]);
+
+  const estimate = useMemo(() => {
+    const base = basePrices[form.lawnSize as keyof typeof basePrices] ?? 0;
+    const multiplier = serviceMultipliers[form.serviceType as keyof typeof serviceMultipliers] ?? 1;
+    const addOns = form.addOns.reduce((total, item) => total + (addOnPrices[item as keyof typeof addOnPrices] ?? 0), 0);
+    if (base === 0 || multiplier === 0) return 0;
+    return Math.round(base * multiplier + addOns);
+  }, [form, basePrices, serviceMultipliers, addOnPrices]);
+
+  const filteredBookings = useMemo(() => {
+    return bookings.filter((booking) => {
+      const text = `${booking.name} ${booking.phone} ${booking.email} ${booking.address} ${booking.suburb} ${booking.serviceType}`.toLowerCase();
+      return text.includes(search.toLowerCase()) && (statusFilter === "All" || booking.status === statusFilter);
+    });
+  }, [bookings, search, statusFilter]);
+
+  const clients = useMemo(() => {
+    const map = new Map<string, { name: string; phone: string; email: string; addresses: string[]; jobs: number; revenue: number }>();
+
+    bookings.forEach((booking) => {
+      const key = `${booking.name}-${booking.phone}`;
+      const current = map.get(key) ?? { name: booking.name, phone: booking.phone, email: booking.email, addresses: [], jobs: 0, revenue: 0 };
+      const address = `${booking.address}, ${booking.suburb}`;
+      if (!current.addresses.includes(address)) current.addresses.push(address);
+      current.jobs += 1;
+      current.revenue += booking.finalPrice || booking.estimatedPrice;
+      map.set(key, current);
+    });
+
+    return Array.from(map.values());
+  }, [bookings]);
+
+  const runSheetBookings = useMemo(() => {
+    return bookings
+      .filter((b) => b.status === "Scheduled" || b.status === "In Progress" || b.status === "Accepted")
+      .sort((a, b) => (a.assignedDateTime || a.preferredDate).localeCompare(b.assignedDateTime || b.preferredDate));
+  }, [bookings]);
+
+  const todaysFieldJobs = useMemo(() => {
+    const today = todayIso();
+    return bookings.filter((b) =>
+      b.status !== "Cancelled" &&
+      b.status !== "Completed" &&
+      (b.preferredDate === today || b.assignedDateTime.includes(today) || b.status === "In Progress")
+    );
+  }, [bookings]);
+
+  const stats = useMemo(() => {
+    const activeBookings = bookings.filter((b) => b.status !== "Cancelled");
+    const revenue = activeBookings.reduce((total, b) => total + (b.finalPrice || b.estimatedPrice), 0);
+    const paidRevenue = bookings.filter((b) => b.paymentStatus === "Paid").reduce((total, b) => total + (b.finalPrice || b.estimatedPrice), 0);
+    const unpaidRevenue = bookings.filter((b) => b.paymentStatus !== "Paid" && b.status !== "Cancelled").reduce((total, b) => total + (b.finalPrice || b.estimatedPrice), 0);
+    const equipmentWarnings = equipment.filter((item) => item.status !== "Ready" || item.hours >= item.nextServiceHours).length;
+
+    return {
+      total: bookings.length,
+      pending: bookings.filter((b) => b.status === "Pending").length,
+      quoted: bookings.filter((b) => b.status === "Quoted").length,
+      scheduled: bookings.filter((b) => b.status === "Scheduled").length,
+      completed: bookings.filter((b) => b.status === "Completed").length,
+      unpaid: bookings.filter((b) => b.paymentStatus === "Unpaid" || b.paymentStatus === "Overdue").length,
+      revenue,
+      paidRevenue,
+      unpaidRevenue,
+      clients: clients.length,
+      lowStock: inventory.filter((item) => item.currentQty <= item.minimumQty).length,
+      openSafety: safetyRecords.filter((record) => record.status === "Open").length,
+      equipmentWarnings,
+    };
+  }, [bookings, clients.length, inventory, safetyRecords, equipment]);
+
+  async function refreshCloudBookings() {
+    setCloudStatus(firebaseStatusText());
+
+    if (!usingFirebaseData()) return;
+
+    try {
+      setCloudBusy(true);
+      const cloudBookings = await loadCollection<Booking>("bookings");
+
+      if (cloudBookings.length) {
+        setBookings(cloudBookings.map((booking) => ({
+          ...booking,
+          checklist: booking.checklist ?? blankChecklist(),
+          beforePhotoNote: booking.beforePhotoNote ?? "",
+          afterPhotoNote: booking.afterPhotoNote ?? "",
+          completionNotes: booking.completionNotes ?? "",
+        })));
+
+        saveItem(BOOKINGS_KEY, cloudBookings);
+        setNotice("Cloud bookings loaded from Firebase.");
+      } else {
+        setNotice("Firebase connected. No cloud bookings yet.");
+      }
+    } catch (error) {
+      console.error(error);
+      setNotice("Firebase load failed. Local data is still available.");
+    } finally {
+      setCloudBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    setAuthStatus(firebaseModeLabel());
+
+    if (!firebaseEnabled || !auth) {
+      setAuthStatus("PIN fallback active");
+      return;
+    }
+
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setFirebaseUser(user);
+
+      if (user) {
+        localStorage.setItem(ADMIN_SESSION_KEY, "active");
+        setIsAdmin(true);
+        setAuthStatus(`Firebase admin signed in: ${user.email || "admin"}`);
+      } else {
+        setAuthStatus("Firebase Auth ready. Admin not signed in.");
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  function saveBookings(next: Booking[]) {
+    setBookings(next);
+    saveItem(BOOKINGS_KEY, next);
+  }
+
+  function saveInventory(next: InventoryItem[]) {
+    setInventory(next);
+    saveItem(INVENTORY_KEY, next);
+  }
+
+  function saveEquipment(next: EquipmentItem[]) {
+    setEquipment(next);
+    saveItem(EQUIPMENT_KEY, next);
+  }
+
+  function saveSafety(next: SafetyRecord[]) {
+    setSafetyRecords(next);
+    saveItem(SAFETY_KEY, next);
+  }
+
+  function saveSettings(next: BusinessSettings) {
+    setSettings(next);
+    saveItem(SETTINGS_KEY, next);
+  }
+
+  function savePricing(next: PricingSettings) {
+    setPricing(next);
+    saveItem(PRICING_KEY, next);
+  }
+
+  function updateForm(field: keyof typeof initialForm, value: string | string[]) {
+    setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function updateSetting(field: keyof BusinessSettings, value: string | number) {
+    saveSettings({ ...settings, [field]: value });
+  }
+
+  function updatePricing(field: keyof PricingSettings, value: number) {
+    savePricing({ ...pricing, [field]: value });
+  }
+
+  function toggleAddOn(addOn: string) {
+    updateForm("addOns", form.addOns.includes(addOn) ? form.addOns.filter((item) => item !== addOn) : [...form.addOns, addOn]);
+  }
+
+  async function submitBooking(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setNotice("");
+
+    if (!form.name.trim() || !form.phone.trim() || !form.address.trim()) {
+      setNotice("Please add customer name, phone number, and property address.");
+      return;
+    }
+
+    const booking: Booking = {
+      id: `GR-${Date.now()}`,
+      createdAt: new Date().toLocaleString("en-AU"),
+      name: form.name.trim(),
+      phone: form.phone.trim(),
+      email: form.email.trim(),
+      address: form.address.trim(),
+      suburb: form.suburb,
+      propertyType: form.propertyType,
+      lawnSize: form.lawnSize,
+      serviceType: form.serviceType,
+      addOns: form.addOns,
+      preferredDate: form.preferredDate,
+      preferredTime: form.preferredTime,
+      accessNotes: form.accessNotes.trim(),
+      dogWarning: form.dogWarning,
+      frequency: form.frequency,
+      estimatedPrice: estimate,
+      finalPrice: estimate,
+      status: "Pending",
+      paymentStatus: "Unpaid",
+      priority: "Normal",
+      assignedDateTime: "",
+      adminNotes: "",
+      beforePhotoNote: "",
+      afterPhotoNote: "",
+      completionNotes: "",
+      checklist: blankChecklist(),
+    };
+
+    if (usingFirebaseData()) {
+      try {
+        setCloudBusy(true);
+        const saved = await addRecord("bookings", booking as unknown as Record<string, unknown>);
+        booking.id = saved.id;
+        setCloudStatus("Firebase connected");
+      } catch (error) {
+        console.error(error);
+        setNotice("Firebase save failed. Booking saved locally instead.");
+      } finally {
+        setCloudBusy(false);
+      }
+    }
+
+    saveBookings([booking, ...bookings]);
+    setForm(initialForm);
+    setNotice("Booking submitted. It now appears in the admin booking dashboard.");
+    setPage("bookings");
+  }
+
+  async function updateBooking(id: string, updates: Partial<Booking>) {
+    const nextBookings = bookings.map((booking) => booking.id === id ? { ...booking, ...updates } : booking);
+    saveBookings(nextBookings);
+
+    if (usingFirebaseData()) {
+      try {
+        const updatedBooking = nextBookings.find((booking) => booking.id === id);
+        if (updatedBooking) {
+          await saveRecord("bookings", id, updatedBooking as unknown as Record<string, unknown>);
+          setCloudStatus("Firebase connected");
+        }
+      } catch (error) {
+        console.error(error);
+        setNotice("Firebase update failed. Local update was kept.");
+      }
+    }
+  }
+
+  function updateChecklist(id: string, field: keyof Booking["checklist"], value: boolean) {
+    saveBookings(bookings.map((booking) =>
+      booking.id === id
+        ? { ...booking, checklist: { ...booking.checklist, [field]: value } }
+        : booking
+    ));
+  }
+
+  async function deleteBooking(id: string) {
+    if (!window.confirm("Delete this booking?")) return;
+    saveBookings(bookings.filter((booking) => booking.id !== id));
+
+    if (usingFirebaseData()) {
+      try {
+        await deleteRecord("bookings", id);
+        setCloudStatus("Firebase connected");
+      } catch (error) {
+        console.error(error);
+        setNotice("Firebase delete failed. Local delete was kept.");
+      }
+    }
+  }
+
+  function updateInventory(id: string, updates: Partial<InventoryItem>) {
+    saveInventory(inventory.map((item) => item.id === id ? { ...item, ...updates } : item));
+  }
+
+  function addInventoryItem() {
+    const item: InventoryItem = {
+      id: `INV-${Date.now()}`,
+      name: "New item",
+      category: "General",
+      currentQty: 0,
+      minimumQty: 1,
+      unit: "items",
+      notes: "",
+    };
+    saveInventory([item, ...inventory]);
+  }
+
+  function deleteInventoryItem(id: string) {
+    saveInventory(inventory.filter((item) => item.id !== id));
+  }
+
+  function updateEquipment(id: string, updates: Partial<EquipmentItem>) {
+    saveEquipment(equipment.map((item) => item.id === id ? { ...item, ...updates } : item));
+  }
+
+  function addEquipmentItem() {
+    const item: EquipmentItem = {
+      id: `EQ-${Date.now()}`,
+      name: "New equipment",
+      type: "Equipment",
+      status: "Ready",
+      hours: 0,
+      nextServiceHours: 50,
+      lastService: "",
+      notes: "",
+    };
+    saveEquipment([item, ...equipment]);
+  }
+
+  function deleteEquipmentItem(id: string) {
+    saveEquipment(equipment.filter((item) => item.id !== id));
+  }
+
+  function addSafetyRecord(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!safetyForm.title.trim()) {
+      setNotice("Add a safety title first.");
+      return;
+    }
+
+    const record: SafetyRecord = {
+      id: `SAFE-${Date.now()}`,
+      createdAt: new Date().toLocaleString("en-AU"),
+      type: safetyForm.type,
+      title: safetyForm.title.trim(),
+      location: safetyForm.location.trim(),
+      notes: safetyForm.notes.trim(),
+      status: "Open",
+    };
+
+    saveSafety([record, ...safetyRecords]);
+    setSafetyForm(initialSafetyForm);
+    setNotice("Safety record added.");
+  }
+
+  function updateSafetyRecord(id: string, updates: Partial<SafetyRecord>) {
+    saveSafety(safetyRecords.map((record) => record.id === id ? { ...record, ...updates } : record));
+  }
+
+  function deleteSafetyRecord(id: string) {
+    if (!window.confirm("Delete this safety record?")) return;
+    saveSafety(safetyRecords.filter((record) => record.id !== id));
+  }
+
+  function exportAllData() {
+    const data = { exportedAt: new Date().toLocaleString("en-AU"), version: "stage-1.99", settings, pricing, bookings, inventory, equipment, safetyRecords };
+    downloadText(`grassroots-operations-backup-${Date.now()}.json`, JSON.stringify(data, null, 2), "application/json");
+  }
+
+  function exportBookingsCsv() {
+    const rows = bookings.map((b) => ({
+      id: b.id,
+      name: b.name,
+      phone: b.phone,
+      email: b.email,
+      address: `${b.address}, ${b.suburb}`,
+      service: b.serviceType,
+      status: b.status,
+      paymentStatus: b.paymentStatus,
+      priority: b.priority,
+      estimatedPrice: b.estimatedPrice,
+      finalPrice: b.finalPrice,
+      preferredDate: b.preferredDate,
+      assignedDateTime: b.assignedDateTime,
+      createdAt: b.createdAt,
+    }));
+    downloadText(`grassroots-bookings-${Date.now()}.csv`, toCsv(rows), "text/csv");
+  }
+
+  function importBackup(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(String(reader.result));
+        if (Array.isArray(data.bookings)) saveBookings(data.bookings.map((booking: Booking) => ({ ...booking, checklist: booking.checklist ?? blankChecklist() })));
+        if (Array.isArray(data.inventory)) saveInventory(data.inventory);
+        if (Array.isArray(data.equipment)) saveEquipment(data.equipment);
+        if (Array.isArray(data.safetyRecords)) saveSafety(data.safetyRecords);
+        if (data.settings) saveSettings({ ...defaultSettings, ...data.settings });
+        if (data.pricing) savePricing({ ...defaultPricing, ...data.pricing });
+        setNotice("Backup imported successfully.");
+        setPage("dashboard");
+      } catch {
+        setNotice("Could not import backup. Make sure it is a GrassRoots JSON backup.");
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function clearLocalData() {
+    if (!window.confirm("Clear all local GrassRoots test data?")) return;
+    saveBookings([]);
+    saveInventory(starterInventory);
+    saveEquipment(starterEquipment);
+    saveSafety([]);
+    saveSettings(defaultSettings);
+    savePricing(defaultPricing);
+    setNotice("Local test data cleared.");
+    setPage("dashboard");
+  }
+
+  function copyText(text: string, successMessage: string) {
+    navigator.clipboard.writeText(text);
+    setNotice(successMessage);
+  }
+
+  async function adminLogin(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const email = authEmail.trim();
+    const password = authPassword;
+
+    if (firebaseEnabled && auth && email && password) {
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+        localStorage.setItem(ADMIN_SESSION_KEY, "active");
+        setIsAdmin(true);
+        setPinInput("");
+        setAuthEmail("");
+        setAuthPassword("");
+        setNotice("Firebase admin login successful.");
+        setPage("dashboard");
+        return;
+      } catch (error) {
+        console.error(error);
+        setNotice("Firebase login failed. You can still use the local PIN fallback.");
+      }
+    }
+
+    if (pinInput.trim() === getAdminPin()) {
+      localStorage.setItem(ADMIN_SESSION_KEY, "active");
+      setIsAdmin(true);
+      setPinInput("");
+      setNotice("Admin unlocked with local PIN.");
+      setPage("dashboard");
+      return;
+    }
+
+    setNotice("Wrong admin PIN or Firebase login failed.");
+  }
+
+  async function adminLogout() {
+    try {
+      if (auth && firebaseUser) {
+        await signOut(auth);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+
+    localStorage.removeItem(ADMIN_SESSION_KEY);
+    setFirebaseUser(null);
+    setIsAdmin(false);
+    setNotice("Admin locked.");
+    setPage("book");
+  }
+
+  function goToPage(nextPage: Page) {
+    if (isProtectedPage(nextPage) && !isAdmin) {
+      setPage("login");
+      setNotice("Admin login required.");
+      return;
+    }
+
+    setPage(nextPage);
+  }
+
+  return (
+    <main className="app">
+      <header className="nav">
+        <button className="brand" onClick={() => goToPage("dashboard")}>
+          <span className="brand-badge">GR</span>
+          <span>
+            <strong>{settings.businessName}</strong>
+            <small>Operations Hub · Stage 1.99</small>
+          </span>
+        </button>
+
+        <div className="nav-buttons">
+          <button onClick={() => goToPage("dashboard")}>Dashboard</button>
+          <button onClick={() => setPage("book")}>Book</button>
+          <button onClick={() => goToPage("bookings")}>Bookings {stats.pending ? `(${stats.pending})` : ""}</button>
+          <button onClick={() => goToPage("field")}>Field</button>
+          <button onClick={() => goToPage("schedule")}>Run Sheet</button>
+          <button onClick={() => goToPage("clients")}>Clients</button>
+          <button onClick={() => goToPage("quotes")}>Quotes</button>
+          <button onClick={() => goToPage("invoices")}>Invoices</button>
+          <button onClick={() => goToPage("reports")}>Reports</button>
+          <button onClick={() => goToPage("messages")}>Messages</button>
+          <button onClick={() => goToPage("pricing")}>Pricing</button>
+          <button onClick={() => goToPage("equipment")}>Equipment</button>
+          <button onClick={() => goToPage("inventory")}>Inventory</button>
+          <button onClick={() => goToPage("safety")}>Safety</button>
+          <button onClick={() => goToPage("data")}>Data</button>
+          <button onClick={() => goToPage("settings")}>Settings</button>
+          <button onClick={() => goToPage("diagnostics")}>Diagnostics</button>
+          <button onClick={() => goToPage("automation")}>Automation</button>
+          {isAdmin ? (
+            <button className="admin-lock-button" onClick={adminLogout}>Lock Admin</button>
+          ) : (
+            <button className="admin-lock-button" onClick={() => setPage("login")}>Admin Login</button>
+          )}
+        </div>
+      </header>
+
+      {notice && <div className="notice">{notice}</div>}
+
+      <div className={isAdmin ? "admin-mode-banner unlocked" : "admin-mode-banner locked"}>
+        <strong>{isAdmin ? "Admin mode unlocked" : "Public booking mode"}</strong>
+        <span>{isAdmin ? (firebaseUser ? `Firebase user: ${firebaseUser.email || "admin"}` : "Business tools are available with local PIN.") : "Only customer booking is open until admin login."}</span>
+      </div>
+
+      {page === "login" && (
+        <section className="card login-card">
+          <div className="section-title">
+            <p className="tag">Admin Security</p>
+            <h1>Admin login</h1>
+            <p>Enter your GrassRoots admin PIN to unlock the business dashboard.</p>
+          </div>
+
+          <form className="login-form" onSubmit={adminLogin}>
+            <div className="auth-status-box">
+              <span>Authentication status</span>
+              <strong>{authStatus}</strong>
+              <small>{firebaseUser ? `Signed in as ${firebaseUser.email || "Firebase admin"}` : "Use Firebase login when configured, or local PIN fallback."}</small>
+            </div>
+
+            <div className="login-split">
+              <div className="login-method-card">
+                <h2>Firebase email/password login</h2>
+                <p>Use this after Firebase Auth is enabled and an admin user is created.</p>
+
+                <label>
+                  Admin email
+                  <input
+                    type="email"
+                    value={authEmail}
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                    placeholder="admin@example.com"
+                  />
+                </label>
+
+                <label>
+                  Admin password
+                  <input
+                    type="password"
+                    value={authPassword}
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                    placeholder="Firebase password"
+                  />
+                </label>
+              </div>
+
+              <div className="login-method-card">
+                <h2>Local PIN fallback</h2>
+                <p>This keeps the app usable while Firebase Auth is being set up.</p>
+
+                <label>
+                  Admin PIN
+                  <input
+                    type="password"
+                    value={pinInput}
+                    onChange={(e) => setPinInput(e.target.value)}
+                    placeholder="Enter admin PIN"
+                    autoFocus
+                  />
+                </label>
+              </div>
+            </div>
+
+            <button className="primary" type="submit">Unlock admin</button>
+            <button className="secondary" type="button" onClick={() => setPage("book")}>Back to public booking</button>
+          </form>
+
+          <div className="security-note">
+            <strong>Temporary protection:</strong>
+            <span>This is a local admin lock. Firebase Auth should replace this before public launch.</span>
+          </div>
+        </section>
+      )}
+
+      {page === "dashboard" && isAdmin && (
+        <section className="page">
+          <div className="hero-grid">
+            <div className="hero">
+              <p className="tag">{settings.businessName} · Stage 1.99</p>
+              <h1>Final local business engine.</h1>
+              <p>
+                Adds editable pricing, equipment maintenance, job checklists, CSV export,
+                data controls, and customer message drafts before Firebase cloud storage.
+              </p>
+              <div className="cloud-panel auth-panel">
+                <span>Auth protection status</span>
+                <strong>{isAdmin ? "Admin unlocked" : "Admin locked"}</strong>
+                <small>{firebaseUser ? `Firebase admin: ${firebaseUser.email || "signed in"}` : "Local PIN fallback available"}</small>
+              </div>
+
+              <div className="cloud-panel">
+                <span>Cloud data status</span>
+                <strong>{cloudStatus}</strong>
+                <small>{cloudBusy ? "Syncing..." : usingFirebaseData() ? "Firebase mode active" : "Local browser storage active"}</small>
+              </div>
+
+              <div className="hero-actions">
+                <button className="primary" onClick={() => setPage("book")}>Create booking</button>
+                <button className="secondary" onClick={refreshCloudBookings}>Refresh cloud bookings</button>
+                <button className="secondary" onClick={exportAllData}>Export backup</button>
+                <button className="secondary" onClick={exportBookingsCsv}>Export CSV</button>
+                <button className="secondary" onClick={() => goToPage("diagnostics")}>Open diagnostics</button>
+                <button className="danger" onClick={clearLocalData}>Clear local data</button>
+              </div>
+            </div>
+
+            <aside className="side-panel">
+              <h2>After this</h2>
+              <p>The next proper step is Stage 2: Firebase/Firestore cloud storage and admin login protection.</p>
+              <ul>
+                <li>Public bookings saved to cloud</li>
+                <li>Admin dashboard protected</li>
+                <li>Multi-device sync</li>
+                <li>Real deployment-ready data layer</li>
+              </ul>
+            </aside>
+          </div>
+
+          <StatsGrid stats={stats} />
+        </section>
+      )}
+
+      {page === "book" && (
+        <section className="card">
+          <SectionTitle tag="Customer Booking Hub" title="Book a mowing service" text="Customer details, property profile, service type, add-ons, access notes, and estimate." />
+
+          <form className="form-grid" onSubmit={submitBooking}>
+            <label>Customer name<input value={form.name} onChange={(e) => updateForm("name", e.target.value)} /></label>
+            <label>Phone number<input value={form.phone} onChange={(e) => updateForm("phone", e.target.value)} /></label>
+            <label>Email<input type="email" value={form.email} onChange={(e) => updateForm("email", e.target.value)} /></label>
+            <label>Property address<input value={form.address} onChange={(e) => updateForm("address", e.target.value)} /></label>
+
+            <label>
+              Suburb / service area
+              <select value={form.suburb} onChange={(e) => updateForm("suburb", e.target.value)}>
+                {serviceAreas.map((area) => <option key={area}>{area}</option>)}
+              </select>
+            </label>
+
+            <label>
+              Property type
+              <select value={form.propertyType} onChange={(e) => updateForm("propertyType", e.target.value)}>
+                <option>Residential</option>
+                <option>Commercial</option>
+                <option>Rental property</option>
+                <option>NDIS / support client</option>
+                <option>Rural block</option>
+                <option>Body corporate</option>
+              </select>
+            </label>
+
+            <label>
+              Lawn size
+              <select value={form.lawnSize} onChange={(e) => updateForm("lawnSize", e.target.value)}>
+                {Object.keys(basePrices).map((size) => <option key={size}>{size}</option>)}
+              </select>
+            </label>
+
+            <label>
+              Service type
+              <select value={form.serviceType} onChange={(e) => updateForm("serviceType", e.target.value)}>
+                {Object.keys(serviceMultipliers).map((service) => <option key={service}>{service}</option>)}
+              </select>
+            </label>
+
+            <label>Preferred date<input type="date" value={form.preferredDate} onChange={(e) => updateForm("preferredDate", e.target.value)} /></label>
+
+            <label>
+              Preferred time
+              <select value={form.preferredTime} onChange={(e) => updateForm("preferredTime", e.target.value)}>
+                <option>Morning</option>
+                <option>Middle of day</option>
+                <option>Afternoon</option>
+                <option>Any time</option>
+              </select>
+            </label>
+
+            <label>
+              Frequency
+              <select value={form.frequency} onChange={(e) => updateForm("frequency", e.target.value)}>
+                <option>One-off</option>
+                <option>Weekly</option>
+                <option>Fortnightly</option>
+                <option>Monthly</option>
+                <option>As needed</option>
+              </select>
+            </label>
+
+            <label>
+              Dogs / access warning
+              <select value={form.dogWarning} onChange={(e) => updateForm("dogWarning", e.target.value)}>
+                <option>No dogs</option>
+                <option>Dogs on property</option>
+                <option>Dogs will be locked away</option>
+                <option>Gate locked</option>
+                <option>Call before arrival</option>
+              </select>
+            </label>
+
+            <div className="full">
+              <p className="field-heading">Add-ons</p>
+              <div className="checkbox-grid">
+                {Object.keys(addOnPrices).map((addOn) => (
+                  <label className="check-row" key={addOn}>
+                    <input type="checkbox" checked={form.addOns.includes(addOn)} onChange={() => toggleAddOn(addOn)} />
+                    <span>{addOn} <small>${addOnPrices[addOn as keyof typeof addOnPrices]}</small></span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <label className="full">
+              Access notes / job notes
+              <textarea value={form.accessNotes} onChange={(e) => updateForm("accessNotes", e.target.value)} placeholder="Gate access, dogs, overgrown areas, parking, preferred contact method..." />
+            </label>
+
+            <div className="estimate-box full">
+              <span>Estimated price</span>
+              <strong>{formatMoney(estimate)}</strong>
+              <small>Guide only. Final price can be confirmed manually.</small>
+            </div>
+
+            <button className="primary full" type="submit">Submit booking</button>
+          </form>
+        </section>
+      )}
+
+      {page === "bookings" && isAdmin && (
+        <section className="card">
+          <div className="section-title row-title">
+            <div>
+              <p className="tag">Admin Control Centre</p>
+              <h1>Bookings</h1>
+              <p>Search, filter, price, prioritise, schedule, and track payments.</p>
+            </div>
+            <button className="secondary" onClick={exportBookingsCsv}>Export CSV</button>
+          </div>
+
+          <div className="toolbar">
+            <input placeholder="Search name, phone, address, service..." value={search} onChange={(e) => setSearch(e.target.value)} />
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as "All" | BookingStatus)}>
+              <option>All</option>
+              <option>Pending</option>
+              <option>Accepted</option>
+              <option>Quoted</option>
+              <option>Scheduled</option>
+              <option>In Progress</option>
+              <option>Completed</option>
+              <option>Cancelled</option>
+            </select>
+          </div>
+
+          {filteredBookings.length === 0 ? (
+            <Empty title="No matching bookings" text="Create a booking or clear your filters." button="Create booking" onClick={() => setPage("book")} />
+          ) : (
+            <BookingList bookings={filteredBookings} updateBooking={updateBooking} updateChecklist={updateChecklist} deleteBooking={deleteBooking} copyText={copyText} />
+          )}
+        </section>
+      )}
+
+      {page === "field" && isAdmin && (
+        <section className="card">
+          <SectionTitle tag="Mobile Field Mode" title="Today's field jobs" text="Use this on the phone while doing jobs. Add before/after notes and complete jobs." />
+
+          {todaysFieldJobs.length === 0 ? (
+            <Empty title="No field jobs for today" text="Schedule jobs or start a job first." />
+          ) : (
+            <div className="booking-list">
+              {todaysFieldJobs.map((booking) => (
+                <FieldJobCard key={booking.id} booking={booking} updateBooking={updateBooking} updateChecklist={updateChecklist} copyText={copyText} />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {page === "schedule" && isAdmin && (
+        <section className="card">
+          <SectionTitle tag="Daily Run Sheet" title="Scheduled work" text="Manual run sheet until Google Maps and route optimisation are connected." />
+          {runSheetBookings.length === 0 ? (
+            <Empty title="No active scheduled jobs" text="Accept or schedule jobs first." />
+          ) : (
+            <div className="run-sheet">
+              {runSheetBookings.map((booking, index) => (
+                <article className="run-card" key={booking.id}>
+                  <span className="run-number">{index + 1}</span>
+                  <div>
+                    <h2>{booking.name}</h2>
+                    <p><strong>Time:</strong> {booking.assignedDateTime || `${booking.preferredDate || "No date"} · ${booking.preferredTime}`}</p>
+                    <p><strong>Address:</strong> {booking.address}, {booking.suburb}</p>
+                    <p><strong>Service:</strong> {booking.serviceType}</p>
+                    <p><strong>Access:</strong> {booking.dogWarning} · {booking.accessNotes || "No extra notes"}</p>
+                  </div>
+                  <span className={`priority priority-${booking.priority.toLowerCase()}`}>{booking.priority}</span>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {page === "clients" && isAdmin && (
+        <section className="card">
+          <SectionTitle tag="Customer Relationship Management" title="Clients and property profiles" text="Created automatically from bookings." />
+          <div className="booking-list">
+            {clients.length === 0 && <Empty title="No clients yet" text="Submit bookings first." />}
+            {clients.map((client) => (
+              <article className="booking-card" key={`${client.name}-${client.phone}`}>
+                <h2>{client.name}</h2>
+                <div className="booking-info">
+                  <p><strong>Phone:</strong> {client.phone}</p>
+                  <p><strong>Email:</strong> {client.email || "Not supplied"}</p>
+                  <p><strong>Total jobs:</strong> {client.jobs}</p>
+                  <p><strong>Est. revenue:</strong> ${client.revenue} AUD</p>
+                  <p className="full"><strong>Properties:</strong> {client.addresses.join(" | ")}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {page === "quotes" && <DraftPage title="Quote drafts" tag="Quote Builder" text="Generate quote text from bookings." bookings={bookings} type="quote" settings={settings} copyText={copyText} />}
+      {page === "invoices" && <DraftPage title="Invoice drafts" tag="Billing and Admin" text="Manual invoice text until Stripe/accounting is connected." bookings={bookings} type="invoice" settings={settings} copyText={copyText} />}
+
+      {page === "reports" && isAdmin && (
+        <section className="card">
+          <SectionTitle tag="Business Reports" title="Local reporting" text="Simple totals from local app data." />
+          <StatsGrid stats={stats} />
+          <div className="hero-actions">
+            <button className="secondary" onClick={exportBookingsCsv}>Export bookings CSV</button>
+            <button className="secondary" onClick={exportAllData}>Export full backup</button>
+          </div>
+        </section>
+      )}
+
+      {page === "messages" && isAdmin && (
+        <section className="card">
+          <SectionTitle tag="Customer Message Centre" title="Copy-ready customer messages" text="Manual message drafts until SMS and email automation are connected." />
+          <MessageDrafts settings={settings} copyText={copyText} />
+        </section>
+      )}
+
+      {page === "pricing" && isAdmin && (
+        <section className="card">
+          <SectionTitle tag="Pricing Engine" title="Editable pricing rules" text="Control local price estimates without changing code." />
+          <div className="form-grid">
+            <label>Small lawn base<input type="number" value={pricing.small} onChange={(e) => updatePricing("small", Number(e.target.value))} /></label>
+            <label>Medium lawn base<input type="number" value={pricing.medium} onChange={(e) => updatePricing("medium", Number(e.target.value))} /></label>
+            <label>Large lawn base<input type="number" value={pricing.large} onChange={(e) => updatePricing("large", Number(e.target.value))} /></label>
+            <label>Ride-on base<input type="number" value={pricing.rideOn} onChange={(e) => updatePricing("rideOn", Number(e.target.value))} /></label>
+            <label>Whipper multiplier<input type="number" step="0.05" value={pricing.whipperMultiplier} onChange={(e) => updatePricing("whipperMultiplier", Number(e.target.value))} /></label>
+            <label>Ride-on multiplier<input type="number" step="0.05" value={pricing.rideOnMultiplier} onChange={(e) => updatePricing("rideOnMultiplier", Number(e.target.value))} /></label>
+            <label>Overgrown multiplier<input type="number" step="0.05" value={pricing.overgrownMultiplier} onChange={(e) => updatePricing("overgrownMultiplier", Number(e.target.value))} /></label>
+            <label>Regular discount multiplier<input type="number" step="0.05" value={pricing.regularDiscountMultiplier} onChange={(e) => updatePricing("regularDiscountMultiplier", Number(e.target.value))} /></label>
+            <label>Green waste add-on<input type="number" value={pricing.greenWaste} onChange={(e) => updatePricing("greenWaste", Number(e.target.value))} /></label>
+            <label>Edging add-on<input type="number" value={pricing.edging} onChange={(e) => updatePricing("edging", Number(e.target.value))} /></label>
+            <label>Weed control add-on<input type="number" value={pricing.weedControl} onChange={(e) => updatePricing("weedControl", Number(e.target.value))} /></label>
+            <label>Blower add-on<input type="number" value={pricing.blower} onChange={(e) => updatePricing("blower", Number(e.target.value))} /></label>
+            <label>Photos add-on<input type="number" value={pricing.photos} onChange={(e) => updatePricing("photos", Number(e.target.value))} /></label>
+            <label>Extra whipper add-on<input type="number" value={pricing.extraWhipper} onChange={(e) => updatePricing("extraWhipper", Number(e.target.value))} /></label>
+          </div>
+        </section>
+      )}
+
+      {page === "equipment" && isAdmin && (
+        <section className="card">
+          <div className="section-title row-title">
+            <div>
+              <p className="tag">Equipment Maintenance</p>
+              <h1>Machines and service tracking</h1>
+              <p>Track mower, trimmer, blower, and service warnings.</p>
+            </div>
+            <button className="primary" onClick={addEquipmentItem}>Add equipment</button>
+          </div>
+
+          <div className="booking-list">
+            {equipment.map((item) => (
+              <article className="booking-card" key={item.id}>
+                <div className="booking-head">
+                  <div>
+                    <h2>{item.name}</h2>
+                    <p>{item.type} · {item.notes}</p>
+                  </div>
+                  <span className={item.status !== "Ready" || item.hours >= item.nextServiceHours ? "status cancelled" : "status completed"}>
+                    {item.status !== "Ready" || item.hours >= item.nextServiceHours ? "Service warning" : "Ready"}
+                  </span>
+                </div>
+                <div className="admin-controls">
+                  <label>Name<input value={item.name} onChange={(e) => updateEquipment(item.id, { name: e.target.value })} /></label>
+                  <label>Type<input value={item.type} onChange={(e) => updateEquipment(item.id, { type: e.target.value })} /></label>
+                  <label>
+                    Status
+                    <select value={item.status} onChange={(e) => updateEquipment(item.id, { status: e.target.value as EquipmentItem["status"] })}>
+                      <option>Ready</option>
+                      <option>Needs service</option>
+                      <option>Out of action</option>
+                    </select>
+                  </label>
+                  <label>Hours<input type="number" value={item.hours} onChange={(e) => updateEquipment(item.id, { hours: Number(e.target.value) })} /></label>
+                  <label>Next service hours<input type="number" value={item.nextServiceHours} onChange={(e) => updateEquipment(item.id, { nextServiceHours: Number(e.target.value) })} /></label>
+                  <label>Last service<input value={item.lastService} onChange={(e) => updateEquipment(item.id, { lastService: e.target.value })} /></label>
+                  <label className="full">Notes<textarea value={item.notes} onChange={(e) => updateEquipment(item.id, { notes: e.target.value })} /></label>
+                  <button className="danger full" onClick={() => deleteEquipmentItem(item.id)}>Delete equipment</button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {page === "inventory" && isAdmin && (
+        <section className="card">
+          <div className="section-title row-title">
+            <div>
+              <p className="tag">Material, Parts and PPE</p>
+              <h1>Inventory tracker</h1>
+              <p>Track blades, spools, fuel, PPE, and reorder warnings.</p>
+            </div>
+            <button className="primary" onClick={addInventoryItem}>Add item</button>
+          </div>
+
+          <div className="booking-list">
+            {inventory.map((item) => (
+              <article className="booking-card" key={item.id}>
+                <div className="booking-head">
+                  <div>
+                    <h2>{item.name}</h2>
+                    <p>{item.category} · {item.notes}</p>
+                  </div>
+                  <span className={item.currentQty <= item.minimumQty ? "status cancelled" : "status completed"}>{item.currentQty <= item.minimumQty ? "Reorder" : "OK"}</span>
+                </div>
+                <div className="admin-controls">
+                  <label>Name<input value={item.name} onChange={(e) => updateInventory(item.id, { name: e.target.value })} /></label>
+                  <label>Category<input value={item.category} onChange={(e) => updateInventory(item.id, { category: e.target.value })} /></label>
+                  <label>Current quantity<input type="number" value={item.currentQty} onChange={(e) => updateInventory(item.id, { currentQty: Number(e.target.value) })} /></label>
+                  <label>Minimum quantity<input type="number" value={item.minimumQty} onChange={(e) => updateInventory(item.id, { minimumQty: Number(e.target.value) })} /></label>
+                  <label>Unit<input value={item.unit} onChange={(e) => updateInventory(item.id, { unit: e.target.value })} /></label>
+                  <label>Notes<input value={item.notes} onChange={(e) => updateInventory(item.id, { notes: e.target.value })} /></label>
+                  <button className="danger full" onClick={() => deleteInventoryItem(item.id)}>Delete item</button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {page === "safety" && isAdmin && (
+        <section className="card">
+          <SectionTitle tag="OH&S Foundation" title="Safety records" text="Track job site risk assessments, incidents, PPE checks, and training notes." />
+
+          <form className="form-grid safety-form" onSubmit={addSafetyRecord}>
+            <label>
+              Record type
+              <select value={safetyForm.type} onChange={(e) => setSafetyForm({ ...safetyForm, type: e.target.value })}>
+                <option>Job site risk assessment</option>
+                <option>Incident / injury report</option>
+                <option>PPE check</option>
+                <option>Equipment safety check</option>
+                <option>Training record</option>
+              </select>
+            </label>
+            <label>Title<input value={safetyForm.title} onChange={(e) => setSafetyForm({ ...safetyForm, title: e.target.value })} /></label>
+            <label>Location<input value={safetyForm.location} onChange={(e) => setSafetyForm({ ...safetyForm, location: e.target.value })} /></label>
+            <label className="full">Notes<textarea value={safetyForm.notes} onChange={(e) => setSafetyForm({ ...safetyForm, notes: e.target.value })} /></label>
+            <button className="primary full" type="submit">Add safety record</button>
+          </form>
+
+          <div className="booking-list top-gap">
+            {safetyRecords.length === 0 && <Empty title="No safety records yet" text="Add a risk assessment or PPE check." />}
+            {safetyRecords.map((record) => (
+              <article className="booking-card" key={record.id}>
+                <div className="booking-head">
+                  <div>
+                    <h2>{record.title}</h2>
+                    <p>{record.type} · {record.location || "No location"} · {record.createdAt}</p>
+                  </div>
+                  <span className={`status ${record.status.toLowerCase()}`}>{record.status}</span>
+                </div>
+                <p>{record.notes || "No notes supplied."}</p>
+                <div className="admin-controls">
+                  <label>
+                    Status
+                    <select value={record.status} onChange={(e) => updateSafetyRecord(record.id, { status: e.target.value as SafetyRecord["status"] })}>
+                      <option>Open</option>
+                      <option>Reviewed</option>
+                      <option>Closed</option>
+                    </select>
+                  </label>
+                  <button className="danger" onClick={() => deleteSafetyRecord(record.id)}>Delete safety record</button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {page === "data" && isAdmin && (
+        <section className="card">
+          <SectionTitle tag="Data Control Centre" title="Backup, restore and export" text="Use this before cloud storage is connected." />
+          <input ref={importRef} hidden type="file" accept="application/json" onChange={importBackup} />
+          <div className="automation-grid">
+            <ActionCard title="Full JSON backup" text="Exports settings, pricing, bookings, inventory, equipment and safety records." button="Export backup" onClick={exportAllData} />
+            <ActionCard title="Restore backup" text="Imports a GrassRoots JSON backup file into this browser." button="Import backup" onClick={() => importRef.current?.click()} />
+            <ActionCard title="Bookings CSV" text="Exports bookings into a spreadsheet-friendly CSV file." button="Export CSV" onClick={exportBookingsCsv} />
+            <ActionCard title="Clear local data" text="Deletes local test data and restores starter settings." button="Clear data" onClick={clearLocalData} danger />
+          </div>
+        </section>
+      )}
+
+      {page === "settings" && isAdmin && (
+        <section className="card">
+          <SectionTitle tag="Business Settings" title="GrassRoots setup" text="Control basic business details, service areas, and draft wording." />
+          <div className="form-grid">
+            <label>Business name<input value={settings.businessName} onChange={(e) => updateSetting("businessName", e.target.value)} /></label>
+            <label>Phone<input value={settings.phone} onChange={(e) => updateSetting("phone", e.target.value)} /></label>
+            <label>Email<input value={settings.email} onChange={(e) => updateSetting("email", e.target.value)} /></label>
+            <label>Town<input value={settings.town} onChange={(e) => updateSetting("town", e.target.value)} /></label>
+            <label>Default deposit percent<input type="number" value={settings.defaultDepositPercent} onChange={(e) => updateSetting("defaultDepositPercent", Number(e.target.value))} /></label>
+            <label className="full">Service areas, separated by commas<textarea value={settings.serviceAreasText} onChange={(e) => updateSetting("serviceAreasText", e.target.value)} /></label>
+            <label className="full">Quote terms<textarea value={settings.quoteTerms} onChange={(e) => updateSetting("quoteTerms", e.target.value)} /></label>
+            <label className="full">Invoice terms<textarea value={settings.invoiceTerms} onChange={(e) => updateSetting("invoiceTerms", e.target.value)} /></label>
+          </div>
+        </section>
+      )}
+
+      {page === "diagnostics" && isAdmin && (
+        <section className="card">
+          <SectionTitle
+            tag="Firebase Diagnostics"
+            title="Cloud readiness check"
+            text="Use this screen before switching the app fully to Firebase cloud mode."
+          />
+
+          <div className="diagnostics-grid">
+            <article className="diagnostic-card">
+              <span>Data mode</span>
+              <strong>{import.meta.env.VITE_GRASSROOTS_DATA_MODE || "local"}</strong>
+              <p>{usingFirebaseData() ? "Firestore data mode is active." : "Local browser storage is active."}</p>
+            </article>
+
+            <article className="diagnostic-card">
+              <span>Cloud status</span>
+              <strong>{cloudStatus}</strong>
+              <p>{cloudBusy ? "Sync is currently running." : "No cloud sync running right now."}</p>
+            </article>
+
+            <article className="diagnostic-card">
+              <span>Auth status</span>
+              <strong>{authStatus}</strong>
+              <p>{firebaseUser ? `Firebase user: ${firebaseUser.email || "admin"}` : "No Firebase user signed in."}</p>
+            </article>
+
+            <article className="diagnostic-card">
+              <span>Admin protection</span>
+              <strong>{isAdmin ? "Unlocked" : "Locked"}</strong>
+              <p>{isAdmin ? "Business screens are available." : "Business screens are protected."}</p>
+            </article>
+
+            <article className="diagnostic-card">
+              <span>Public booking</span>
+              <strong>{import.meta.env.VITE_GRASSROOTS_PUBLIC_BOOKINGS || "true"}</strong>
+              <p>Customers can submit bookings without admin login.</p>
+            </article>
+
+            <article className="diagnostic-card">
+              <span>Security mode</span>
+              <strong>{import.meta.env.VITE_GRASSROOTS_SECURITY_MODE || "admin_only"}</strong>
+              <p>Admin-only pages are protected by login.</p>
+            </article>
+          </div>
+
+          <div className="diagnostic-actions">
+            <button className="secondary" onClick={refreshCloudBookings}>Refresh cloud bookings</button>
+            <button className="secondary" onClick={exportAllData}>Export JSON backup</button>
+            <button className="secondary" onClick={exportBookingsCsv}>Export bookings CSV</button>
+          </div>
+
+          <div className="security-note">
+            <strong>Before public launch:</strong>
+            <span>Deploy Firestore rules, enable Firebase Auth, create an admin user, and test public booking from a different device.</span>
+          </div>
+        </section>
+      )}
+
+      {page === "automation" && isAdmin && (
+        <section className="card">
+          <SectionTitle tag="Automation Engine Readiness" title="Connector roadmap" text="This local build is now ready for the Firebase step." />
+          <div className="automation-grid">
+            <AutomationCard title="Firebase / Firestore" status="Next" text="Move bookings, settings, pricing, inventory, equipment, and safety records from local storage into cloud collections." />
+            <AutomationCard title="Admin Auth" status="Next" text="Protect business dashboard while keeping public booking open to customers." />
+            <AutomationCard title="SMS / Twilio" status="Later" text="Send customer booking confirmations, reminders, rain delays, and review requests." />
+            <AutomationCard title="Stripe" status="Later" text="Create payment links, deposits, invoice payments, and payment status tracking." />
+            <AutomationCard title="Google Maps" status="Later" text="Validate addresses and build route optimisation for daily mowing runs." />
+            <AutomationCard title="Weather API" status="Later" text="Detect rain, heat risk, and schedule delays for Mount Isa conditions." />
+            <AutomationCard title="n8n Workflow Engine" status="Later" text="Connect app events to SMS, email, accounting, parts ordering, and review requests." />
+            <AutomationCard title="Accounting" status="Later" text="Export invoices and payments to Xero, QuickBooks, or another accounting tool." />
+          </div>
+        </section>
+      )}
+    </main>
+  );
+}
+
+function SectionTitle({ tag, title, text }: { tag: string; title: string; text: string }) {
+  return (
+    <div className="section-title">
+      <p className="tag">{tag}</p>
+      <h1>{title}</h1>
+      <p>{text}</p>
+    </div>
+  );
+}
+
+function Empty({ title, text, button, onClick }: { title: string; text: string; button?: string; onClick?: () => void }) {
+  return (
+    <div className="empty">
+      <h2>{title}</h2>
+      <p>{text}</p>
+      {button && <button className="primary" onClick={onClick}>{button}</button>}
+    </div>
+  );
+}
+
+function StatsGrid({ stats }: { stats: Record<string, number> }) {
+  return (
+    <div className="stats-grid">
+      <div><span>Total jobs</span><strong>{stats.total}</strong></div>
+      <div><span>Pending</span><strong>{stats.pending}</strong></div>
+      <div><span>Quoted</span><strong>{stats.quoted}</strong></div>
+      <div><span>Scheduled</span><strong>{stats.scheduled}</strong></div>
+      <div><span>Completed</span><strong>{stats.completed}</strong></div>
+      <div><span>Unpaid</span><strong>{stats.unpaid}</strong></div>
+      <div><span>Est. revenue</span><strong>${stats.revenue}</strong></div>
+      <div><span>Clients</span><strong>{stats.clients}</strong></div>
+      <div><span>Low stock</span><strong>{stats.lowStock}</strong></div>
+      <div><span>Equipment warnings</span><strong>{stats.equipmentWarnings}</strong></div>
+      <div><span>Open safety</span><strong>{stats.openSafety}</strong></div>
+    </div>
+  );
+}
+
+function BookingList({
+  bookings,
+  updateBooking,
+  updateChecklist,
+  deleteBooking,
+  copyText,
+}: {
+  bookings: Booking[];
+  updateBooking: (id: string, updates: Partial<Booking>) => void;
+  updateChecklist: (id: string, field: keyof Booking["checklist"], value: boolean) => void;
+  deleteBooking: (id: string) => void;
+  copyText: (text: string, successMessage: string) => void;
+}) {
+  return (
+    <div className="booking-list">
+      {bookings.map((booking) => {
+        const reviewText = `Hi ${booking.name}, thanks for choosing GrassRoots Mowing Co. If you were happy with the job, a quick review would really help the business grow.`;
+
+        return (
+          <article className="booking-card" key={booking.id}>
+            <div className="booking-head">
+              <div>
+                <h2>{booking.name}</h2>
+                <p>{booking.address}, {booking.suburb}</p>
+              </div>
+              <div className="status-stack">
+                <span className={`status ${booking.status.toLowerCase().replaceAll(" ", "-")}`}>{booking.status}</span>
+                <span className={`status payment-${booking.paymentStatus.toLowerCase().replaceAll(" ", "-")}`}>{booking.paymentStatus}</span>
+                <span className={`priority priority-${booking.priority.toLowerCase()}`}>{booking.priority}</span>
+              </div>
+            </div>
+
+            <div className="booking-info">
+              <p><strong>Phone:</strong> {booking.phone}</p>
+              <p><strong>Email:</strong> {booking.email || "Not supplied"}</p>
+              <p><strong>Property:</strong> {booking.propertyType}</p>
+              <p><strong>Lawn size:</strong> {booking.lawnSize}</p>
+              <p><strong>Service:</strong> {booking.serviceType}</p>
+              <p><strong>Frequency:</strong> {booking.frequency}</p>
+              <p><strong>Preferred:</strong> {booking.preferredDate || "No date"} · {booking.preferredTime}</p>
+              <p><strong>Dogs/access:</strong> {booking.dogWarning}</p>
+              <p><strong>Add-ons:</strong> {booking.addOns.length ? booking.addOns.join(", ") : "None"}</p>
+              <p><strong>Estimate:</strong> {formatMoney(booking.estimatedPrice)}</p>
+              <p><strong>Final price:</strong> {formatMoney(booking.finalPrice)}</p>
+              <p><strong>Created:</strong> {booking.createdAt}</p>
+              <p className="full"><strong>Customer notes:</strong> {booking.accessNotes || "None"}</p>
+            </div>
+
+            <Checklist booking={booking} updateChecklist={updateChecklist} />
+
+            <div className="admin-controls">
+              <label>
+                Job status
+                <select value={booking.status} onChange={(e) => updateBooking(booking.id, { status: e.target.value as BookingStatus })}>
+                  <option>Pending</option>
+                  <option>Accepted</option>
+                  <option>Quoted</option>
+                  <option>Scheduled</option>
+                  <option>In Progress</option>
+                  <option>Completed</option>
+                  <option>Cancelled</option>
+                </select>
+              </label>
+
+              <label>
+                Payment status
+                <select value={booking.paymentStatus} onChange={(e) => updateBooking(booking.id, { paymentStatus: e.target.value as PaymentStatus })}>
+                  <option>Unpaid</option>
+                  <option>Deposit Paid</option>
+                  <option>Paid</option>
+                  <option>Overdue</option>
+                </select>
+              </label>
+
+              <label>
+                Priority
+                <select value={booking.priority} onChange={(e) => updateBooking(booking.id, { priority: e.target.value as Priority })}>
+                  <option>Low</option>
+                  <option>Normal</option>
+                  <option>High</option>
+                  <option>Urgent</option>
+                </select>
+              </label>
+
+              <label>Final price AUD<input type="number" value={booking.finalPrice} onChange={(e) => updateBooking(booking.id, { finalPrice: Number(e.target.value) })} /></label>
+              <label>Assigned date/time<input value={booking.assignedDateTime} onChange={(e) => updateBooking(booking.id, { assignedDateTime: e.target.value })} placeholder="Example: Friday 9:30am" /></label>
+              <label className="full">Admin notes<textarea value={booking.adminNotes} onChange={(e) => updateBooking(booking.id, { adminNotes: e.target.value })} /></label>
+
+              <button className="secondary" onClick={() => copyText(reviewText, "Review request copied.")}>Copy review request</button>
+              <button className="danger" onClick={() => deleteBooking(booking.id)}>Delete booking</button>
+            </div>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
+function FieldJobCard({
+  booking,
+  updateBooking,
+  updateChecklist,
+  copyText,
+}: {
+  booking: Booking;
+  updateBooking: (id: string, updates: Partial<Booking>) => void;
+  updateChecklist: (id: string, field: keyof Booking["checklist"], value: boolean) => void;
+  copyText: (text: string, successMessage: string) => void;
+}) {
+  return (
+    <article className="field-card">
+      <div className="booking-head">
+        <div>
+          <h2>{booking.name}</h2>
+          <p>{booking.address}, {booking.suburb}</p>
+        </div>
+        <span className={`priority priority-${booking.priority.toLowerCase()}`}>{booking.priority}</span>
+      </div>
+
+      <div className="quick-actions">
+        <button className="secondary" onClick={() => updateBooking(booking.id, { status: "In Progress" })}>Start job</button>
+        <button className="primary" onClick={() => updateBooking(booking.id, { status: "Completed" })}>Mark completed</button>
+        <button className="secondary" onClick={() => copyText(`${booking.address}, ${booking.suburb}`, "Address copied.")}>Copy address</button>
+        <button className="secondary" onClick={() => copyText(booking.phone, "Phone copied.")}>Copy phone</button>
+      </div>
+
+      <Checklist booking={booking} updateChecklist={updateChecklist} />
+
+      <div className="admin-controls">
+        <label>Before photo note<input value={booking.beforePhotoNote} onChange={(e) => updateBooking(booking.id, { beforePhotoNote: e.target.value })} /></label>
+        <label>After photo note<input value={booking.afterPhotoNote} onChange={(e) => updateBooking(booking.id, { afterPhotoNote: e.target.value })} /></label>
+        <label className="full">Completion notes<textarea value={booking.completionNotes} onChange={(e) => updateBooking(booking.id, { completionNotes: e.target.value })} /></label>
+      </div>
+    </article>
+  );
+}
+
+function Checklist({
+  booking,
+  updateChecklist,
+}: {
+  booking: Booking;
+  updateChecklist: (id: string, field: keyof Booking["checklist"], value: boolean) => void;
+}) {
+  const labels: Array<[keyof Booking["checklist"], string]> = [
+    ["safetyChecked", "Safety checked"],
+    ["beforePhotos", "Before photos"],
+    ["edgesDone", "Edges done"],
+    ["mowingDone", "Mowing done"],
+    ["blowerDone", "Blower clean-up"],
+    ["wasteRemoved", "Waste removed"],
+    ["afterPhotos", "After photos"],
+    ["customerNotified", "Customer notified"],
+  ];
+
+  return (
+    <div className="checklist-grid">
+      {labels.map(([field, label]) => (
+        <label className="check-row" key={field}>
+          <input type="checkbox" checked={Boolean(booking.checklist[field])} onChange={(e) => updateChecklist(booking.id, field, e.target.checked)} />
+          <span>{label}</span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
+function DraftPage({
+  title,
+  tag,
+  text,
+  bookings,
+  type,
+  settings,
+  copyText,
+}: {
+  title: string;
+  tag: string;
+  text: string;
+  bookings: Booking[];
+  type: "quote" | "invoice";
+  settings: BusinessSettings;
+  copyText: (text: string, successMessage: string) => void;
+}) {
+  return (
+    <section className="card">
+      <SectionTitle tag={tag} title={title} text={text} />
+      <div className="booking-list">
+        {bookings.length === 0 && <Empty title="No bookings yet" text="Create bookings first." />}
+        {bookings.map((booking) => {
+          const amount = booking.finalPrice || booking.estimatedPrice;
+          const draft = type === "quote"
+            ? `${settings.businessName} Quote\n\nCustomer: ${booking.name}\nPhone: ${booking.phone}\nProperty: ${booking.address}, ${booking.suburb}\n\nService: ${booking.serviceType}\nAdd-ons: ${booking.addOns.length ? booking.addOns.join(", ") : "None"}\nFrequency: ${booking.frequency}\nPreferred time: ${booking.preferredDate || "No date supplied"} · ${booking.preferredTime}\n\nEstimated price: ${formatMoney(amount)}\n\nNotes:\n${booking.accessNotes || "No extra notes supplied."}\n\n${settings.quoteTerms}`
+            : `${settings.businessName} Invoice Draft\n\nCustomer: ${booking.name}\nPhone: ${booking.phone}\nProperty: ${booking.address}, ${booking.suburb}\n\nService:\n${booking.serviceType}\n\nAdd-ons:\n${booking.addOns.length ? booking.addOns.join(", ") : "None"}\n\nAmount due: ${formatMoney(amount)}\nPayment status: ${booking.paymentStatus}\n\n${settings.invoiceTerms}`;
+
+          return (
+            <article className="booking-card" key={`${type}-${booking.id}`}>
+              <div className="booking-head">
+                <div>
+                  <h2>{booking.name}</h2>
+                  <p>{booking.address}, {booking.suburb}</p>
+                </div>
+                <span className="status scheduled">{formatMoney(amount)}</span>
+              </div>
+              <pre className="draft-box">{draft}</pre>
+              <button className="primary" onClick={() => copyText(draft, `${type === "quote" ? "Quote" : "Invoice"} draft copied.`)}>Copy {type} draft</button>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function MessageDrafts({ settings, copyText }: { settings: BusinessSettings; copyText: (text: string, successMessage: string) => void }) {
+  const drafts = [
+    {
+      title: "Booking received",
+      text: `Hi, thanks for contacting ${settings.businessName}. We have received your mowing request and will confirm the job details shortly.`,
+    },
+    {
+      title: "Quote follow-up",
+      text: `Hi, this is ${settings.businessName}. Just following up on the mowing quote. Let us know if you would like to lock in a time.`,
+    },
+    {
+      title: "On the way",
+      text: `Hi, ${settings.businessName} is on the way to your property now. Please make sure gates are unlocked and dogs are secured.`,
+    },
+    {
+      title: "Job completed",
+      text: `Hi, your mowing job has been completed by ${settings.businessName}. Thanks for choosing us.`,
+    },
+    {
+      title: "Review request",
+      text: `Thanks for choosing ${settings.businessName}. If you were happy with the job, a quick review would really help the business grow.`,
+    },
+    {
+      title: "Rain delay",
+      text: `Hi, this is ${settings.businessName}. Due to weather, we may need to adjust your mowing booking. We will confirm the next available time as soon as possible.`,
+    },
+  ];
+
+  return (
+    <div className="automation-grid">
+      {drafts.map((draft) => (
+        <article className="automation-card" key={draft.title}>
+          <div>
+            <h2>{draft.title}</h2>
+            <p>{draft.text}</p>
+          </div>
+          <button className="secondary" onClick={() => copyText(draft.text, "Message copied.")}>Copy</button>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function ActionCard({ title, text, button, onClick, danger }: { title: string; text: string; button: string; onClick: () => void; danger?: boolean }) {
+  return (
+    <article className="automation-card">
+      <div>
+        <h2>{title}</h2>
+        <p>{text}</p>
+      </div>
+      <button className={danger ? "danger" : "secondary"} onClick={onClick}>{button}</button>
+    </article>
+  );
+}
+
+function AutomationCard({ title, status, text }: { title: string; status: string; text: string }) {
+  return (
+    <article className="automation-card">
+      <div>
+        <h2>{title}</h2>
+        <p>{text}</p>
+      </div>
+      <span className={status === "Next" ? "status scheduled" : "status"}>{status}</span>
+    </article>
+  );
+}
+
+export default App;
