@@ -1,0 +1,10 @@
+﻿# Ignore heavy development folders to maximize upload speed
+node_modules/
+.git/
+client/node_modules/
+client/dist/
+
+# FORCE upload Cherry engine rules explicitly
+!cherry-server.ts
+!tsconfig.cherry.json
+!Dockerfile
