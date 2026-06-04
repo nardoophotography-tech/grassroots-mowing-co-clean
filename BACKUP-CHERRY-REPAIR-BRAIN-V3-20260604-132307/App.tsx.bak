@@ -232,10 +232,6 @@ export default function App() {
       return runRunner({ action: "gitStatus" });
     }
 
-    if (lower.includes("repair brain v3") || lower.includes("prepare fix") || lower.includes("fix plan")) {
-      return askPermission("run Repair Brain v3", { action: "repairBrainV3" });
-    }
-
     if (lower.includes("repair brain v2") || lower.includes("advanced repair")) {
       return askPermission("run Repair Brain v2", { action: "repairBrainV2" });
     }
@@ -300,7 +296,6 @@ export default function App() {
     ["Diagnose", "check everything"],
     ["Repair Brain", "repair brain"],
     ["Repair Brain v2", "repair brain v2"],
-    ["Repair Brain v3", "repair brain v3"],
     ["Git Status", "git status"],
     ["Save + Push", "save and push"],
     ["Deploy", "deploy"],
@@ -481,7 +476,5 @@ export default function App() {
     </div>
   );
 }
-
-
 
 

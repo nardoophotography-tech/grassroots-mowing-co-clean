@@ -228,106 +228,6 @@ async function handleAction(body) {
       output: report
     };
   }
-
-  if (action === "repairBrainV3") {
-    const files = scanFiles();
-    const filesText = files.join("\n");
-    const git = await run("git status --short");
-    const build = await run("npm run build");
-
-    const buildText = build.output || build.error || "";
-    const lowerBuild = buildText.toLowerCase();
-
-    const findings = [];
-    const likelyFiles = [];
-    const nextActions = [];
-
-    if (build.ok) {
-      findings.push("Build passed. No active build error found.");
-      nextActions.push("No repair needed right now. Continue with the next feature upgrade.");
-    }
-
-    if (lowerBuild.includes("cannot find name")) {
-      findings.push("TypeScript cannot find a name. This usually means a missing function, missing variable, wrong spelling, or missing import.");
-      nextActions.push("Find the missing name in the build output, then search App.tsx and related files for where it should be declared.");
-    }
-
-    if (lowerBuild.includes("is declared but its value is never read")) {
-      findings.push("Unused variable or unused function detected.");
-      nextActions.push("Remove the unused item or connect it to the UI so it is used.");
-    }
-
-    if (lowerBuild.includes("missing script")) {
-      findings.push("package.json script problem.");
-      likelyFiles.push("package.json");
-      nextActions.push("Open package.json and check the scripts section.");
-    }
-
-    if (lowerBuild.includes("eaddrinuse")) {
-      findings.push("Port already in use.");
-      nextActions.push("Stop the old process using the port, then restart the runner.");
-    }
-
-    if (lowerBuild.includes("failed to fetch")) {
-      findings.push("Cherry screen cannot reach Local Runner.");
-      likelyFiles.push("cherry-local-runner.cjs");
-      likelyFiles.push("src/App.tsx");
-      nextActions.push("Check that Local Runner is online at http://127.0.0.1:4570/health.");
-    }
-
-    if (lowerBuild.includes("src/app.tsx") || lowerBuild.includes("src\\app.tsx")) {
-      likelyFiles.push("src/App.tsx");
-    }
-
-    if (lowerBuild.includes("cherry-local-runner")) {
-      likelyFiles.push("cherry-local-runner.cjs");
-    }
-
-    if (findings.length === 0) {
-      findings.push("No known repair pattern matched.");
-      nextActions.push("Open the build output and prepare a targeted patch manually.");
-    }
-
-    const uniqueLikelyFiles = [...new Set(likelyFiles)];
-
-    const report = [
-      "CHERRY REPAIR BRAIN v3 REPORT",
-      "",
-      `Time: ${new Date().toISOString()}`,
-      `Project folder: ${ROOT}`,
-      "",
-      "BUILD RESULT:",
-      build.ok ? "PASS" : "FAIL",
-      "",
-      "FINDINGS:",
-      findings.map((f, i) => `${i + 1}. ${f}`).join("\n"),
-      "",
-      "LIKELY FILES TO CHECK:",
-      uniqueLikelyFiles.length ? uniqueLikelyFiles.join("\n") : "No specific file identified.",
-      "",
-      "NEXT FIX PLAN:",
-      nextActions.map((a, i) => `${i + 1}. ${a}`).join("\n"),
-      "",
-      "BUILD OUTPUT:",
-      buildText || "No build output.",
-      "",
-      "GIT STATUS:",
-      git.output || "No changed files.",
-      "",
-      "PROJECT FILES:",
-      filesText
-    ].join("\n");
-
-    fs.writeFileSync(path.join(ROOT, "CHERRY_REPAIR_BRAIN_V3_REPORT.txt"), report, "utf8");
-
-    return {
-      ok: build.ok,
-      message: build.ok
-        ? "Complete. Repair Brain v3 checked the app. Build passed."
-        : "Repair Brain v3 found a build problem.",
-      output: report
-    };
-  }
   if (action === "powershell") {
     const command = String(body.command || "");
     const result = await run(command);
@@ -409,8 +309,5 @@ server.listen(PORT, "127.0.0.1", () => {
   console.log(`Cherry Local Runner repaired and online: http://127.0.0.1:${PORT}`);
   console.log(`Project folder: ${ROOT}`);
 });
-
-
-
 
 
