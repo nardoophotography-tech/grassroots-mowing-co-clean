@@ -1,0 +1,12 @@
+{
+  "name": "cherry-local-worker-level-1",
+  "version": "1.0.0",
+  "description": "Read-only local diagnostic worker for Cherry on David's Windows machine",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.22.2"
+  }
+}

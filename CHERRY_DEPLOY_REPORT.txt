@@ -1,0 +1,21 @@
+CHERRY DEPLOY REPORT
+Generated: 06/04/2026 07:36:22
+
+ENV CHECK: PASS
+Gemini key present: true
+Gemini key length: 40
+CHERRY_TEST_MODE: "false"
+CHERRY_FORCE_QUOTA_EXHAUSTED: false
+
+LOCAL BUILD EXIT CODE: 0
+LOCAL BUILD: PASS
+dist/index.html exists: True
+dist/cherry-server.js exists: True
+
+LOCAL /health: FAIL
+Unable to connect to the remote server
+LOCAL /debug/gemini-env: FAIL
+Unable to connect to the remote server
+LOCAL /cherry/api-test: FAIL
+Unable to connect to the remote server
+

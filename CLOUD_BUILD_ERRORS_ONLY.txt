@@ -1,0 +1,3 @@
+cmd : ERROR: (gcloud.builds.log) NOT_FOUND: Requested entity was not found. This command 
+    + CategoryInfo          : NotSpecified: (ERROR: (gcloud....ount] property.:String) [ 
+    + FullyQualifiedErrorId : NativeCommandError

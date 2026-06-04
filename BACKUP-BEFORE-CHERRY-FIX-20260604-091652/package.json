@@ -9,8 +9,7 @@
     "cherry:build": "tsc -p tsconfig.cherry.json",
     "cherry:start": "node dist/cherry-server.js",
     "local-runner:build": "tsc cherry-local-runner.ts --module NodeNext --moduleResolution NodeNext --target ES2022 --outDir dist-local-runner --esModuleInterop",
-    "local-runner:start": "node dist-local-runner/cherry-local-runner.js",
-    "cherry:local": "node cherry-local-runner.cjs"
+    "local-runner:start": "node dist-local-runner/cherry-local-runner.js"
   },
   "dependencies": {
     "@google-cloud/text-to-speech": "^6.4.1",

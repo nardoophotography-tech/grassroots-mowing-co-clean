@@ -1,0 +1,120 @@
+[
+  {
+    "timestamp": "2026-06-03T04:18:46.294Z",
+    "route": "/health",
+    "ip": "::ffff:127.0.0.1",
+    "ok": true
+  },
+  {
+    "timestamp": "2026-06-03T04:22:27.822Z",
+    "route": "/health",
+    "ip": "::ffff:127.0.0.1",
+    "ok": true
+  },
+  {
+    "timestamp": "2026-06-03T04:24:14.981Z",
+    "route": "/health",
+    "ip": "::ffff:127.0.0.1",
+    "ok": true
+  },
+  {
+    "timestamp": "2026-06-03T04:24:55.826Z",
+    "route": "/approved-folder",
+    "ip": "::ffff:127.0.0.1",
+    "ok": true
+  },
+  {
+    "timestamp": "2026-06-03T04:25:19.312Z",
+    "route": "/list-files",
+    "ip": "::ffff:127.0.0.1",
+    "count": 31,
+    "ok": true
+  },
+  {
+    "timestamp": "2026-06-03T04:25:32.571Z",
+    "route": "/read-file",
+    "ip": "::ffff:127.0.0.1",
+    "path": "package.json",
+    "ok": true
+  },
+  {
+    "timestamp": "2026-06-03T04:25:41.152Z",
+    "route": "/diagnose-basic",
+    "ip": "::ffff:127.0.0.1",
+    "ok": true,
+    "totalSafeFiles": 31
+  },
+  {
+    "timestamp": "2026-06-03T04:29:41.508Z",
+    "route": "/read-file",
+    "ip": "::ffff:127.0.0.1",
+    "path": "package.json",
+    "ok": true
+  },
+  {
+    "timestamp": "2026-06-03T04:34:31.738Z",
+    "route": "/diagnose-basic",
+    "ip": "::ffff:127.0.0.1",
+    "ok": true,
+    "totalSafeFiles": 31
+  },
+  {
+    "timestamp": "2026-06-03T04:38:41.258Z",
+    "route": "/read-file",
+    "ip": "::ffff:127.0.0.1",
+    "path": "package.json",
+    "ok": true
+  },
+  {
+    "timestamp": "2026-06-03T04:40:08.224Z",
+    "route": "/read-file",
+    "ip": "::ffff:127.0.0.1",
+    "path": "src/cherry-server.ts",
+    "error": "Error: File not found",
+    "ok": false
+  },
+  {
+    "timestamp": "2026-06-03T04:40:38.625Z",
+    "route": "/read-file",
+    "ip": "::ffff:127.0.0.1",
+    "path": "tsconfig.cherry.json",
+    "ok": true
+  },
+  {
+    "timestamp": "2026-06-03T04:41:48.907Z",
+    "route": "/read-file",
+    "ip": "::ffff:127.0.0.1",
+    "path": "src/cherry-server.ts",
+    "error": "Error: File not found",
+    "ok": false
+  },
+  {
+    "timestamp": "2026-06-03T04:42:19.207Z",
+    "route": "/read-file",
+    "ip": "::ffff:127.0.0.1",
+    "path": "tsconfig.cherry.json",
+    "ok": true
+  },
+  {
+    "timestamp": "2026-06-03T04:42:28.883Z",
+    "route": "/read-file",
+    "ip": "::ffff:127.0.0.1",
+    "path": "src/cherry-server.ts",
+    "error": "Error: File not found",
+    "ok": false
+  },
+  {
+    "timestamp": "2026-06-03T04:42:43.937Z",
+    "route": "/read-file",
+    "ip": "::ffff:127.0.0.1",
+    "path": "cherry-server.ts",
+    "ok": true
+  },
+  {
+    "timestamp": "2026-06-03T04:45:17.486Z",
+    "route": "/read-file",
+    "ip": "::ffff:127.0.0.1",
+    "path": "vite.config.ts",
+    "ok": true
+  }
+]

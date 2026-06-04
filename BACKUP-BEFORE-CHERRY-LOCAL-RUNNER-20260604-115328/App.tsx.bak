@@ -7,9 +7,7 @@ declare global {
   }
 }
 
-type Mode = "LOCAL" | "RUNNER" | "VOICE" | "PERMISSION" | "ERROR";
-
-const RUNNER_URL = "http://127.0.0.1:4570";
+type Mode = "LOCAL" | "BACKEND" | "VOICE" | "GEMINI" | "PERMISSION";
 
 function speak(text: string) {
   if (!("speechSynthesis" in window)) return;
@@ -22,83 +20,82 @@ function speak(text: string) {
 export default function App() {
   const [inputText, setInputText] = useState("");
   const [output, setOutput] = useState("I’m ready.");
-  const [details, setDetails] = useState("");
   const [status, setStatus] = useState<Mode>("LOCAL");
   const [speakerOn, setSpeakerOn] = useState(false);
   const [voiceOn, setVoiceOn] = useState(false);
-  const [pendingAction, setPendingAction] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
   const voiceOnRef = useRef(false);
 
-  function reply(text: string, mode: Mode = "LOCAL", read = false, extra = "") {
+  function reply(text: string, mode: Mode = "LOCAL", shouldSpeak = false) {
     setStatus(mode);
     setOutput(text);
-    setDetails(extra);
 
-    if (speakerOn && read) {
+    if (speakerOn && shouldSpeak) {
       speak(text);
     }
   }
 
-  async function callRunner(action: string) {
-    const response = await fetch(`${RUNNER_URL}/run`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ action })
-    });
+  async function fetchJson(path: string) {
+    const response = await fetch(path);
+    const text = await response.text();
 
-    const data = await response.json();
+    let data: any = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      data = { raw: text };
+    }
 
     if (!response.ok) {
-      throw new Error(`${data.message || "Runner failed"}\n\n${data.output || ""}`);
+      throw new Error(data?.reply || data?.error || `HTTP ${response.status}`);
     }
 
     return data;
   }
 
-  async function runLocalAction(action: string) {
+  async function healthCheck() {
     try {
-      reply("Working.", "RUNNER", false);
-
-      const data = await callRunner(action);
-
-      reply(data.message || "Complete.", "RUNNER", true, data.output || "");
-    } catch (error: any) {
-      reply(
-        "Local Runner needs attention.",
-        "ERROR",
-        true,
-        String(error?.message || error)
-      );
+      await fetchJson("/health");
+      reply("Complete. Cherry server is online.", "BACKEND", true);
+    } catch {
+      reply("Cherry server did not answer.", "BACKEND", true);
     }
   }
 
-  function askPermission(action: string, label: string) {
-    setPendingAction(action);
-    reply(`Permission needed. Say yes to ${label}.`, "PERMISSION", true);
-  }
-
-  async function approvePending() {
-    if (!pendingAction) {
-      reply("No permission request is waiting.", "LOCAL", false);
-      return;
+  async function selfTest() {
+    try {
+      await fetchJson("/self-test");
+      reply("Complete. Cherry wiring is working.", "BACKEND", true);
+    } catch {
+      reply("Self test failed.", "BACKEND", true);
     }
-
-    const action = pendingAction;
-    setPendingAction(null);
-    await runLocalAction(action);
   }
 
-  function rejectPending() {
-    setPendingAction(null);
-    reply("Cancelled.", "LOCAL", true);
+  async function quotaStatus() {
+    try {
+      await fetchJson("/quota-status");
+      reply("Complete. Gemini was not used.", "LOCAL", true);
+    } catch {
+      reply("Quota check failed, but Local Mode still works.", "LOCAL", true);
+    }
+  }
+
+  function explainScreen() {
+    reply(
+      "This is Cherry Local Mode. Gemini is off unless you type ai:. Press Start Voice to talk continuously.",
+      "LOCAL",
+      true
+    );
+  }
+
+  function localMode() {
+    reply("Complete. Local Mode is active. Gemini was not used.", "LOCAL", true);
   }
 
   function toggleSpeaker() {
     const next = !speakerOn;
     setSpeakerOn(next);
+    setStatus("VOICE");
 
     if (next) {
       setOutput("Speaker ON.");
@@ -107,6 +104,71 @@ export default function App() {
       window.speechSynthesis?.cancel();
       setOutput("Speaker OFF.");
     }
+  }
+
+  function talkTest() {
+    const message = "Cherry voice is working.";
+    setOutput(message);
+    speak(message);
+  }
+
+  async function runAiCommand(command: string) {
+    reply("Permission needed. Gemini will be used for this command.", "PERMISSION", true);
+
+    try {
+      const response = await fetch("/cherry/execute", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ command })
+      });
+
+      const text = await response.text();
+      let data: any = {};
+
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = { reply: text };
+      }
+
+      reply(data.reply || "Complete.", "GEMINI", true);
+    } catch {
+      reply("Gemini unavailable. Local Mode still works.", "LOCAL", true);
+    }
+  }
+
+  async function runCommand(raw: string) {
+    const command = raw.trim();
+    const lower = command.toLowerCase();
+
+    if (!command) {
+      reply("I’m listening.", "LOCAL", false);
+      return;
+    }
+
+    if (lower === "health check") return healthCheck();
+    if (lower === "self test") return selfTest();
+    if (lower === "quota status") return quotaStatus();
+    if (lower === "explain screen" || lower === "explain this screen") return explainScreen();
+    if (lower === "local mode") return localMode();
+    if (lower === "talk test") return talkTest();
+    if (lower === "speaker toggle") return toggleSpeaker();
+    if (lower === "start voice") return startVoice();
+    if (lower === "stop voice" || lower === "stop audio") return stopVoice();
+
+    if (lower.startsWith("ai:")) {
+      return runAiCommand(command);
+    }
+
+    reply("Instruction received.", "LOCAL", false);
+  }
+
+  async function sendAndClear(raw: string) {
+    const command = raw.trim();
+    setInputText("");
+    await runCommand(command);
   }
 
   function startVoice() {
@@ -142,12 +204,18 @@ export default function App() {
       runCommand(transcript);
     };
 
+    recognition.onerror = () => {
+      if (voiceOnRef.current) {
+        reply("Voice paused. Restarting.", "VOICE", false);
+      }
+    };
+
     recognition.onend = () => {
       if (voiceOnRef.current) {
         try {
           recognition.start();
         } catch {
-          // browser pause
+          // browser may need a moment
         }
       } else {
         setVoiceOn(false);
@@ -175,86 +243,27 @@ export default function App() {
     reply("Voice stopped.", "VOICE", true);
   }
 
-  async function runCommand(raw: string) {
-    const command = raw.trim();
-    const lower = command.toLowerCase();
-
-    if (!command) return;
-
-    if (lower === "yes" || lower === "approve" || lower === "permission granted") {
-      return approvePending();
-    }
-
-    if (lower === "no" || lower === "cancel") {
-      return rejectPending();
-    }
-
-    if (lower.includes("runner") || lower.includes("local check")) {
-      return runLocalAction("health");
-    }
-
-    if (lower.includes("build") || lower.includes("test")) {
-      return runLocalAction("build");
-    }
-
-    if (lower.includes("diagnose") || lower.includes("check everything")) {
-      return runLocalAction("diagnose");
-    }
-
-    if (lower.includes("git status")) {
-      return runLocalAction("gitStatus");
-    }
-
-    if (lower.includes("save") || lower.includes("push")) {
-      return askPermission("savePush", "save and push changes");
-    }
-
-    if (lower.includes("deploy")) {
-      return askPermission("deploy", "deploy Cherry live");
-    }
-
-    if (lower.includes("speaker")) {
-      return toggleSpeaker();
-    }
-
-    if (lower.includes("start voice")) {
-      return startVoice();
-    }
-
-    if (lower.includes("stop voice") || lower.includes("stop audio")) {
-      return stopVoice();
-    }
-
-    reply("Instruction received.", "LOCAL", false);
-  }
-
-  async function sendAndClear(raw: string) {
-    const command = raw.trim();
-    setInputText("");
-    await runCommand(command);
-  }
-
   const statusText =
-    status === "RUNNER"
-      ? "LOCAL RUNNER"
+    status === "LOCAL"
+      ? "LOCAL MODE — GEMINI NOT USED"
+      : status === "BACKEND"
+      ? "BACKEND CHECK"
       : status === "VOICE"
       ? voiceOn
         ? "VOICE LISTENING"
         : "VOICE MODE"
       : status === "PERMISSION"
       ? "PERMISSION NEEDED"
-      : status === "ERROR"
-      ? "NEEDS ATTENTION"
-      : "LOCAL MODE";
+      : "GEMINI MODE";
 
   const buttons: Array<[string, string]> = [
-    ["Check Runner", "local runner check"],
-    ["Build / Test", "run build"],
-    ["Diagnose", "check everything"],
-    ["Git Status", "git status"],
-    ["Save + Push", "save and push"],
-    ["Deploy", "deploy"],
-    [speakerOn ? "Speaker ON" : "Speaker OFF", "speaker"],
+    ["Explain Screen", "explain screen"],
+    ["Local Mode", "local mode"],
+    ["Health Check", "health check"],
+    ["Self Test", "self test"],
+    ["Quota Status", "quota status"],
+    ["Talk Test", "talk test"],
+    [speakerOn ? "Speaker ON" : "Speaker OFF", "speaker toggle"],
     [voiceOn ? "Voice ON" : "Start Voice", "start voice"],
     ["Stop Voice", "stop voice"]
   ];
@@ -273,7 +282,7 @@ export default function App() {
     >
       <main
         style={{
-          width: "min(900px, 96vw)",
+          width: "min(880px, 96vw)",
           background: "#121217",
           border: "1px solid #252532",
           borderRadius: "28px",
@@ -286,20 +295,20 @@ export default function App() {
             CHERRY
           </h1>
           <p style={{ color: "#9a9aaa", fontWeight: 700 }}>
-            Local-first control centre
+            David Nardoo's Local-First AI Control Centre
           </p>
         </header>
 
         <section
           style={{
-            background: status === "PERMISSION" ? "#3a2510" : status === "ERROR" ? "#3a1010" : "#0f2b18",
+            background: status === "PERMISSION" ? "#3a2510" : "#0f2b18",
             border: "1px solid #333340",
             borderRadius: "14px",
             padding: "0.9rem",
             marginBottom: "1rem",
             textAlign: "center",
             fontWeight: 900,
-            color: status === "PERMISSION" ? "#ffd166" : status === "ERROR" ? "#ff6b6b" : "#31ff5f"
+            color: status === "PERMISSION" ? "#ffd166" : "#31ff5f"
           }}
         >
           {statusText}
@@ -322,8 +331,14 @@ export default function App() {
                 border: "none",
                 borderRadius: "16px",
                 padding: "1rem",
-                background: "#2b2b33",
-                color: "#ffffff",
+                background:
+                  command === "start voice" && voiceOn
+                    ? "#31ff5f"
+                    : "#2b2b33",
+                color:
+                  command === "start voice" && voiceOn
+                    ? "#061107"
+                    : "#ffffff",
                 fontWeight: 900,
                 cursor: "pointer",
                 minHeight: "68px"
@@ -339,38 +354,17 @@ export default function App() {
             background: "#050507",
             borderRadius: "14px",
             padding: "1.2rem",
-            minHeight: "110px",
+            minHeight: "160px",
             whiteSpace: "pre-wrap",
             color: "#e2e2ea",
             lineHeight: 1.55,
             marginBottom: "1rem",
             border: "1px solid #1c1c24",
-            fontSize: "1.1rem",
-            fontWeight: 700
+            fontSize: "1.05rem"
           }}
         >
           {output}
         </section>
-
-        {details ? (
-          <details
-            style={{
-              background: "#09090d",
-              border: "1px solid #222230",
-              borderRadius: "14px",
-              padding: "1rem",
-              marginBottom: "1rem",
-              color: "#cfcfd8"
-            }}
-          >
-            <summary style={{ cursor: "pointer", fontWeight: 900 }}>
-              Details
-            </summary>
-            <pre style={{ whiteSpace: "pre-wrap", overflowX: "auto" }}>
-              {details}
-            </pre>
-          </details>
-        ) : null}
 
         <section
           style={{
@@ -415,6 +409,10 @@ export default function App() {
             SEND
           </button>
         </section>
+
+        <p style={{ color: "#8c8c98", fontSize: "0.85rem", marginTop: "1rem" }}>
+          Gemini is only used if David types ai: first.
+        </p>
       </main>
     </div>
   );

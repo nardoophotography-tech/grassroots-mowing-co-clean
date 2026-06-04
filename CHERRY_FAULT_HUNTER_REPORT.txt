@@ -1,0 +1,29 @@
+CHERRY FAULT HUNTER REPORT
+Generated: 06/04/2026 07:06:04
+
+LOCAL BUILD EXIT CODE: 0
+LOCAL BUILD PASSED
+dist/index.html exists: True
+dist/cherry-server.js exists: True
+
+LOCAL NODE PID: 59484
+LOCAL /health: FAIL
+Unable to connect to the remote server
+LOCAL /debug/gemini-env: FAIL
+Unable to connect to the remote server
+LOCAL /cherry/api-test: FAIL
+Unable to connect to the remote server
+
+DEPLOY EXIT CODE: 0
+DEPLOY PASSED
+
+LIVE /health: PASS
+frontend: react-build-found
+ai: available
+LIVE /debug/gemini-env: PASS
+directRestTest: PASS
+sdkTest: PASS
+keyMasked: AQ.Ab8...puNQ
+LIVE /cherry/api-test: PASS
+summary: Gemini API responded successfully through direct REST.
+detail: Gemini returned HTTP 200.

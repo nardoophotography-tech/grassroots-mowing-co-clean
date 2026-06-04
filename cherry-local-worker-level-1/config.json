@@ -1,0 +1,8 @@
+{
+  "approvedRoot": "C:/Users/nardo/Desktop/mowing/grassroots-mowing-conew",
+  "port": 4567,
+  "allowedExtensions": [
+    ".js", ".ts", ".tsx", ".jsx", ".json", ".md", ".txt", ".css", ".html", ".xml", ".yml", ".yaml"
+  ],
+  "blockedNames": [".env", ".env.local", ".env.*"]
+}

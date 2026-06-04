@@ -1,0 +1,24 @@
+{
+  "createdAt": "2026-06-03T23:16:52.119Z",
+  "backupFolder": "C:\\Users\\nardo\\Desktop\\mowing\\grassroots-mowing-conew\\BACKUP-BEFORE-CHERRY-FIX-20260604-091652",
+  "files": [
+    {
+      "file": "package.json",
+      "status": "BACKED_UP",
+      "source": "C:\\Users\\nardo\\Desktop\\mowing\\grassroots-mowing-conew\\package.json",
+      "backup": "C:\\Users\\nardo\\Desktop\\mowing\\grassroots-mowing-conew\\BACKUP-BEFORE-CHERRY-FIX-20260604-091652\\package.json"
+    },
+    {
+      "file": "cherry-server.ts",
+      "status": "BACKED_UP",
+      "source": "C:\\Users\\nardo\\Desktop\\mowing\\grassroots-mowing-conew\\cherry-server.ts",
+      "backup": "C:\\Users\\nardo\\Desktop\\mowing\\grassroots-mowing-conew\\BACKUP-BEFORE-CHERRY-FIX-20260604-091652\\cherry-server.ts"
+    },
+    {
+      "file": "CHERRY_ACCESS_RULES.md",
+      "status": "BACKED_UP",
+      "source": "C:\\Users\\nardo\\Desktop\\mowing\\grassroots-mowing-conew\\CHERRY_ACCESS_RULES.md",
+      "backup": "C:\\Users\\nardo\\Desktop\\mowing\\grassroots-mowing-conew\\BACKUP-BEFORE-CHERRY-FIX-20260604-091652\\CHERRY_ACCESS_RULES.md"
+    }
+  ]
+}
