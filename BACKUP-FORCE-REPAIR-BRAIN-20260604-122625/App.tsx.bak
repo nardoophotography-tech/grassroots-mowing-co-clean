@@ -232,14 +232,6 @@ export default function App() {
       return runRunner({ action: "gitStatus" });
     }
 
-    if (lower.includes("repair brain v2") || lower.includes("advanced repair")) {
-      return askPermission("run Repair Brain v2", { action: "repairBrainV2" });
-    }
-
-    if (lower.includes("repair brain") || lower.includes("self repair") || lower.includes("fix yourself")) {
-      return askPermission("run Repair Brain", { action: "repairBrain" });
-    }
-
     if (lower.includes("save") || lower.includes("push")) {
       return askPermission("save and push changes", { action: "savePush" });
     }
@@ -294,8 +286,6 @@ export default function App() {
     ["Scan Project", "scan project"],
     ["Build / Test", "run build"],
     ["Diagnose", "check everything"],
-    ["Repair Brain", "repair brain"],
-    ["Repair Brain v2", "repair brain v2"],
     ["Git Status", "git status"],
     ["Save + Push", "save and push"],
     ["Deploy", "deploy"],
@@ -476,5 +466,3 @@ export default function App() {
     </div>
   );
 }
-
-

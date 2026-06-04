@@ -153,81 +153,6 @@ async function handleAction(body) {
     };
   }
 
-
-  if (action === "repairBrainV2") {
-    const files = scanFiles().join("\n");
-    const git = await run("git status --short");
-    const build = await run("npm run build");
-
-    const buildText = build.output || build.error || "";
-    const lowerBuild = buildText.toLowerCase();
-    const findings = [];
-
-    if (build.ok) {
-      findings.push("Build passed. No build repair needed.");
-    }
-
-    if (lowerBuild.includes("cannot find name")) {
-      findings.push("Possible missing function, missing import, or renamed variable.");
-    }
-
-    if (lowerBuild.includes("is declared but its value is never read")) {
-      findings.push("Unused variable or function detected.");
-    }
-
-    if (lowerBuild.includes("missing script")) {
-      findings.push("package.json script problem.");
-    }
-
-    if (lowerBuild.includes("eaddrinuse")) {
-      findings.push("Port already in use. Restart the old process.");
-    }
-
-    if (lowerBuild.includes("failed to fetch")) {
-      findings.push("Cherry screen cannot reach Local Runner on 127.0.0.1:4570.");
-    }
-
-    if (findings.length === 0) {
-      findings.push("No known repair pattern matched. Manual review needed.");
-    }
-
-    const report = [
-      "CHERRY REPAIR BRAIN v2 REPORT",
-      "",
-      `Time: ${new Date().toISOString()}`,
-      `Project folder: ${ROOT}`,
-      "",
-      "BUILD RESULT:",
-      build.ok ? "PASS" : "FAIL",
-      "",
-      "FINDINGS:",
-      findings.map((f, i) => `${i + 1}. ${f}`).join("\n"),
-      "",
-      "RECOMMENDED NEXT ACTION:",
-      build.ok
-        ? "No code repair needed right now."
-        : "Use the build error to prepare the next patch.",
-      "",
-      "BUILD OUTPUT:",
-      buildText || "No build output.",
-      "",
-      "GIT STATUS:",
-      git.output || "No changed files.",
-      "",
-      "PROJECT FILES:",
-      files
-    ].join("\n");
-
-    fs.writeFileSync(path.join(ROOT, "CHERRY_REPAIR_BRAIN_V2_REPORT.txt"), report, "utf8");
-
-    return {
-      ok: build.ok,
-      message: build.ok
-        ? "Complete. Repair Brain v2 checked the app. Build passed."
-        : "Repair Brain v2 found a build problem.",
-      output: report
-    };
-  }
   if (action === "powershell") {
     const command = String(body.command || "");
     const result = await run(command);
@@ -309,5 +234,3 @@ server.listen(PORT, "127.0.0.1", () => {
   console.log(`Cherry Local Runner repaired and online: http://127.0.0.1:${PORT}`);
   console.log(`Project folder: ${ROOT}`);
 });
-
-
