@@ -8,17 +8,12 @@ declare global {
 }
 
 type Mode = "LOCAL" | "RUNNER" | "VOICE" | "PERMISSION" | "ERROR";
-type Pending = null | {
-  label: string;
-  body: any;
-};
 
 const RUNNER_URL = "http://127.0.0.1:4570";
 
 function speak(text: string) {
   if (!("speechSynthesis" in window)) return;
   window.speechSynthesis.cancel();
-
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = "en-AU";
   window.speechSynthesis.speak(utterance);
@@ -31,8 +26,7 @@ export default function App() {
   const [status, setStatus] = useState<Mode>("LOCAL");
   const [speakerOn, setSpeakerOn] = useState(false);
   const [voiceOn, setVoiceOn] = useState(false);
-  const [pending, setPending] = useState<Pending>(null);
-
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
   const voiceOnRef = useRef(false);
 
@@ -46,13 +40,13 @@ export default function App() {
     }
   }
 
-  async function callRunner(body: any) {
+  async function callRunner(action: string) {
     const response = await fetch(`${RUNNER_URL}/run`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify(body)
+      body: JSON.stringify({ action })
     });
 
     const data = await response.json();
@@ -64,36 +58,41 @@ export default function App() {
     return data;
   }
 
-  async function runRunner(body: any) {
+  async function runLocalAction(action: string) {
     try {
       reply("Working.", "RUNNER", false);
 
-      const data = await callRunner(body);
+      const data = await callRunner(action);
 
       reply(data.message || "Complete.", "RUNNER", true, data.output || "");
     } catch (error: any) {
-      reply("Needs attention.", "ERROR", true, String(error?.message || error));
+      reply(
+        "Local Runner needs attention.",
+        "ERROR",
+        true,
+        String(error?.message || error)
+      );
     }
   }
 
-  function askPermission(label: string, body: any) {
-    setPending({ label, body });
+  function askPermission(action: string, label: string) {
+    setPendingAction(action);
     reply(`Permission needed. Say yes to ${label}.`, "PERMISSION", true);
   }
 
   async function approvePending() {
-    if (!pending) {
+    if (!pendingAction) {
       reply("No permission request is waiting.", "LOCAL", false);
       return;
     }
 
-    const job = pending;
-    setPending(null);
-    await runRunner(job.body);
+    const action = pendingAction;
+    setPendingAction(null);
+    await runLocalAction(action);
   }
 
   function rejectPending() {
-    setPending(null);
+    setPendingAction(null);
     reply("Cancelled.", "LOCAL", true);
   }
 
@@ -176,68 +175,42 @@ export default function App() {
     reply("Voice stopped.", "VOICE", true);
   }
 
-  function looksLikePowerShell(command: string) {
-    const lower = command.toLowerCase();
-
-    return (
-      lower.includes("set-location") ||
-      lower.includes("set-content") ||
-      lower.includes("copy-item") ||
-      lower.includes("new-item") ||
-      lower.includes("npm run") ||
-      lower.includes("git ") ||
-      lower.includes("gcloud ") ||
-      lower.includes("powershell") ||
-      lower.includes("@'") ||
-      lower.includes("'@")
-    );
-  }
-
   async function runCommand(raw: string) {
     const command = raw.trim();
     const lower = command.toLowerCase();
 
     if (!command) return;
 
-    if (lower === "yes" || lower === "yes yes yes" || lower === "approve" || lower === "permission granted") {
+    if (lower === "yes" || lower === "approve" || lower === "permission granted") {
       return approvePending();
     }
 
-    if (lower === "no" || lower === "no no no" || lower === "cancel") {
+    if (lower === "no" || lower === "cancel") {
       return rejectPending();
     }
 
-    if (lower.includes("check runner") || lower.includes("local runner")) {
-      return runRunner({ action: "health" });
-    }
-
-    if (lower.includes("scan files") || lower.includes("scan project")) {
-      return runRunner({ action: "scanFiles" });
-    }
-
-    if (lower.startsWith("read file ")) {
-      const path = command.slice("read file ".length).trim();
-      return runRunner({ action: "readFile", path });
+    if (lower.includes("runner") || lower.includes("local check")) {
+      return runLocalAction("health");
     }
 
     if (lower.includes("build") || lower.includes("test")) {
-      return runRunner({ action: "build" });
+      return runLocalAction("build");
     }
 
     if (lower.includes("diagnose") || lower.includes("check everything")) {
-      return runRunner({ action: "diagnose" });
+      return runLocalAction("diagnose");
     }
 
     if (lower.includes("git status")) {
-      return runRunner({ action: "gitStatus" });
+      return runLocalAction("gitStatus");
     }
 
     if (lower.includes("save") || lower.includes("push")) {
-      return askPermission("save and push changes", { action: "savePush" });
+      return askPermission("savePush", "save and push changes");
     }
 
     if (lower.includes("deploy")) {
-      return askPermission("deploy Cherry live", { action: "deploy" });
+      return askPermission("deploy", "deploy Cherry live");
     }
 
     if (lower.includes("speaker")) {
@@ -250,13 +223,6 @@ export default function App() {
 
     if (lower.includes("stop voice") || lower.includes("stop audio")) {
       return stopVoice();
-    }
-
-    if (looksLikePowerShell(command)) {
-      return askPermission("run this repair patch", {
-        action: "powershell",
-        command
-      });
     }
 
     reply("Instruction received.", "LOCAL", false);
@@ -282,8 +248,7 @@ export default function App() {
       : "LOCAL MODE";
 
   const buttons: Array<[string, string]> = [
-    ["Check Runner", "check runner"],
-    ["Scan Project", "scan project"],
+    ["Check Runner", "local runner check"],
     ["Build / Test", "run build"],
     ["Diagnose", "check everything"],
     ["Git Status", "git status"],
@@ -308,7 +273,7 @@ export default function App() {
     >
       <main
         style={{
-          width: "min(980px, 96vw)",
+          width: "min(900px, 96vw)",
           background: "#121217",
           border: "1px solid #252532",
           borderRadius: "28px",
@@ -321,30 +286,20 @@ export default function App() {
             CHERRY
           </h1>
           <p style={{ color: "#9a9aaa", fontWeight: 700 }}>
-            Local-first repair and control centre
+            Local-first control centre
           </p>
         </header>
 
         <section
           style={{
-            background:
-              status === "PERMISSION"
-                ? "#3a2510"
-                : status === "ERROR"
-                ? "#3a1010"
-                : "#0f2b18",
+            background: status === "PERMISSION" ? "#3a2510" : status === "ERROR" ? "#3a1010" : "#0f2b18",
             border: "1px solid #333340",
             borderRadius: "14px",
             padding: "0.9rem",
             marginBottom: "1rem",
             textAlign: "center",
             fontWeight: 900,
-            color:
-              status === "PERMISSION"
-                ? "#ffd166"
-                : status === "ERROR"
-                ? "#ff6b6b"
-                : "#31ff5f"
+            color: status === "PERMISSION" ? "#ffd166" : status === "ERROR" ? "#ff6b6b" : "#31ff5f"
           }}
         >
           {statusText}
@@ -384,7 +339,7 @@ export default function App() {
             background: "#050507",
             borderRadius: "14px",
             padding: "1.2rem",
-            minHeight: "100px",
+            minHeight: "110px",
             whiteSpace: "pre-wrap",
             color: "#e2e2ea",
             lineHeight: 1.55,
@@ -424,25 +379,23 @@ export default function App() {
             gap: "0.75rem"
           }}
         >
-          <textarea
+          <input
             value={inputText}
             onChange={(event) => setInputText(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
+              if (event.key === "Enter") {
                 event.preventDefault();
                 sendAndClear(inputText);
               }
             }}
-            placeholder="Talk to Cherry, or paste a repair patch here. Press Enter to send. Shift+Enter for a new line."
-            rows={4}
+            placeholder="Type here, or press Start Voice and talk."
             style={{
               background: "#181820",
               border: "1px solid #2a2a35",
               color: "#ffffff",
               borderRadius: "12px",
               padding: "1rem",
-              fontSize: "1rem",
-              resize: "vertical"
+              fontSize: "1rem"
             }}
           />
 
