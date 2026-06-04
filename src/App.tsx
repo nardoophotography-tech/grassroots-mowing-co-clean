@@ -24,11 +24,16 @@ export default function App() {
   );
   const [status, setStatus] = useState<Mode>("LOCAL");
   const [isListening, setIsListening] = useState(false);
+  const [speakerOn, setSpeakerOn] = useState(true);
   const recognitionRef = useRef<any>(null);
 
   function say(text: string, mode: Mode = "LOCAL") {
     setStatus(mode);
     setOutput(text);
+
+    if (speakerOn) {
+      speak(text);
+    }
   }
 
   async function fetchJson(path: string) {
@@ -67,7 +72,7 @@ ${data.mode || "unknown"}
 Gemini:
 ${data.ai || "unknown"}
 
-Next:
+What you can do now:
 Use Local Mode buttons first. Do not use Gemini unless you type ai: yourself.`,
         "BACKEND"
       );
@@ -117,7 +122,7 @@ Cherry can still work in Local Mode even if Gemini is missing, offline, or over 
 Plain English:
 The quota route did not answer, but this does not stop Cherry's Local Mode.
 
-Next:
+What you can do now:
 Use Health Check or Local Mode.`,
         "LOCAL"
       );
@@ -139,7 +144,7 @@ Cherry frontend and backend are connected.
 Routes available:
 ${JSON.stringify(data.routes || {}, null, 2)}
 
-Next:
+What you can do now:
 Use Local Mode for normal work. Only type ai: if you deliberately want Gemini.`,
         "BACKEND"
       );
@@ -308,6 +313,24 @@ Typed Local Mode still works.`,
     }
   }
 
+  function toggleSpeaker() {
+    const next = !speakerOn;
+    setSpeakerOn(next);
+    setStatus("VOICE");
+
+    const message = next
+      ? "Speaker Mode is now on. I will read my replies out loud."
+      : "Speaker Mode is now off. I will stay quiet unless you turn it back on.";
+
+    setOutput(message);
+
+    if (next) {
+      speak(message);
+    } else {
+      window.speechSynthesis?.cancel();
+    }
+  }
+
   function stopAudio() {
     try {
       recognitionRef.current?.stop?.();
@@ -335,6 +358,7 @@ Typed Local Mode still works.`,
     if (lower === "explain this screen") return explainThisScreen();
     if (lower === "local mode") return localHelp();
     if (lower === "talk test") return testVoiceOutput();
+    if (lower === "speaker toggle") return toggleSpeaker();
     if (lower === "start voice") return startVoiceInput();
     if (lower === "stop audio") return stopAudio();
 
@@ -352,7 +376,7 @@ ${command}
 Plain English:
 This did not use Gemini.
 
-Next:
+What you can do now:
 For app fixing, paste the PowerShell error or screenshot here.
 For Gemini, deliberately start the command with ai:`,
       "LOCAL"
@@ -429,6 +453,7 @@ For Gemini, deliberately start the command with ai:`,
             ["Self Test", "self test"],
             ["Quota Status", "quota status"],
             ["Talk Test", "talk test"],
+            [speakerOn ? "Speaker ON" : "Speaker OFF", "speaker toggle"],
             [isListening ? "Listening..." : "Start Voice", "start voice"],
             ["Stop Audio", "stop audio"],
           ].map(([label, command]) => (
@@ -522,3 +547,4 @@ For Gemini, deliberately start the command with ai:`,
     </div>
   );
 }
+
