@@ -7,7 +7,7 @@ declare global {
   }
 }
 
-type Mode = "LOCAL" | "BACKEND" | "VOICE" | "GEMINI";
+type Mode = "LOCAL" | "BACKEND" | "VOICE" | "GEMINI" | "PERMISSION";
 
 function speak(text: string) {
   if (!("speechSynthesis" in window)) return;
@@ -19,19 +19,18 @@ function speak(text: string) {
 
 export default function App() {
   const [inputText, setInputText] = useState("");
-  const [output, setOutput] = useState(
-    "David, Cherry is now in Local Mode. I can guide you without using Gemini. Gemini will only be used if you deliberately type ai: before a command."
-  );
+  const [output, setOutput] = useState("I’m ready.");
   const [status, setStatus] = useState<Mode>("LOCAL");
-  const [isListening, setIsListening] = useState(false);
-  const [speakerOn, setSpeakerOn] = useState(true);
+  const [speakerOn, setSpeakerOn] = useState(false);
+  const [voiceOn, setVoiceOn] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const voiceOnRef = useRef(false);
 
-  function say(text: string, mode: Mode = "LOCAL") {
+  function reply(text: string, mode: Mode = "LOCAL", shouldSpeak = false) {
     setStatus(mode);
     setOutput(text);
 
-    if (speakerOn) {
+    if (speakerOn && shouldSpeak) {
       speak(text);
     }
   }
@@ -39,8 +38,8 @@ export default function App() {
   async function fetchJson(path: string) {
     const response = await fetch(path);
     const text = await response.text();
-    let data: any = {};
 
+    let data: any = {};
     try {
       data = text ? JSON.parse(text) : {};
     } catch {
@@ -55,262 +54,42 @@ export default function App() {
   }
 
   async function healthCheck() {
-    say("Checking Cherry backend without using Gemini...", "BACKEND");
-
     try {
-      const data = await fetchJson("/health");
-
-      say(
-        `BACKEND CHECK PASSED
-
-Plain English:
-Cherry's server is online.
-
-Mode:
-${data.mode || "unknown"}
-
-Gemini:
-${data.ai || "unknown"}
-
-What you can do now:
-Use Local Mode buttons first. Do not use Gemini unless you type ai: yourself.`,
-        "BACKEND"
-      );
-    } catch (err: any) {
-      say(
-        `BACKEND CHECK FAILED
-
-Plain English:
-Cherry's screen is open, but the server behind it did not answer.
-
-What to do:
-Run this in PowerShell:
-
-npm run build
-npm run cherry:start
-
-Error:
-${String(err?.message || err)}`,
-        "BACKEND"
-      );
-    }
-  }
-
-  async function quotaStatus() {
-    say("Checking quota status safely. This does not call Gemini...", "LOCAL");
-
-    try {
-      const data = await fetchJson("/quota-status");
-
-      say(
-        `SAFE QUOTA CHECK
-
-Plain English:
-This check did not use Gemini.
-
-Gemini status:
-${data.gemini || "unknown"}
-
-Important:
-Cherry can still work in Local Mode even if Gemini is missing, offline, or over quota.`,
-        "LOCAL"
-      );
+      await fetchJson("/health");
+      reply("Complete. Cherry server is online.", "BACKEND", true);
     } catch {
-      say(
-        `SAFE QUOTA CHECK
-
-Plain English:
-The quota route did not answer, but this does not stop Cherry's Local Mode.
-
-What you can do now:
-Use Health Check or Local Mode.`,
-        "LOCAL"
-      );
+      reply("Cherry server did not answer.", "BACKEND", true);
     }
   }
 
   async function selfTest() {
-    say("Running Cherry self-test without using Gemini...", "BACKEND");
-
     try {
-      const data = await fetchJson("/self-test");
-
-      say(
-        `SELF TEST PASSED
-
-Plain English:
-Cherry frontend and backend are connected.
-
-Routes available:
-${JSON.stringify(data.routes || {}, null, 2)}
-
-What you can do now:
-Use Local Mode for normal work. Only type ai: if you deliberately want Gemini.`,
-        "BACKEND"
-      );
-    } catch (err: any) {
-      say(
-        `SELF TEST FAILED
-
-Plain English:
-Cherry could not complete the backend self-test.
-
-Error:
-${String(err?.message || err)}`,
-        "BACKEND"
-      );
+      await fetchJson("/self-test");
+      reply("Complete. Cherry wiring is working.", "BACKEND", true);
+    } catch {
+      reply("Self test failed.", "BACKEND", true);
     }
   }
 
-  function explainThisScreen() {
-    say(
-      `WHAT THIS SCREEN IS
+  async function quotaStatus() {
+    try {
+      await fetchJson("/quota-status");
+      reply("Complete. Gemini was not used.", "LOCAL", true);
+    } catch {
+      reply("Quota check failed, but Local Mode still works.", "LOCAL", true);
+    }
+  }
 
-This is Cherry's Local Mode control screen.
-
-What Local Mode means:
-Cherry can help you without calling Gemini.
-
-Use these buttons:
-- Health Check: checks if Cherry's server is online.
-- Self Test: checks Cherry's own wiring.
-- Quota Status: checks Gemini status without burning a Gemini request.
-- Talk Test: makes Cherry speak.
-- Start Voice: lets you speak a short command.
-- Stop Audio: stops microphone and speaking.
-
-Important:
-Gemini is optional now.
-
-Cherry will only try Gemini if you type:
-
-ai: your question here
-
-That protects your quota.`,
-      "LOCAL"
+  function explainScreen() {
+    reply(
+      "This is Cherry Local Mode. Gemini is off unless you type ai:. Press Start Voice to talk continuously.",
+      "LOCAL",
+      true
     );
   }
 
-  function localHelp() {
-    say(
-      `LOCAL MODE ACTIVE
-
-Cherry can now help with:
-- explaining screens
-- guiding PowerShell steps
-- checking backend health
-- checking quota safely
-- voice input testing
-- voice output testing
-- plain-English instructions
-
-Cherry will not use Gemini unless you deliberately type ai:
-
-Example:
-ai: explain this error
-
-Safe default:
-Do not type ai: unless you want to spend a Gemini request.`,
-      "LOCAL"
-    );
-  }
-
-  async function runAiCommand(command: string) {
-    say(
-      `Permission check:
-You used ai:, so Cherry will try to contact Gemini.
-
-If Gemini is over quota, Cherry will stay in Local Mode.`,
-      "GEMINI"
-    );
-
-    try {
-      const data = await fetchJson("/cherry/execute", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ command }),
-      } as any);
-
-      say(data.reply || "Cherry received a response.", "GEMINI");
-    } catch (err: any) {
-      say(
-        `GEMINI UNAVAILABLE
-
-Plain English:
-Gemini did not answer.
-
-This does not break Cherry.
-
-Cherry is still working in Local Mode.
-
-Error:
-${String(err?.message || err)}`,
-        "LOCAL"
-      );
-    }
-  }
-
-  function testVoiceOutput() {
-    const text =
-      "David, Cherry voice is working. I am in Local Mode and I will not use Gemini unless you ask me to.";
-    say(text, "VOICE");
-    speak(text);
-  }
-
-  function startVoiceInput() {
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      say(
-        "Voice input is not available in this browser. Typed Local Mode still works. Try Chrome or Edge for voice.",
-        "VOICE"
-      );
-      return;
-    }
-
-    try {
-      const recognition = new SpeechRecognition();
-      recognitionRef.current = recognition;
-      recognition.lang = "en-AU";
-      recognition.continuous = false;
-      recognition.interimResults = false;
-
-      recognition.onstart = () => {
-        setIsListening(true);
-        say("Listening now. Say one short command.", "VOICE");
-      };
-
-      recognition.onresult = (event: any) => {
-        const transcript = event.results?.[0]?.[0]?.transcript || "";
-        setInputText(transcript);
-        setIsListening(false);
-        say(
-          `I heard:
-
-${transcript}
-
-Press SEND to run that as a Local Mode command.`,
-          "VOICE"
-        );
-      };
-
-      recognition.onerror = (event: any) => {
-        setIsListening(false);
-        say(
-          `Voice input had a problem: ${String(event.error || "unknown")}
-
-Typed Local Mode still works.`,
-          "VOICE"
-        );
-      };
-
-      recognition.onend = () => setIsListening(false);
-      recognition.start();
-    } catch (err: any) {
-      setIsListening(false);
-      say(`Voice input could not start: ${String(err?.message || err)}`, "VOICE");
-    }
+  function localMode() {
+    reply("Complete. Local Mode is active. Gemini was not used.", "LOCAL", true);
   }
 
   function toggleSpeaker() {
@@ -318,29 +97,46 @@ Typed Local Mode still works.`,
     setSpeakerOn(next);
     setStatus("VOICE");
 
-    const message = next
-      ? "Speaker Mode is now on. I will read my replies out loud."
-      : "Speaker Mode is now off. I will stay quiet unless you turn it back on.";
-
-    setOutput(message);
-
     if (next) {
-      speak(message);
+      setOutput("Speaker ON.");
+      speak("Speaker on.");
     } else {
       window.speechSynthesis?.cancel();
+      setOutput("Speaker OFF.");
     }
   }
 
-  function stopAudio() {
-    try {
-      recognitionRef.current?.stop?.();
-    } catch {
-      // ignore
-    }
+  function talkTest() {
+    const message = "Cherry voice is working.";
+    setOutput(message);
+    speak(message);
+  }
 
-    window.speechSynthesis?.cancel();
-    setIsListening(false);
-    say("Audio stopped.", "VOICE");
+  async function runAiCommand(command: string) {
+    reply("Permission needed. Gemini will be used for this command.", "PERMISSION", true);
+
+    try {
+      const response = await fetch("/cherry/execute", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ command })
+      });
+
+      const text = await response.text();
+      let data: any = {};
+
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = { reply: text };
+      }
+
+      reply(data.reply || "Complete.", "GEMINI", true);
+    } catch {
+      reply("Gemini unavailable. Local Mode still works.", "LOCAL", true);
+    }
   }
 
   async function runCommand(raw: string) {
@@ -348,49 +144,129 @@ Typed Local Mode still works.`,
     const lower = command.toLowerCase();
 
     if (!command) {
-      say("No command entered.", "LOCAL");
+      reply("I’m listening.", "LOCAL", false);
       return;
     }
 
     if (lower === "health check") return healthCheck();
     if (lower === "self test") return selfTest();
     if (lower === "quota status") return quotaStatus();
-    if (lower === "explain this screen") return explainThisScreen();
-    if (lower === "local mode") return localHelp();
-    if (lower === "talk test") return testVoiceOutput();
+    if (lower === "explain screen" || lower === "explain this screen") return explainScreen();
+    if (lower === "local mode") return localMode();
+    if (lower === "talk test") return talkTest();
     if (lower === "speaker toggle") return toggleSpeaker();
-    if (lower === "start voice") return startVoiceInput();
-    if (lower === "stop audio") return stopAudio();
+    if (lower === "start voice") return startVoice();
+    if (lower === "stop voice" || lower === "stop audio") return stopVoice();
 
     if (lower.startsWith("ai:")) {
       return runAiCommand(command);
     }
 
-    say(
-      `LOCAL MODE RESPONSE
+    reply("Instruction received.", "LOCAL", false);
+  }
 
-David, I received this:
+  async function sendAndClear(raw: string) {
+    const command = raw.trim();
+    setInputText("");
+    await runCommand(command);
+  }
 
-${command}
+  function startVoice() {
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
 
-Plain English:
-This did not use Gemini.
+    if (!SpeechRecognition) {
+      reply("Voice is not available in this browser.", "VOICE", true);
+      return;
+    }
 
-What you can do now:
-For app fixing, paste the PowerShell error or screenshot here.
-For Gemini, deliberately start the command with ai:`,
-      "LOCAL"
-    );
+    voiceOnRef.current = true;
+    setVoiceOn(true);
+
+    const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
+
+    recognition.lang = "en-AU";
+    recognition.continuous = true;
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+      reply("I’m listening.", "VOICE", true);
+    };
+
+    recognition.onresult = (event: any) => {
+      const last = event.results[event.results.length - 1];
+      const transcript = last?.[0]?.transcript?.trim() || "";
+
+      if (!transcript) return;
+
+      setInputText("");
+      runCommand(transcript);
+    };
+
+    recognition.onerror = () => {
+      if (voiceOnRef.current) {
+        reply("Voice paused. Restarting.", "VOICE", false);
+      }
+    };
+
+    recognition.onend = () => {
+      if (voiceOnRef.current) {
+        try {
+          recognition.start();
+        } catch {
+          // browser may need a moment
+        }
+      } else {
+        setVoiceOn(false);
+      }
+    };
+
+    try {
+      recognition.start();
+    } catch {
+      reply("Voice could not start.", "VOICE", true);
+    }
+  }
+
+  function stopVoice() {
+    voiceOnRef.current = false;
+    setVoiceOn(false);
+
+    try {
+      recognitionRef.current?.stop?.();
+    } catch {
+      // ignore
+    }
+
+    window.speechSynthesis?.cancel();
+    reply("Voice stopped.", "VOICE", true);
   }
 
   const statusText =
     status === "LOCAL"
-      ? "LOCAL MODE ACTIVE — GEMINI NOT USED"
+      ? "LOCAL MODE — GEMINI NOT USED"
       : status === "BACKEND"
-      ? "BACKEND CHECK MODE"
+      ? "BACKEND CHECK"
       : status === "VOICE"
-      ? "VOICE MODE"
-      : "GEMINI REQUEST MODE";
+      ? voiceOn
+        ? "VOICE LISTENING"
+        : "VOICE MODE"
+      : status === "PERMISSION"
+      ? "PERMISSION NEEDED"
+      : "GEMINI MODE";
+
+  const buttons: Array<[string, string]> = [
+    ["Explain Screen", "explain screen"],
+    ["Local Mode", "local mode"],
+    ["Health Check", "health check"],
+    ["Self Test", "self test"],
+    ["Quota Status", "quota status"],
+    ["Talk Test", "talk test"],
+    [speakerOn ? "Speaker ON" : "Speaker OFF", "speaker toggle"],
+    [voiceOn ? "Voice ON" : "Start Voice", "start voice"],
+    ["Stop Voice", "stop voice"]
+  ];
 
   return (
     <div
@@ -401,17 +277,17 @@ For Gemini, deliberately start the command with ai:`,
         fontFamily: "Segoe UI, Arial, sans-serif",
         padding: "1.5rem",
         display: "grid",
-        placeItems: "start center",
+        placeItems: "start center"
       }}
     >
       <main
         style={{
-          width: "min(860px, 96vw)",
+          width: "min(880px, 96vw)",
           background: "#121217",
           border: "1px solid #252532",
           borderRadius: "28px",
           padding: "1.5rem",
-          boxShadow: "0 30px 80px rgba(0,0,0,0.45)",
+          boxShadow: "0 30px 80px rgba(0,0,0,0.45)"
         }}
       >
         <header style={{ textAlign: "center", marginBottom: "1rem" }}>
@@ -425,14 +301,14 @@ For Gemini, deliberately start the command with ai:`,
 
         <section
           style={{
-            background: status === "LOCAL" ? "#0f2b18" : "#2b2230",
+            background: status === "PERMISSION" ? "#3a2510" : "#0f2b18",
             border: "1px solid #333340",
             borderRadius: "14px",
             padding: "0.9rem",
             marginBottom: "1rem",
             textAlign: "center",
             fontWeight: 900,
-            color: status === "LOCAL" ? "#31ff5f" : "#ffd166",
+            color: status === "PERMISSION" ? "#ffd166" : "#31ff5f"
           }}
         >
           {statusText}
@@ -443,20 +319,10 @@ For Gemini, deliberately start the command with ai:`,
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
             gap: "0.75rem",
-            marginBottom: "1rem",
+            marginBottom: "1rem"
           }}
         >
-          {[
-            ["Explain Screen", "explain this screen"],
-            ["Local Mode", "local mode"],
-            ["Health Check", "health check"],
-            ["Self Test", "self test"],
-            ["Quota Status", "quota status"],
-            ["Talk Test", "talk test"],
-            [speakerOn ? "Speaker ON" : "Speaker OFF", "speaker toggle"],
-            [isListening ? "Listening..." : "Start Voice", "start voice"],
-            ["Stop Audio", "stop audio"],
-          ].map(([label, command]) => (
+          {buttons.map(([label, command]) => (
             <button
               key={command}
               type="button"
@@ -466,12 +332,16 @@ For Gemini, deliberately start the command with ai:`,
                 borderRadius: "16px",
                 padding: "1rem",
                 background:
-                  command === "start voice" && isListening ? "#31ff5f" : "#2b2b33",
+                  command === "start voice" && voiceOn
+                    ? "#31ff5f"
+                    : "#2b2b33",
                 color:
-                  command === "start voice" && isListening ? "#061107" : "#ffffff",
+                  command === "start voice" && voiceOn
+                    ? "#061107"
+                    : "#ffffff",
                 fontWeight: 900,
                 cursor: "pointer",
-                minHeight: "68px",
+                minHeight: "68px"
               }}
             >
               {label}
@@ -484,12 +354,13 @@ For Gemini, deliberately start the command with ai:`,
             background: "#050507",
             borderRadius: "14px",
             padding: "1.2rem",
-            minHeight: "210px",
+            minHeight: "160px",
             whiteSpace: "pre-wrap",
             color: "#e2e2ea",
             lineHeight: 1.55,
             marginBottom: "1rem",
             border: "1px solid #1c1c24",
+            fontSize: "1.05rem"
           }}
         >
           {output}
@@ -499,7 +370,7 @@ For Gemini, deliberately start the command with ai:`,
           style={{
             display: "grid",
             gridTemplateColumns: "1fr auto",
-            gap: "0.75rem",
+            gap: "0.75rem"
           }}
         >
           <input
@@ -508,23 +379,23 @@ For Gemini, deliberately start the command with ai:`,
             onKeyDown={(event) => {
               if (event.key === "Enter") {
                 event.preventDefault();
-                runCommand(inputText);
+                sendAndClear(inputText);
               }
             }}
-            placeholder="Type here. Use ai: only when you deliberately want Gemini."
+            placeholder="Type here, or press Start Voice and talk."
             style={{
               background: "#181820",
               border: "1px solid #2a2a35",
               color: "#ffffff",
               borderRadius: "12px",
               padding: "1rem",
-              fontSize: "1rem",
+              fontSize: "1rem"
             }}
           />
 
           <button
             type="button"
-            onClick={() => runCommand(inputText)}
+            onClick={() => sendAndClear(inputText)}
             style={{
               border: "none",
               borderRadius: "12px",
@@ -532,7 +403,7 @@ For Gemini, deliberately start the command with ai:`,
               background: "#ff2f70",
               color: "#ffffff",
               fontWeight: 900,
-              cursor: "pointer",
+              cursor: "pointer"
             }}
           >
             SEND
@@ -540,11 +411,9 @@ For Gemini, deliberately start the command with ai:`,
         </section>
 
         <p style={{ color: "#8c8c98", fontSize: "0.85rem", marginTop: "1rem" }}>
-          Safety rule: Cherry uses Local Mode by default. Gemini is only called when
-          David deliberately types ai: before a command.
+          Gemini is only used if David types ai: first.
         </p>
       </main>
     </div>
   );
 }
-
