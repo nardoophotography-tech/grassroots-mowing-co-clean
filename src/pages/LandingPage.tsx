@@ -537,8 +537,8 @@ export const LandingPage = () => {
               <div>
                 <p className="text-white font-black uppercase tracking-widest text-[9px] mb-4 italic">Protocol</p>
                 <div className="flex gap-4 text-[9px] font-bold uppercase tracking-widest">
-                  <a href="#" className="hover:text-primary transition-colors">Privacy</a>
-                  <a href="#" className="hover:text-primary transition-colors">Terms</a>
+                  <a href="/privacy" className="hover:text-primary transition-colors">Privacy</a>
+                  <a href="/terms" className="hover:text-primary transition-colors">Terms</a>
                 </div>
               </div>
             </div>

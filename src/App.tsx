@@ -46,6 +46,8 @@ import { LandingPage } from '@/pages/LandingPage';
 import { Login } from '@/pages/Login';
 import { Packages } from '@/pages/Packages';
 import { QuoteApproval } from '@/pages/QuoteApproval';
+import { Privacy } from '@/pages/Privacy';
+import { Terms } from '@/pages/Terms';
 import { LockScreen } from '@/components/LockScreen';
 import { GrassRootsLogo } from '@/components/GrassRootsLogo';
 import AppLogo from '@/components/AppLogo';
@@ -192,6 +194,8 @@ const AppContent = () => {
         <Route path="/quote/:jobId" element={<QuoteApproval />} />
         <Route path="/booking-success" element={<BookingSuccess />} />
         <Route path="/packages" element={<Packages />} />
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/terms" element={<Terms />} />
         <Route path="/pay/:id" element={<InvoicePayment />} />
         <Route path="/tech" element={<RoleGuard roles={['admin', 'staff']}><Layout><TechnicianDashboard /></Layout></RoleGuard>} />
         
