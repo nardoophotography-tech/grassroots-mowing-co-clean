@@ -292,7 +292,7 @@ export const LandingPage = () => {
       </section>
 
       {/* Brand Mission Section - The Story Behind Our Artwork */}
-      <section className="py-24 px-6 bg-white relative overflow-hidden">
+      <section className="py-12 sm:py-24 px-4 sm:px-6 bg-white relative overflow-hidden">
         <div className="absolute top-0 right-0 w-1/3 h-full subtle-grid opacity-5 pointer-events-none" />
         <div className="absolute -bottom-20 -left-20 w-96 h-96 opacity-5 pointer-events-none grayscale">
           <GrassRootsGuardian size={400} />
@@ -316,7 +316,7 @@ export const LandingPage = () => {
               <p className="text-charcoal font-black text-sm leading-relaxed uppercase tracking-tight italic border-l-4 border-primary pl-6">
                 "Our visual artwork and logo were created as a modern representation inspired by the artwork of SunRock and the natural landscapes of the country where GrassRoots Mowing Co was founded."
               </p>
-              <div className="pt-8 grid grid-cols-2 gap-8">
+              <div className="pt-8 grid grid-cols-1 sm:grid-cols-2 gap-8">
                 <div className="space-y-2">
                   <h4 className="text-[10px] font-black text-primary uppercase tracking-widest">Inspired by Country</h4>
                   <p className="text-[9px] font-bold text-clay uppercase tracking-tight">Reflecting the natural landscapes where we live and work.</p>
@@ -385,7 +385,7 @@ export const LandingPage = () => {
       {/* Cultural Acknowledgement Section */}
       <section className="py-12 bg-charcoal text-white relative overflow-hidden">
          <div className="absolute inset-0 cultural-pattern opacity-10 pointer-events-none grayscale" />
-         <div className="max-w-4xl mx-auto px-6 relative z-10 text-center flex flex-col items-center">
+         <div className="max-w-4xl mx-auto px-4 sm:px-6 relative z-10 text-center flex flex-col items-center">
             <div className="mb-6 p-4 rounded-full border border-white/10 bg-white/5">
                <div className="flex items-center justify-center text-primary">
                   <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 11V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v7a4 4 0 0 0 8 0v-2"/><path d="M12 10V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v7a4 4 0 0 1-8 0v-2"/><path d="M3 13h1m3 0h1M13 13h1m3 0h1"/></svg>
@@ -402,7 +402,7 @@ export const LandingPage = () => {
       </section>
 
       {/* Brand Identity Showcase */}
-      <section className="py-24 px-6 bg-slate-50 relative overflow-hidden">
+      <section className="py-12 sm:py-24 px-4 sm:px-6 bg-slate-50 relative overflow-hidden">
         <div className="absolute inset-0 subtle-grid opacity-5 pointer-events-none" />
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
           <div className="order-2 lg:order-1 flex justify-center lg:justify-start">
@@ -517,7 +517,7 @@ export const LandingPage = () => {
       </section>
 
       {/* Footer - Minimal */}
-      <footer className="bg-slate-950 text-slate-400 py-12 px-6 border-t border-white/5">
+      <footer className="bg-slate-950 text-slate-400 py-12 px-4 sm:px-6 border-t border-white/5">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
             <div className="flex flex-col items-center md:items-start gap-4">
               <AppLogo className="h-8 w-auto" textClassName="text-white" />
