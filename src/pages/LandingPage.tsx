@@ -205,7 +205,7 @@ export const LandingPage = () => {
 
   return (
     <div className="min-h-screen bg-[#FDFCFB] selection:bg-primary/20 selection:text-primary">
-      <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-border px-6 py-3 shadow-sm">
+      <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-border px-4 sm:px-6 py-3 shadow-sm">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-3 cursor-pointer group" onClick={() => navigate('/')}>
             <AppLogo className="h-10 w-auto group-hover:scale-105 transition-transform" />
@@ -234,7 +234,7 @@ export const LandingPage = () => {
       </nav>
 
       {/* Action-First Hero */}
-      <section className="relative pt-12 pb-12 px-6 overflow-hidden bg-white border-b border-border/40">
+      <section className="relative pt-8 sm:pt-12 pb-8 sm:pb-12 px-4 sm:px-6 overflow-hidden bg-white border-b border-border/40">
         <div className="absolute inset-0 subtle-grid opacity-5 pointer-events-none" />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
            <GrassRootsGuardian variant="spotlight" className="opacity-10 w-[600px] h-auto" />
@@ -245,19 +245,19 @@ export const LandingPage = () => {
             animate={{ opacity: 1, y: 0 }}
             className="w-full max-w-4xl"
           >
-            <h1 className="text-5xl lg:text-7xl font-black text-charcoal leading-[0.9] tracking-tighter uppercase italic mb-6">
+            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-black text-charcoal leading-[0.9] tracking-tighter uppercase italic mb-6">
               Yard Care <span className="text-primary italic">On Demand.</span>
             </h1>
             
-            <p className="text-clay text-xs lg:text-sm font-bold max-w-xl mx-auto mb-10 leading-relaxed uppercase tracking-[0.15em]">
+            <p className="text-clay text-xs lg:text-sm font-bold max-w-xl mx-auto mb-6 sm:mb-10 leading-relaxed uppercase tracking-[0.15em]">
               Professional maintenance for {settings?.serviceLocation || 'Mount Isa'}. <br />
               Select your path below for instant processing.
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-10">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6 sm:mb-10">
               <Button 
                 onClick={() => navigate('/booking?type=one_off')}
-                className="h-20 bg-secondary hover:bg-secondary/90 text-white font-black uppercase tracking-[0.2em] text-[11px] rounded-2xl shadow-xl shadow-secondary/10 italic flex flex-col items-center justify-center gap-1 group"
+                className="h-16 sm:h-20 bg-secondary hover:bg-secondary/90 text-white font-black uppercase tracking-[0.2em] text-[11px] rounded-2xl shadow-xl shadow-secondary/10 italic flex flex-col items-center justify-center gap-1 group"
               >
                 <div className="flex items-center gap-2">
                    <Zap size={16} /> ONE-OFF BOOKING
@@ -268,7 +268,7 @@ export const LandingPage = () => {
               <Button 
                 variant="outline"
                 onClick={() => navigate('/login?intendedRole=returning')}
-                className="h-20 border-primary/20 text-primary hover:bg-primary/5 font-black uppercase tracking-[0.2em] text-[11px] rounded-2xl italic flex flex-col items-center justify-center gap-1"
+                className="h-16 sm:h-20 border-primary/20 text-primary hover:bg-primary/5 font-black uppercase tracking-[0.2em] text-[11px] rounded-2xl italic flex flex-col items-center justify-center gap-1"
               >
                 <div className="flex items-center gap-2">
                    <Users size={16} /> REGULAR CLIENTS
@@ -279,7 +279,7 @@ export const LandingPage = () => {
               <Button 
                 variant="outline"
                 onClick={() => navigate('/login?intendedRole=asset_management')}
-                className="h-20 border-slate-900/20 text-slate-900 hover:bg-slate-50 font-black uppercase tracking-[0.2em] text-[11px] rounded-2xl italic flex flex-col items-center justify-center gap-1"
+                className="h-16 sm:h-20 border-slate-900/20 text-slate-900 hover:bg-slate-50 font-black uppercase tracking-[0.2em] text-[11px] rounded-2xl italic flex flex-col items-center justify-center gap-1"
               >
                 <div className="flex items-center gap-2">
                    <Building2 size={16} /> ASSET MANAGERS
