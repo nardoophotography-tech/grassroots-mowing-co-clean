@@ -33,7 +33,7 @@ const AppLogo = ({
           <img 
             src={logoAsset?.url || "/logo.png"} 
             alt="Logo"
-            className="h-16 sm:h-20 w-auto object-contain"
+            className="h-10 w-auto object-contain"
             onError={() => setImgError(true)}
             referrerPolicy="no-referrer"
           />
