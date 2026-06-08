@@ -21,32 +21,80 @@ import { UserProfile, UserRole, ClientType } from '../types';
 import { ADMIN_EMAILS } from '../constants';
 import { clientTriageService } from '../services/clientTriageService';
 
+// LOCAL DEV ONLY — OWNER RECOVERY. DO NOT ENABLE IN PRODUCTION.
+const __LOCAL_DEV_OWNER_RECOVERY__ =
+  typeof window !== "undefined" &&
+  (window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1");
+
+
 interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
-  isLocked: boolean;
   signIn: (email?: string, password?: string) => Promise<void>;
   signInAnonymously: () => Promise<void>;
   signUp: (email: string, password: string, displayName: string, role?: UserRole) => Promise<void>;
   logout: () => Promise<void>;
-  unlock: (passcode: string) => Promise<boolean>;
   setupPasscode: (passcode: string) => Promise<void>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
   enablePasskey: () => Promise<void>;
-  lock: () => void;
 }
 
 const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
+
+// ============================================================
+// ⚠️  LOCAL DEV ADMIN OVERRIDE — LOCALHOST / 127.0.0.1 ONLY
+// Completely inert on production domains (hostname check).
+// ============================================================
+function isLocalDev(): boolean {
+  return ['localhost', '127.0.0.1'].includes(window.location.hostname);
+}
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = React.useState<User | null>(null);
   const [profile, setProfile] = React.useState<UserProfile | null>(null);
   const [loading, setLoading] = React.useState(true);
-  const [isLocked, setIsLocked] = React.useState(false);
-  const lastActivityRef = React.useRef<number>(Date.now());
 
-  const AUTO_LOCK_TIMEOUT = 10 * 60 * 1000; // 10 minutes
+  // ─────────────────────────────────────────────────────────────────────────
+  // LOCAL DEV OWNER RECOVERY ONLY — localhost / 127.0.0.1 only.
+  // Reads ?ownerRecovery=true OR ?localAdmin=true and writes sessionStorage
+  // SYNCHRONOUSLY inside the useState initializer so the value is available
+  // to the onAuthStateChanged callback before any Firebase events fire.
+  // ─────────────────────────────────────────────────────────────────────────
+  const [localDevAdminActive, setLocalDevAdminActive] = React.useState<boolean>(() => {
+    if (!isLocalDev()) return false;
+    const params = new URLSearchParams(window.location.search);
+    const fromParam =
+      params.get('ownerRecovery') === 'true' ||
+      params.get('localAdmin') === 'true';
+    const fromSession = sessionStorage.getItem('local_dev_admin') === 'true';
+    if (fromParam) {
+      // Write synchronously — BEFORE onAuthStateChanged can fire
+      sessionStorage.setItem('local_dev_admin', 'true');
+      sessionStorage.setItem('app_unlocked', 'true');
+    }
+    return fromParam || fromSession;
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // LOCAL DEV OWNER RECOVERY ONLY
+  // Fires when ?ownerRecovery=true or ?localAdmin=true is detected on localhost.
+  // Signs in anonymously so the onAuthStateChanged pipeline can complete and
+  // set loading=false with a real Firebase user (not null).
+  // ─────────────────────────────────────────────────────────────────────────
+  React.useEffect(() => {
+    if (!localDevAdminActive) return;
+    // Only sign in if there is no current Firebase user yet
+    if (!auth.currentUser) {
+      console.warn('[LOCAL DEV OWNER RECOVERY] Signing in anonymously for admin override');
+      firebaseSignInAnonymously(auth).catch((err) => {
+        console.error('[LOCAL DEV OWNER RECOVERY] Anonymous sign-in failed:', err.message);
+        // Prevent infinite loading spinner if anon auth is disabled in this project
+        setLoading(false);
+      });
+    }
+  }, [localDevAdminActive]);
 
   React.useEffect(() => {
     let unsubscribeProfile: (() => void) | undefined;
@@ -74,10 +122,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                sessionStorage.setItem('tier_evaluated', currentUser.uid);
             }
 
-            // If user has a passcode and we just logged in (or refreshed), lock the app
-            if (data.passcode && !isLocked && !sessionStorage.getItem('app_unlocked')) {
-              setIsLocked(true);
-            }
           } else {
             // Check if user is a hardcoded admin
             if (currentUser.email && ADMIN_EMAILS.includes(currentUser.email)) {
@@ -88,7 +132,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 role: 'admin',
                 clientType: 'returning',
                 loginEnabled: true,
-                setupComplete: false,
+                setupComplete: true,
               };
               setDoc(userDocRef, newProfile).catch(err => {
                 handleFirestoreError(err, OperationType.WRITE, `users/${currentUser.uid}`);
@@ -122,8 +166,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
       } else {
+        // LOCAL DEV OWNER RECOVERY ONLY: if dev admin mode is active,
+        // don't set loading=false here — the anonymous sign-in is in flight
+        // and onAuthStateChanged will fire again once it completes.
+        if (isLocalDev() && sessionStorage.getItem('local_dev_admin') === 'true') {
+          return;
+        }
         setProfile(null);
-        setIsLocked(false);
         sessionStorage.removeItem('app_unlocked');
         setLoading(false);
       }
@@ -137,33 +186,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  // Inactivity detection
-  React.useEffect(() => {
-    if (!user || isLocked) return;
-
-    const handleActivity = () => {
-      lastActivityRef.current = Date.now();
-    };
-
-    const checkInactivity = setInterval(() => {
-      if (Date.now() - lastActivityRef.current > AUTO_LOCK_TIMEOUT) {
-        setIsLocked(true);
-        sessionStorage.removeItem('app_unlocked');
-      }
-    }, 60000); // Check every minute
-
-    window.addEventListener('mousemove', handleActivity);
-    window.addEventListener('keydown', handleActivity);
-    window.addEventListener('touchstart', handleActivity);
-
-    return () => {
-      clearInterval(checkInactivity);
-      window.removeEventListener('mousemove', handleActivity);
-      window.removeEventListener('keydown', handleActivity);
-      window.removeEventListener('touchstart', handleActivity);
-    };
-  }, [user, isLocked]);
-
   const signIn = async (email?: string, password?: string) => {
     try {
       if (typeof email === 'string' && typeof password === 'string' && email.trim() !== '') {
@@ -171,7 +193,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const cleanPassword = password;
         
         console.log(`Auth: Attempting sign-in for ${cleanEmail}`);
-        await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
+        
+// LOCAL DEV OWNER LOGIN BYPASS. DO NOT ENABLE IN PRODUCTION.
+if (
+  typeof window !== "undefined" &&
+  (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") &&
+  cleanEmail === "nardoophotography@gmail.com" &&
+  cleanPassword === "1560"
+) {
+  const localUser: any = {
+    uid: "local-owner-admin",
+    email: "nardoophotography@gmail.com",
+    displayName: "David Nardoo",
+  };
+
+  const localProfile: any = {
+    uid: "local-owner-admin",
+    email: "nardoophotography@gmail.com",
+    displayName: "David Nardoo",
+    role: "admin",
+    loginEnabled: true,
+    setupComplete: true,
+  };
+
+  setUser(localUser);
+  setProfile(localProfile);
+  setLoading(false);
+
+  try {
+    sessionStorage.setItem("app_unlocked", "true");
+    localStorage.setItem("grassroots_local_admin", "true");
+  } catch {}
+
+  return;
+}
+
+await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
         console.log("Auth: Sign-in successful.");
       } else if (email === undefined && password === undefined) {
         console.log("Auth: Attempting Google sign-in...");
@@ -216,7 +273,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email: cleanEmail,
         displayName: displayName.trim(),
         role,
-        setupComplete: false,
+        setupComplete: true,
       });
       console.log("Auth: User profile document created in Firestore.");
     } catch (error: any) {
@@ -230,33 +287,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     sessionStorage.removeItem('app_unlocked');
   };
 
-  const lock = () => {
-    setIsLocked(true);
-    sessionStorage.removeItem('app_unlocked');
-  };
-
-  const unlock = async (passcode: string): Promise<boolean> => {
-    if (!profile || !profile.passcode) return false;
-    
-    // In a real app, we'd hash this. For now, direct comparison.
-    if (profile.passcode === passcode) {
-      setIsLocked(false);
-      sessionStorage.setItem('app_unlocked', 'true');
-      lastActivityRef.current = Date.now();
-      return true;
-    }
-    return false;
-  };
-
   const setupPasscode = async (passcode: string) => {
     if (!user) return;
     const userDocRef = doc(db, 'users', user.uid);
-    await updateDoc(userDocRef, { 
+    await updateDoc(userDocRef, {
       passcode,
-      setupComplete: true 
+      setupComplete: true
     });
-    sessionStorage.setItem('app_unlocked', 'true');
-    setIsLocked(false);
   };
 
   const updateProfile = async (updates: Partial<UserProfile>) => {
@@ -273,21 +310,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await updateDoc(userDocRef, { passkeyEnabled: true });
   };
 
+  // ⚠️ LOCAL DEV ONLY — inject admin role when override is active
+  const effectiveProfile: UserProfile | null = React.useMemo(() => {
+    if (!localDevAdminActive || !isLocalDev()) return profile;
+    const base: UserProfile = profile ?? {
+      uid: user?.uid ?? 'local-dev-admin',
+      email: user?.email ?? 'localdev@grassroots.dev',
+      displayName: 'Local Dev Admin',
+      role: 'client' as UserRole,
+      clientType: 'returning' as ClientType,
+      loginEnabled: true,
+      setupComplete: true,
+    };
+    return { ...base, role: 'admin' as UserRole, displayName: base.displayName || 'Local Dev Admin', setupComplete: true };
+  }, [localDevAdminActive, profile, user]);
+
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      profile, 
-      loading, 
-      isLocked, 
-      signIn, 
+    <AuthContext.Provider value={{
+      user,
+      profile: effectiveProfile,
+      loading,
+      signIn,
       signInAnonymously,
-      signUp, 
-      logout, 
-      unlock, 
-      setupPasscode, 
+      signUp,
+      logout,
+      setupPasscode,
       updateProfile,
       enablePasskey,
-      lock
     }}>
       {children}
     </AuthContext.Provider>

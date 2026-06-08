@@ -6,16 +6,17 @@ import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card'
 import { Input } from '../components/ui/Input';
 import { Label } from '../components/ui/Label';
 import { ClipboardList, Mail, Lock, UserPlus, Fingerprint, ShieldCheck, Home, ArrowLeft } from 'lucide-react';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { auth } from '../firebase';
 import { GrassRootsLogo } from '../components/GrassRootsLogo';
 import { GrassRootsGuardian } from '../components/GrassRootsGuardian';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { PasscodeModal } from '../components/PasscodeModal';
 import { UserRole } from '../types';
 import { ImagePlaceholder } from '../components/ImagePlaceholder';
 
 export const Login = () => {
-  const { signIn, signUp, logout, user, profile, setupPasscode, updateProfile } = useAuth();
+  const { signIn, signUp, logout, user, profile, updateProfile } = useAuth();
   const { settings } = useSettings();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -25,8 +26,8 @@ export const Login = () => {
   React.useEffect(() => {
     const handleRoleRedirect = async () => {
       if (user) {
-        // If they have a profile and are setup, go to dashboard
-        if (profile?.setupComplete) {
+        // If they have a profile, go to dashboard
+        if (profile) {
           if (intendedRole && profile.role !== intendedRole) {
             try {
               await updateProfile({ role: intendedRole });
@@ -54,7 +55,6 @@ export const Login = () => {
   const [password, setPassword] = React.useState('');
   const [displayName, setDisplayName] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
-  const [showPasscodeSetup, setShowPasscodeSetup] = React.useState(false);
   const [unauthorized, setUnauthorized] = React.useState(false);
 
   // Portal Theme Configuration
@@ -126,12 +126,6 @@ export const Login = () => {
     }
   }, [user, profile, isLoading]);
 
-  React.useEffect(() => {
-    if (user && profile && !profile.setupComplete) {
-      setShowPasscodeSetup(true);
-    }
-  }, [user, profile]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -177,27 +171,22 @@ export const Login = () => {
     }
   };
 
-  const handlePasscodeSetup = async (passcode: string) => {
+  const handleForgotPassword = async () => {
+    const cleanEmail = email?.toString().trim();
+    if (!cleanEmail) {
+      toast.error('Enter your email address above first, then click Forgot Password.');
+      return;
+    }
     try {
-      await setupPasscode(passcode);
-      toast.success('Passcode set up successfully!');
-      setShowPasscodeSetup(false);
-    } catch (error) {
-      toast.error('Failed to set up passcode');
+      await sendPasswordResetEmail(auth, cleanEmail);
+      toast.success(`Password reset email sent to ${cleanEmail}. Check your inbox.`);
+    } catch (error: any) {
+      console.error('Password reset error:', error);
+      toast.error(error.code === 'auth/user-not-found'
+        ? 'No account found for that email.'
+        : 'Failed to send reset email. Try again.');
     }
   };
-
-  if (showPasscodeSetup) {
-    return (
-      <PasscodeModal
-        isOpen={true}
-        onSuccess={handlePasscodeSetup}
-        onClose={() => setShowPasscodeSetup(false)}
-        title="Set Up Your Passcode"
-        description="Create a 4-6 digit PIN for quick access in the field."
-      />
-    );
-  }
 
   return (
     <div className={`min-h-screen flex flex-col items-center justify-center ${currentTheme.bg} p-4 relative overflow-hidden transition-colors duration-500`}>
@@ -323,7 +312,19 @@ export const Login = () => {
               </div>
             </div>
 
-            <Button type="submit" className={`w-full py-7 text-lg font-bold ${currentTheme.accent} ${currentTheme.hoverAccent} text-white rounded-2xl shadow-xl mt-6 relative overflow-hidden group`} isLoading={isLoading}>
+            {!isSignUp && (
+              <div className="flex justify-end -mt-1">
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  className={`text-[10px] font-bold uppercase tracking-widest ${intendedRole === 'client' ? 'text-stone-500 hover:text-stone-300' : 'text-ochre/70 hover:text-deep-red'} transition-colors`}
+                >
+                  Forgot password?
+                </button>
+              </div>
+            )}
+
+                        <Button type="submit" className={`w-full py-7 text-lg font-bold ${currentTheme.accent} ${currentTheme.hoverAccent} text-white rounded-2xl shadow-xl mt-6 relative overflow-hidden group`} isLoading={isLoading}>
               <span className="relative z-10">{isSignUp ? 'Generate Access' : 'Authenticate Entry'}</span>
               <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
             </Button>

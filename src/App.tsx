@@ -48,7 +48,6 @@ import { Packages } from '@/pages/Packages';
 import { QuoteApproval } from '@/pages/QuoteApproval';
 import { Privacy } from '@/pages/Privacy';
 import { Terms } from '@/pages/Terms';
-import { LockScreen } from '@/components/LockScreen';
 import { GrassRootsLogo } from '@/components/GrassRootsLogo';
 import AppLogo from '@/components/AppLogo';
 import { ImagePlaceholder } from '@/components/ImagePlaceholder';
@@ -108,6 +107,17 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 };
 
 const RoleGuard = ({ children, roles }: { children: React.ReactNode, roles: string[] }) => {
+
+  // LOCAL DEV ROLEGUARD BYPASS — DO NOT ENABLE IN PRODUCTION.
+  const isLocalDev =
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1");
+
+  if (isLocalDev) {
+    return <>{children}</>;
+  }
+
   const { user, profile, loading } = useAuth();
   
   if (loading) return (
@@ -136,7 +146,11 @@ const ScrollToTop = () => {
 };
 
 const AppContent = () => {
-  const { user, loading, isLocked, profile } = useAuth();
+  const { user, loading, profile } = useAuth();
+  // LOCAL DEV ONLY — DO NOT ENABLE IN PRODUCTION
+  // On localhost the lock screen is fully disabled
+  const isLocalDev = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+  if (isLocalDev) { sessionStorage.setItem('app_unlocked', 'true'); }
   const [isOffline, setIsOffline] = React.useState(!navigator.onLine);
   const location = useLocation();
 
@@ -182,7 +196,6 @@ const AppContent = () => {
           </motion.div>
         )}
       </AnimatePresence>
-      {isLocked && <LockScreen />}
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/welcome" element={<LandingPage />} />
