@@ -44,6 +44,8 @@ import { InvoiceList } from '@/pages/InvoiceList';
 import { InvoicePayment } from '@/pages/InvoicePayment';
 import { LandingPage } from '@/pages/LandingPage';
 import { Login } from '@/pages/Login';
+import EquipmentRegister from '@/pages/EquipmentRegister';
+import BushrangerEquipment from '@/pages/BushrangerEquipment';
 import { Packages } from '@/pages/Packages';
 import { QuoteApproval } from '@/pages/QuoteApproval';
 import { Privacy } from '@/pages/Privacy';
@@ -227,6 +229,8 @@ const AppContent = () => {
 
         {/* Admin Only */}
         <Route path="/admin" element={<RoleGuard roles={['admin']}><Layout><AdminPortal /></Layout></RoleGuard>} />
+        <Route path="/equipment" element={<RoleGuard roles={['admin']}><Layout><EquipmentRegister /></Layout></RoleGuard>} />
+        <Route path="/equipment/bushranger" element={<RoleGuard roles={['admin']}><Layout><BushrangerEquipment /></Layout></RoleGuard>} />
         <Route path="/invoices" element={<RoleGuard roles={['admin']}><Layout><InvoiceList /></Layout></RoleGuard>} />
         <Route path="/clients" element={<RoleGuard roles={['admin']}><Layout><ClientList /></Layout></RoleGuard>} />
         <Route path="/clients/:id" element={<RoleGuard roles={['admin']}><Layout><ClientDetail /></Layout></RoleGuard>} />

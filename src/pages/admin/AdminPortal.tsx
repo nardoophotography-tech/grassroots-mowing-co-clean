@@ -107,7 +107,57 @@ export const AdminPortal: React.FC = () => {
       </header>
 
       {/* Primary Navigation Modules */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      
+        <section className="mb-10">
+          <div className="mb-4">
+            <p className="text-xs text-clay font-bold uppercase tracking-[0.2em] italic">
+              Equipment Command
+            </p>
+            <h2 className="text-2xl font-black text-charcoal uppercase italic tracking-tighter">
+              GrassRoots Equipment Hub
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <a href="/equipment" className="group bg-white rounded-[2rem] p-8 shadow-sm border border-stone-200 hover:shadow-xl transition-all block">
+              <div className="w-14 h-14 rounded-2xl bg-deep-red text-white flex items-center justify-center text-xl font-black mb-8">
+                EQ
+              </div>
+              <p className="uppercase tracking-[0.25em] text-[10px] font-black text-ochre mb-3">
+                Equipment Register
+              </p>
+              <h3 className="text-3xl font-black italic text-charcoal group-hover:text-deep-red transition-colors">
+                EQUIPMENT REGISTER
+              </h3>
+              <p className="mt-4 text-stone-600 leading-7">
+                Full register of GrassRoots machines, tools, maintenance notes, reviews, photos, and field footage.
+              </p>
+              <p className="mt-6 text-xs font-black tracking-[0.25em] text-deep-red uppercase">
+                Open Register
+              </p>
+            </a>
+
+            <a href="/equipment/bushranger" className="group bg-white rounded-[2rem] p-8 shadow-sm border border-stone-200 hover:shadow-xl transition-all block">
+              <div className="w-14 h-14 rounded-2xl bg-forest text-white flex items-center justify-center text-xl font-black mb-8">
+                BR
+              </div>
+              <p className="uppercase tracking-[0.25em] text-[10px] font-black text-ochre mb-3">
+                Bushranger Field Review
+              </p>
+              <h3 className="text-3xl font-black italic text-charcoal group-hover:text-forest transition-colors">
+                BUSHRANGER PAGE
+              </h3>
+              <p className="mt-4 text-stone-600 leading-7">
+                Dedicated Bushranger equipment page for the gear GrassRoots uses in real Mount Isa conditions.
+              </p>
+              <p className="mt-6 text-xs font-black tracking-[0.25em] text-forest uppercase">
+                Open Bushranger Review
+              </p>
+            </a>
+          </div>
+        </section>
+
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {ADMIN_MODULES.map((module, i) => (
           <motion.button
             key={module.title}
