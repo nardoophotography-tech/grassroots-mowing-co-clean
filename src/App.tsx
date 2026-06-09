@@ -37,7 +37,9 @@ import { ClientList } from '@/pages/ClientList';
 import { ClientDetail } from '@/pages/ClientDetail';
 import { JobDetail } from '@/pages/JobDetail';
 import { ScheduleManager } from '@/pages/ScheduleManager';
-import { CalendarPage } from '@/pages/CalendarPage';
+// NOTE: CalendarPage (old Firebase schedule shell) is intentionally NOT imported.
+// /schedule renders ScheduleCalendar. Importing CalendarPage would drag its
+// "No schedule entries available yet" string back into the bundle.
 import { ScheduleCalendar } from '@/pages/ScheduleCalendar';
 import { Booking } from '@/pages/Booking';
 import { BookingSuccess } from '@/pages/BookingSuccess';

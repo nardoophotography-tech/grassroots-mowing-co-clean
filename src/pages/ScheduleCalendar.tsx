@@ -167,6 +167,8 @@ export const ScheduleCalendar = () => {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-3xl font-black text-charcoal uppercase italic tracking-tighter">Schedule</h1>
+          {/* Temporary build-proof marker — confirms the correct component is live. */}
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-green-600">Schedule Calendar v2 Active</p>
           <p className="text-stone-500 italic text-sm">Daily, weekly and monthly job calendar.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -295,7 +297,7 @@ export const ScheduleCalendar = () => {
   function DailyView() {
     const dayEntries = entriesForDay(anchor);
     return (
-      <div className="bg-white rounded-[2rem] border border-stone-200 shadow-sm p-6">
+      <div aria-label="Daily View" data-view="Daily View" className="bg-white rounded-[2rem] border border-stone-200 shadow-sm p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-black italic uppercase text-charcoal">{format(anchor, 'EEEE, d MMM')}</h2>
           <button onClick={() => openAdd(anchor)} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-stone-100 hover:bg-stone-200 text-[11px] font-black uppercase tracking-widest">
@@ -344,7 +346,7 @@ export const ScheduleCalendar = () => {
     const days = eachDayOfInterval({ start: weekStart, end: endOfWeek(anchor, { weekStartsOn: 1 }) });
     const weekCount = days.reduce((sum, d) => sum + entriesForDay(d).length, 0);
     return (
-      <div>
+      <div aria-label="Weekly View" data-view="Weekly View">
         {weekCount === 0 && (
           <div className="mb-4 py-4 text-center border-2 border-dashed border-stone-200 rounded-2xl bg-white/50">
             <p className="font-serif text-stone-500">No schedule entries this week.</p>
@@ -386,7 +388,7 @@ export const ScheduleCalendar = () => {
     }).length;
     const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return (
-      <div>
+      <div aria-label="Monthly View" data-view="Monthly View">
         {monthCount === 0 && (
           <div className="mb-4 py-4 text-center border-2 border-dashed border-stone-200 rounded-2xl bg-white/50">
             <p className="font-serif text-stone-500">No schedule entries this month.</p>
