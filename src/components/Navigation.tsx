@@ -88,7 +88,7 @@ export const GlobalHeader = ({ onMenuClick, profile }: { onMenuClick: () => void
     (profile.role !== 'admin' && profile.role !== 'staff' && profile.clientType === 'one_off');
 
   return (
-    <header className="h-16 bg-background shadow-premium border-b border-border flex items-center justify-between px-6 lg:px-10 flex-shrink-0 relative z-20 overflow-hidden">
+    <header className="h-16 bg-surface shadow-premium border-b border-border flex items-center justify-between px-6 lg:px-10 flex-shrink-0 relative z-20 overflow-hidden">
       {/* Brand accent line */}
       <div className="absolute top-0 left-0 w-full h-0.5 bg-primary/20" />
       
@@ -270,7 +270,7 @@ export const Sidebar = ({ isOpen, onClose, variant = 'sidebar' }: { isOpen: bool
         <div className="absolute inset-0 cultural-pattern opacity-[0.03] pointer-events-none" />
         
         <div className="flex h-full flex-col relative overflow-hidden text-charcoal z-10">
-          <div className="flex h-24 items-center justify-between px-8 border-b border-border/50 bg-background relative">
+          <div className="flex h-24 items-center justify-between px-8 border-b border-border/50 bg-surface relative">
             <div className="absolute bottom-0 left-8 right-8 h-1 bg-gradient-to-r from-primary/30 to-transparent rounded-full" />
             <Link to="/dashboard" className="flex items-center" onClick={onClose}>
               <AppLogo className="scale-125 origin-left" />

@@ -28,12 +28,17 @@ const AppLogo = ({
 
   return (
     <div className={cn("flex items-center gap-4", className)}>
-      <div className={cn("relative flex-shrink-0 flex items-center justify-center", imageClassName)}>
+      {/* Clean, self-contained logo layer: transparent, no border/shadow/backdrop. */}
+      <div
+        className={cn("relative z-10 flex-shrink-0 flex items-center justify-center bg-transparent border-0 shadow-none", imageClassName)}
+        style={{ backdropFilter: 'none' }}
+      >
         {!imgError ? (
-          <img 
-            src={logoAsset?.url || "/logo.png"} 
+          <img
+            src={logoAsset?.url || "/logo-clean.png"}
             alt="Logo"
-            className="h-10 w-auto object-contain"
+            className="h-10 w-auto object-contain block bg-transparent"
+            style={{ mixBlendMode: 'normal' }}
             onError={() => setImgError(true)}
             referrerPolicy="no-referrer"
           />
