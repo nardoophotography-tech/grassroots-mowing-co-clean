@@ -81,7 +81,7 @@ export const ClientList = () => {
   };
 
   if (loading) {
-    return <div className="p-8 text-center uppercase tracking-widest text-[10px] font-black animate-pulse">Synchronizing CRM Database...</div>;
+    return <div className="p-8 text-center uppercase tracking-widest text-[10px] font-black animate-pulse">Loading clients...</div>;
   }
 
   return (
@@ -125,10 +125,10 @@ export const ClientList = () => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 relative z-10">
         <Card className="bg-white/80 backdrop-blur-sm border-ochre/10 shadow-sm">
           <CardContent className="pt-4">
-            <p className="text-[8px] text-ochre font-black uppercase tracking-widest mb-1 opacity-60">Revenue Stream</p>
+            <p className="text-[8px] text-ochre font-black uppercase tracking-widest mb-1 opacity-60">Total Clients</p>
             <div className="flex items-center gap-2">
               <TrendingUp className="h-3 w-3 text-green-600" />
-              <p className="text-xl font-black text-charcoal">Healthy</p>
+              <p className="text-xl font-black text-charcoal">{clients.length}</p>
             </div>
           </CardContent>
         </Card>
@@ -315,8 +315,12 @@ export const ClientList = () => {
           {filteredClients.length === 0 && !isAdding && (
             <div className="py-24 text-center border-2 border-dashed border-ochre/10 rounded-[32px] bg-white/40">
               <ClipboardList className="h-12 w-12 text-ochre/20 mx-auto mb-4" />
-              <p className="font-serif text-lg text-ochre/60">No matching heritage records found.</p>
-              <Button variant="ghost" className="mt-4 text-[10px] font-black uppercase tracking-widest text-deep-red" onClick={() => setSearchQuery('')}>Clear Query</Button>
+              <p className="font-serif text-lg text-ochre/60">
+                {clients.length === 0 ? 'No clients found yet.' : 'No clients match your search.'}
+              </p>
+              {clients.length > 0 && (
+                <Button variant="ghost" className="mt-4 text-[10px] font-black uppercase tracking-widest text-deep-red" onClick={() => setSearchQuery('')}>Clear Query</Button>
+              )}
             </div>
           )}
         </div>

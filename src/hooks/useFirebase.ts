@@ -40,6 +40,7 @@ const updateClientAccountStatus = async (clientId: string) => {
 export function useJobs() {
   const [jobs, setJobs] = React.useState<Job[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
   const { user, profile } = useAuth();
 
   React.useEffect(() => {
@@ -51,23 +52,28 @@ export function useJobs() {
 
     const path = 'jobs';
     let q = query(collection(db, path), orderBy('scheduledDate', 'desc'));
-    
+
     if (profile?.role === 'client') {
       // Clients only see their own jobs (or their agency's jobs)
       const effectiveClientId = profile.agencyId || user.uid;
       q = query(collection(db, path), where('clientId', '==', effectiveClientId), orderBy('scheduledDate', 'desc'));
     }
-    
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const jobsData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Job[];
       setJobs(jobsData);
+      setError(null);
       setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, path);
+    }, (err) => {
+      // Permission-denied / offline etc. — degrade gracefully: empty data,
+      // loading off, friendly error string for the UI (never throw to render).
+      setJobs([]);
+      setError(err?.message || 'Failed to load jobs.');
       setLoading(false);
+      try { handleFirestoreError(err, OperationType.LIST, path); } catch (e) { console.error('[Firestore listener error]', e); }
     });
 
     return () => unsubscribe();
@@ -446,7 +452,7 @@ export function useJobs() {
     }
   };
 
-  return { jobs, loading, addJob, updateJob, reorderJob, assignWorker, deleteJob, broadcastDailyStart, sendQuoteToCustomer };
+  return { jobs, loading, error, addJob, updateJob, reorderJob, assignWorker, deleteJob, broadcastDailyStart, sendQuoteToCustomer };
 }
 
 export function useJob(id?: string) {
@@ -502,8 +508,8 @@ export function useInvoices() {
       setInvoices(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Invoice[]);
       setLoading(false);
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, path);
       setLoading(false);
+      try { handleFirestoreError(error, OperationType.LIST, path); } catch (e) { console.error('[Firestore listener error]', e); }
     });
     return () => unsubscribe();
   }, [user, profile?.role]);
@@ -675,8 +681,8 @@ export function useSettings() {
       }
       setLoading(false);
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, path);
       setLoading(false);
+      try { handleFirestoreError(error, OperationType.LIST, path); } catch (e) { console.error('[Firestore listener error]', e); }
     });
 
     return () => unsubscribe();
@@ -783,8 +789,8 @@ export function useClients() {
       setClients(clientsData);
       setLoading(false);
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, path);
       setLoading(false);
+      try { handleFirestoreError(error, OperationType.LIST, path); } catch (e) { console.error('[Firestore listener error]', e); }
     });
 
     return () => unsubscribe();
@@ -857,17 +863,24 @@ export function useClients() {
 export function useStaff() {
   const [staff, setStaff] = React.useState<UserProfile[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const q = query(collection(db, 'users'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setStaff(snapshot.docs.map(d => d.data() as UserProfile));
+      setError(null);
       setLoading(false);
+    }, (err) => {
+      // Without this callback a failed listener leaves loading=true forever.
+      setLoading(false);
+      setError(err?.message || 'Failed to load staff.');
+      try { handleFirestoreError(err, OperationType.LIST, 'users'); } catch (e) { console.error('[useStaff]', e); }
     });
     return () => unsubscribe();
   }, []);
 
-  return { staff, loading };
+  return { staff, loading, error };
 }
 
 export function useAgencyStaff() {
@@ -940,8 +953,8 @@ export function usePayments() {
       setPayments(data);
       setLoading(false);
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, path);
       setLoading(false);
+      try { handleFirestoreError(error, OperationType.LIST, path); } catch (e) { console.error('[Firestore listener error]', e); }
     });
 
     return () => unsubscribe();
@@ -973,8 +986,8 @@ export function useNotifications() {
       setNotifications(snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as AppNotification[]);
       setLoading(false);
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'notifications');
       setLoading(false);
+      try { handleFirestoreError(error, OperationType.LIST, 'notifications'); } catch (e) { console.error('[Firestore listener error]', e); }
     });
 
     return () => unsubscribe();

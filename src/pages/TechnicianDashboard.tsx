@@ -14,7 +14,8 @@ import {
   ChevronRight,
   TrendingDown
 } from 'lucide-react';
-import { collection, query, where, orderBy, onSnapshot, doc } from 'firebase/firestore';
+import { Link } from 'react-router-dom';
+import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '@/firebase';
 import { Job, JobMaterial } from '@/types';
 import { Button } from '@/components/ui/Button';
@@ -31,25 +32,43 @@ export function TechnicianDashboard() {
   const [jobs, setJobs] = React.useState<Job[]>([]);
   const [activeJob, setActiveJob] = React.useState<Job | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
   const [showMaterialLog, setShowMaterialLog] = React.useState(false);
 
   React.useEffect(() => {
-    const q = query(
-      collection(db, 'jobs'),
-      where('status', 'in', ['scheduled', 'in-progress']),
-      orderBy('scheduledDate', 'asc')
+    // Order only, then filter status client-side. The previous query combined
+    // `where status in [...]` with `orderBy scheduledDate`, which requires a
+    // composite Firestore index — when missing, the listener failed silently
+    // (no error callback) and the spinner span forever.
+    const q = query(collection(db, 'jobs'), orderBy('scheduledDate', 'asc'));
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const all = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Job));
+        const jobData = all.filter(j => j.status === 'scheduled' || j.status === 'in-progress');
+        setJobs(jobData);
+        const inProgress = jobData.find(j => j.status === 'in-progress');
+        if (inProgress) setActiveJob(inProgress);
+        setError(null);
+        setLoading(false);
+      },
+      (err) => {
+        setError(err?.message || 'Failed to load field jobs.');
+        setLoading(false);
+      }
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const jobData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Job));
-      setJobs(jobData);
-      const inProgress = jobData.find(j => j.status === 'in-progress');
-      if (inProgress) setActiveJob(inProgress);
-      setLoading(false);
-    });
+    // Safety net: never leave the spinner running indefinitely.
+    const t = window.setTimeout(() => setLoading(false), 8000);
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      window.clearTimeout(t);
+    };
   }, []);
+
+  const scheduledJobs = jobs.filter(j => j.status === 'scheduled');
 
   const handleStartJob = async (job: Job) => {
     try {
@@ -97,6 +116,29 @@ export function TechnicianDashboard() {
     </div>
   );
 
+  // Admin-safe shell: a Firebase permission error (or no loadable jobs) renders
+  // the page shell with a useful empty state + actions, never a hard error wall.
+  if (error) return (
+    <div className="max-w-md mx-auto p-4 pb-24 space-y-6">
+      <div>
+        <h1 className="text-2xl font-black text-slate-900 uppercase italic leading-none">Field View</h1>
+        <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Crew Dashboard • {format(new Date(), 'EEEE')}</p>
+      </div>
+      <div className="py-14 text-center border-2 border-dashed border-slate-200 rounded-2xl bg-white/60">
+        <p className="font-black text-slate-700 uppercase italic">No field jobs available yet.</p>
+        <p className="text-sm text-slate-500 mt-2">Firebase permissions need updating for live job data.</p>
+      </div>
+      <div className="flex flex-wrap gap-3">
+        <Link to="/admin" className="flex-1 text-center px-5 py-3 rounded-xl bg-orange-600 text-white font-black uppercase text-xs tracking-widest hover:bg-orange-700">
+          Back to Admin Portal
+        </Link>
+        <Link to="/jobs" className="flex-1 text-center px-5 py-3 rounded-xl border border-slate-300 text-slate-700 font-black uppercase text-xs tracking-widest hover:bg-slate-100">
+          Job Queue
+        </Link>
+      </div>
+    </div>
+  );
+
   return (
     <div className="max-w-md mx-auto p-4 pb-24 space-y-6 relative overflow-hidden">
       <div className="absolute inset-0 cultural-pattern opacity-5 pointer-events-none" />
@@ -116,7 +158,7 @@ export function TechnicianDashboard() {
           <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Crew Dashboard • {format(new Date(), 'EEEE')}</p>
         </div>
         <div className="bg-orange-50 p-2 rounded-xl border border-orange-100 italic font-black text-orange-700 text-xs">
-          7 Stops Left
+          {scheduledJobs.length} {scheduledJobs.length === 1 ? 'Stop' : 'Stops'} Left
         </div>
       </div>
 
@@ -226,8 +268,14 @@ export function TechnicianDashboard() {
               </div>
             </div>
 
+            {scheduledJobs.length === 0 && (
+              <div className="py-16 text-center border-2 border-dashed border-slate-200 rounded-2xl bg-white/50">
+                <p className="font-black text-slate-500 uppercase italic">No field jobs assigned yet.</p>
+              </div>
+            )}
+
             <div className="space-y-3">
-              {jobs.filter(j => j.status === 'scheduled').map((job, index) => (
+              {scheduledJobs.map((job, index) => (
                 <div 
                   key={job.id}
                   className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm hover:shadow-md transition-all group flex items-center gap-4"

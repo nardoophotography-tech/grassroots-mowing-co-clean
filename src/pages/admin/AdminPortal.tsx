@@ -119,7 +119,7 @@ export const AdminPortal: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <a href="/equipment" className="group bg-white rounded-[2rem] p-8 shadow-sm border border-stone-200 hover:shadow-xl transition-all block">
+            <button onClick={() => navigate('/admin/equipment')} className="group text-left bg-white rounded-[2rem] p-8 shadow-sm border border-stone-200 hover:shadow-xl transition-all block">
               <div className="w-14 h-14 rounded-2xl bg-deep-red text-white flex items-center justify-center text-xl font-black mb-8">
                 EQ
               </div>
@@ -130,14 +130,14 @@ export const AdminPortal: React.FC = () => {
                 EQUIPMENT REGISTER
               </h3>
               <p className="mt-4 text-stone-600 leading-7">
-                Full register of GrassRoots machines, tools, maintenance notes, reviews, photos, and field footage.
+                Add, edit and manage GrassRoots machines, tools, maintenance notes, reviews, photos, and field footage.
               </p>
               <p className="mt-6 text-xs font-black tracking-[0.25em] text-deep-red uppercase">
-                Open Register
+                Manage Equipment
               </p>
-            </a>
+            </button>
 
-            <a href="/equipment/bushranger" className="group bg-white rounded-[2rem] p-8 shadow-sm border border-stone-200 hover:shadow-xl transition-all block">
+            <button onClick={() => navigate('/equipment/bushranger')} className="group text-left bg-white rounded-[2rem] p-8 shadow-sm border border-stone-200 hover:shadow-xl transition-all block">
               <div className="w-14 h-14 rounded-2xl bg-forest text-white flex items-center justify-center text-xl font-black mb-8">
                 BR
               </div>
@@ -153,7 +153,7 @@ export const AdminPortal: React.FC = () => {
               <p className="mt-6 text-xs font-black tracking-[0.25em] text-forest uppercase">
                 Open Bushranger Review
               </p>
-            </a>
+            </button>
           </div>
         </section>
 

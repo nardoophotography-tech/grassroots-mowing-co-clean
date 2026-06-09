@@ -36,6 +36,15 @@ import AppLogo from '@/components/AppLogo';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { ClientType } from '@/types';
 
+// Role-aware identity label so admin/staff are never shown as a client type.
+// Admin must always read ADMIN, staff STAFF; clients show their client type.
+const identityLabel = (profile: any): string => {
+  if (!profile) return 'guest';
+  if (profile.role === 'admin') return 'admin';
+  if (profile.role === 'staff') return 'staff';
+  return (profile.clientType || 'one_off').replace('_', ' ');
+};
+
 export const NavItem = ({ to, icon: Icon, label, active, onClick }: { to: string, icon: any, label: string, active: boolean, onClick?: () => void }) => (
   <Link
     to={to}
@@ -72,7 +81,11 @@ export const GlobalHeader = ({ onMenuClick, profile }: { onMenuClick: () => void
     }
   };
 
-  const isOneOff = !profile || profile.clientType === 'one_off';
+  // Admin and staff are operational users — never treat them as one-off clients,
+  // even if their profile carries a stale clientType.
+  const isOneOff =
+    !profile ||
+    (profile.role !== 'admin' && profile.role !== 'staff' && profile.clientType === 'one_off');
 
   return (
     <header className="h-16 bg-surface shadow-premium border-b border-border flex items-center justify-between px-6 lg:px-10 flex-shrink-0 relative z-20 overflow-hidden">
@@ -191,7 +204,7 @@ export const GlobalHeader = ({ onMenuClick, profile }: { onMenuClick: () => void
           <>
             <div className="hidden sm:flex flex-col items-end mr-3">
               <p className="text-[9px] font-black text-secondary uppercase tracking-[0.2em] italic">
-                {profile?.clientType?.replace('_', ' ') || profile?.role} Access
+                {identityLabel(profile)} Access
               </p>
               <p className="text-xs font-black text-charcoal uppercase tracking-tight italic">{profile?.displayName || 'Client'}</p>
             </div>
@@ -353,7 +366,7 @@ export const Sidebar = ({ isOpen, onClose, variant = 'sidebar' }: { isOpen: bool
               </div>
               <div className="flex items-center justify-between mb-2">
                 <Badge variant="outline" className="text-[9px] font-black border-secondary/20 text-secondary bg-secondary/5 px-2 py-0.5 uppercase tracking-widest italic">
-                  {clientType.replace('_', ' ')}
+                  {identityLabel(profile)}
                 </Badge>
                 <div className="w-2.5 h-2.5 rounded-full bg-primary shadow-[0_0_8px_rgba(var(--color-primary),0.5)]" />
               </div>

@@ -5,7 +5,7 @@ import { MonthlyCalendar } from '@/components/Calendar/MonthlyCalendar';
 import { WeeklyCalendar } from '@/components/Calendar/WeeklyCalendar';
 import { DailyCalendar } from '@/components/Calendar/DailyCalendar';
 import { Job } from '@/types';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { offlineQueue } from '@/services/offlineQueue';
 import { toast } from 'react-hot-toast';
@@ -15,17 +15,54 @@ type ViewType = 'monthly' | 'weekly' | 'daily';
 
 export const CalendarPage = () => {
   const { profile } = useAuth();
-  const { jobs, updateJob, reorderJob, assignWorker, loading: jobsLoading } = useJobs();
-  const { staff, loading: staffLoading } = useStaff();
+  const { jobs, updateJob, reorderJob, assignWorker, loading: jobsLoading, error: jobsError } = useJobs();
+  const { staff, loading: staffLoading, error: staffError } = useStaff();
   const { settings } = useSettings();
   const navigate = useNavigate();
-  
+  const dataError = jobsError || staffError;
+
   const [view, setView] = React.useState<ViewType>(
     profile?.role === 'admin' ? 'monthly' : 'daily'
   );
 
-  if (jobsLoading || staffLoading) {
-    return <div className="p-8 text-center">Loading schedule...</div>;
+  // Safety net: never hang on the loading state forever. If the data hooks
+  // haven't resolved within 8s we stop waiting and render an empty schedule.
+  const [timedOut, setTimedOut] = React.useState(false);
+  React.useEffect(() => {
+    const t = window.setTimeout(() => setTimedOut(true), 8000);
+    return () => window.clearTimeout(t);
+  }, []);
+
+  const stillLoading = (jobsLoading || staffLoading) && !timedOut;
+
+  if (stillLoading) {
+    return <div className="p-8 text-center text-clay font-bold animate-pulse">Loading schedule...</div>;
+  }
+
+  // Admin-safe shell: when no jobs can be loaded (permission-denied or genuinely
+  // empty) we still render the page shell with a useful empty state + actions
+  // instead of a hard error wall.
+  if (jobs.length === 0) {
+    return (
+      <div className="p-4 lg:p-8 max-w-7xl mx-auto">
+        <h1 className="text-3xl font-bold text-gray-900">Schedule</h1>
+        <p className="text-gray-500 italic">Manage your regional business workflow and appointments.</p>
+        <div className="mt-10 py-20 text-center border-2 border-dashed border-stone-200 rounded-[2rem] bg-white/50">
+          <p className="font-serif text-lg text-stone-700">No schedule entries available yet.</p>
+          {dataError && (
+            <p className="text-sm text-stone-500 mt-2">Firebase permissions need updating for live schedule data.</p>
+          )}
+          <div className="flex flex-wrap gap-3 justify-center mt-8">
+            <Link to="/admin" className="px-6 py-3 rounded-xl bg-deep-red text-white font-black uppercase text-xs tracking-widest hover:bg-deep-red/90">
+              Back to Admin Portal
+            </Link>
+            <Link to="/jobs" className="px-6 py-3 rounded-xl border border-stone-300 font-black uppercase text-xs tracking-widest hover:bg-stone-100">
+              Job Queue
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const handleJobClick = (job: Job) => {
