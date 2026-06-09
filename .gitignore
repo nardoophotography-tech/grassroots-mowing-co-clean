@@ -6,3 +6,12 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Local Claude Code config (per-machine dev launch settings)
+.claude/
+
+# One-off codemod scripts and source backups (clutter)
+*.backup
+*.backup-*
+*.backup2
+*.backup3
