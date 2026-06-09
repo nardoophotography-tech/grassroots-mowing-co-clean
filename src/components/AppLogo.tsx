@@ -35,9 +35,9 @@ const AppLogo = ({
       >
         {!imgError ? (
           <img
-            src={logoAsset?.url || "/logo-clean.png"}
-            alt="Logo"
-            className="h-10 w-auto object-contain block bg-transparent"
+            src={logoAsset?.url || "/logo-new.png"}
+            alt="GrassRoots Mowing Co."
+            className="h-10 w-auto object-contain block"
             style={{ mixBlendMode: 'normal' }}
             onError={() => setImgError(true)}
             referrerPolicy="no-referrer"
