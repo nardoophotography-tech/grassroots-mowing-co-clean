@@ -33,7 +33,16 @@ import {
   ScheduleStatus,
   SCHEDULE_STATUSES,
   SERVICE_TYPES,
+  RunType,
+  RUN_TYPES,
+  RUN_ORDER,
 } from '@/data/scheduleStore';
+
+const RUN_STYLE: Record<RunType, string> = {
+  'Morning Run': 'bg-amber-100 text-amber-800 border-amber-200',
+  'Afternoon Run': 'bg-indigo-100 text-indigo-800 border-indigo-200',
+  Flexible: 'bg-stone-100 text-stone-600 border-stone-200',
+};
 
 type ViewMode = 'daily' | 'weekly' | 'monthly';
 type FormState = Omit<ScheduleEntry, 'id' | 'createdAt' | 'updatedAt'>;
@@ -51,6 +60,7 @@ const EMPTY: FormState = {
   estimatedDuration: '45 min',
   assignedTo: '',
   status: 'Scheduled',
+  runType: 'Morning Run',
   notes: '',
 };
 
@@ -72,10 +82,19 @@ export const ScheduleCalendar = () => {
   const [form, setForm] = React.useState<FormState>(EMPTY);
 
   const keyOf = (d: Date) => format(d, 'yyyy-MM-dd');
+  // Sort: Morning Run → Afternoon Run → Flexible, then by time within each run.
   const entriesForDay = (d: Date) =>
     entries
       .filter((e) => e.scheduledDate === keyOf(d))
-      .sort((a, b) => a.scheduledTime.localeCompare(b.scheduledTime));
+      .sort(
+        (a, b) =>
+          RUN_ORDER[a.runType] - RUN_ORDER[b.runType] || a.scheduledTime.localeCompare(b.scheduledTime)
+      );
+  const runCounts = (list: ScheduleEntry[]) => ({
+    'Morning Run': list.filter((e) => e.runType === 'Morning Run').length,
+    'Afternoon Run': list.filter((e) => e.runType === 'Afternoon Run').length,
+    Flexible: list.filter((e) => e.runType === 'Flexible').length,
+  });
 
   // ----- navigation -----
   const goToday = () => setAnchor(new Date());
@@ -150,9 +169,9 @@ export const ScheduleCalendar = () => {
       key={e.id}
       onClick={() => openEdit(e)}
       className={
-        'w-full text-left rounded-lg border px-2 py-1.5 hover:shadow-sm transition-all ' + STATUS_STYLE[e.status]
+        'w-full text-left rounded-lg border px-2 py-1.5 hover:shadow-sm transition-all ' + RUN_STYLE[e.runType]
       }
-      title={`${e.scheduledTime} ${e.clientName}`}
+      title={`${e.runType} · ${e.scheduledTime} ${e.clientName}`}
     >
       <p className="text-[10px] font-black truncate">
         {e.scheduledTime} · {e.clientName}
@@ -246,6 +265,14 @@ export const ScheduleCalendar = () => {
                 </select>
               </div>
               <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-clay">Run Type</label>
+                <select value={form.runType} onChange={(e) => setField('runType', e.target.value)} className={inputCls}>
+                  {RUN_TYPES.map((r) => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase tracking-widest text-clay">Date</label>
                 <input type="date" value={form.scheduledDate} onChange={(e) => setField('scheduledDate', e.target.value)} className={inputCls} />
               </div>
@@ -294,6 +321,35 @@ export const ScheduleCalendar = () => {
   }
 
   // ------------------------------------------------------------------- views
+  function dayCard(e: ScheduleEntry) {
+    return (
+      <div key={e.id} className="border border-stone-200 rounded-2xl p-4 flex flex-col md:flex-row md:items-start gap-3">
+        <div className="md:w-24 flex-shrink-0">
+          <p className="text-lg font-black text-charcoal flex items-center gap-1"><Clock className="h-4 w-4 text-deep-red" />{e.scheduledTime}</p>
+          <p className="text-[10px] text-stone-400 uppercase tracking-widest">{e.estimatedDuration}</p>
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="font-black text-charcoal">{e.clientName}</h3>
+            <span className={'text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded border ' + RUN_STYLE[e.runType]}>{e.runType}</span>
+            <span className={'text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded border ' + STATUS_STYLE[e.status]}>{e.status}</span>
+            <span className="text-[10px] font-bold text-ochre uppercase">{e.serviceType}</span>
+          </div>
+          <p className="text-xs text-stone-600 mt-1 flex items-center gap-1"><MapPin className="h-3 w-3 text-ochre" />{e.address || '—'}{e.suburb ? `, ${e.suburb}` : ''}</p>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-stone-500">
+            {e.assignedTo && <span className="flex items-center gap-1"><User className="h-3 w-3" />{e.assignedTo}</span>}
+            {e.phone && <span>{e.phone}</span>}
+          </div>
+          {e.notes && <p className="text-sm text-stone-700 mt-2 whitespace-pre-wrap">{e.notes}</p>}
+        </div>
+        <div className="flex gap-2">
+          <button onClick={() => openEdit(e)} className="p-2 rounded-lg bg-stone-100 hover:bg-stone-200" title="Edit"><Pencil className="h-4 w-4" /></button>
+          <button onClick={() => del(e)} className="p-2 rounded-lg bg-red-50 hover:bg-red-100 text-deep-red" title="Delete"><Trash2 className="h-4 w-4" /></button>
+        </div>
+      </div>
+    );
+  }
+
   function DailyView() {
     const dayEntries = entriesForDay(anchor);
     return (
@@ -309,32 +365,23 @@ export const ScheduleCalendar = () => {
             <p className="font-serif text-lg text-stone-500">No schedule entries for this day.</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {dayEntries.map((e) => (
-              <div key={e.id} className="border border-stone-200 rounded-2xl p-4 flex flex-col md:flex-row md:items-start gap-3">
-                <div className="md:w-24 flex-shrink-0">
-                  <p className="text-lg font-black text-charcoal flex items-center gap-1"><Clock className="h-4 w-4 text-deep-red" />{e.scheduledTime}</p>
-                  <p className="text-[10px] text-stone-400 uppercase tracking-widest">{e.estimatedDuration}</p>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-black text-charcoal">{e.clientName}</h3>
-                    <span className={'text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded border ' + STATUS_STYLE[e.status]}>{e.status}</span>
-                    <span className="text-[10px] font-bold text-ochre uppercase">{e.serviceType}</span>
+          <div className="space-y-6">
+            {RUN_TYPES.map((run) => {
+              const group = dayEntries.filter((e) => e.runType === run);
+              return (
+                <div key={run}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className={'text-[11px] font-black uppercase tracking-widest px-3 py-1 rounded-full border ' + RUN_STYLE[run]}>{run}</span>
+                    <span className="text-[11px] font-bold text-stone-400">{group.length} job{group.length === 1 ? '' : 's'}</span>
                   </div>
-                  <p className="text-xs text-stone-600 mt-1 flex items-center gap-1"><MapPin className="h-3 w-3 text-ochre" />{e.address || '—'}{e.suburb ? `, ${e.suburb}` : ''}</p>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-stone-500">
-                    {e.assignedTo && <span className="flex items-center gap-1"><User className="h-3 w-3" />{e.assignedTo}</span>}
-                    {e.phone && <span>{e.phone}</span>}
-                  </div>
-                  {e.notes && <p className="text-sm text-stone-700 mt-2 whitespace-pre-wrap">{e.notes}</p>}
+                  {group.length === 0 ? (
+                    <p className="text-xs text-stone-400 italic pl-1">No jobs assigned to this run.</p>
+                  ) : (
+                    <div className="space-y-3">{group.map((e) => dayCard(e))}</div>
+                  )}
                 </div>
-                <div className="flex gap-2">
-                  <button onClick={() => openEdit(e)} className="p-2 rounded-lg bg-stone-100 hover:bg-stone-200" title="Edit"><Pencil className="h-4 w-4" /></button>
-                  <button onClick={() => del(e)} className="p-2 rounded-lg bg-red-50 hover:bg-red-100 text-deep-red" title="Delete"><Trash2 className="h-4 w-4" /></button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -365,8 +412,17 @@ export const ScheduleCalendar = () => {
                   </div>
                   <button onClick={() => openAdd(d)} className="p-1.5 rounded-lg bg-stone-100 hover:bg-stone-200" title="Add entry"><Plus className="h-3.5 w-3.5" /></button>
                 </div>
-                <div className="space-y-1.5 flex-1">
-                  {list.map((e) => renderChip(e))}
+                <div className="space-y-2 flex-1">
+                  {RUN_TYPES.map((run) => {
+                    const g = list.filter((e) => e.runType === run);
+                    if (g.length === 0) return null;
+                    return (
+                      <div key={run}>
+                        <p className={'text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded inline-block border ' + RUN_STYLE[run]}>{run}</p>
+                        <div className="space-y-1 mt-1">{g.map((e) => renderChip(e))}</div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );
@@ -421,14 +477,20 @@ export const ScheduleCalendar = () => {
                       <span className="text-[9px] font-black text-white bg-deep-red rounded-full px-1.5 py-0.5">{list.length}</span>
                     )}
                   </div>
-                  <div className="mt-1 space-y-1">
-                    {list.slice(0, 2).map((e) => (
-                      <p key={e.id} className={'text-[9px] font-bold truncate rounded px-1 py-0.5 border ' + STATUS_STYLE[e.status]}>
-                        {e.scheduledTime} {e.clientName}
-                      </p>
-                    ))}
-                    {list.length > 2 && <p className="text-[9px] text-stone-400 font-bold">+{list.length - 2} more</p>}
-                  </div>
+                  {list.length > 0 && (
+                    <div className="mt-1 space-y-0.5">
+                      {(() => {
+                        const c = runCounts(list);
+                        return (
+                          <>
+                            <p className="text-[9px] font-black text-amber-700 leading-tight">Morning: {c['Morning Run']}</p>
+                            <p className="text-[9px] font-black text-indigo-700 leading-tight">Afternoon: {c['Afternoon Run']}</p>
+                            <p className="text-[9px] font-black text-stone-500 leading-tight">Flexible: {c['Flexible']}</p>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  )}
                 </button>
               );
             })}

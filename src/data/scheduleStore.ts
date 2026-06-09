@@ -16,6 +16,17 @@ export type ScheduleStatus =
   | 'Cancelled'
   | 'Needs Reschedule';
 
+export type RunType = 'Morning Run' | 'Afternoon Run' | 'Flexible';
+
+export const RUN_TYPES: RunType[] = ['Morning Run', 'Afternoon Run', 'Flexible'];
+
+// Sort/group order: Morning Run first, then Afternoon Run, then Flexible.
+export const RUN_ORDER: Record<RunType, number> = {
+  'Morning Run': 0,
+  'Afternoon Run': 1,
+  Flexible: 2,
+};
+
 export const SCHEDULE_STATUSES: ScheduleStatus[] = [
   'Scheduled',
   'In Progress',
@@ -48,6 +59,7 @@ export interface ScheduleEntry {
   estimatedDuration: string;
   assignedTo: string;
   status: ScheduleStatus;
+  runType: RunType;
   notes: string;
   createdAt: number;
   updatedAt: number;
@@ -66,7 +78,12 @@ function read(): ScheduleEntry[] {
     }
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed as ScheduleEntry[];
+    // Backfill: older entries without a runType fall back to 'Flexible'
+    // so they keep working and never break the grouped views.
+    return (parsed as ScheduleEntry[]).map((e) => ({
+      ...e,
+      runType: (e as any).runType ?? 'Flexible',
+    }));
   } catch {
     return [];
   }

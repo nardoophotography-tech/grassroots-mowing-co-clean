@@ -39,6 +39,7 @@ const bookingSchema = z.object({
   suburb: z.string().optional(),
   date: z.string().min(1, 'Please select a date'),
   timeSlot: z.enum(['morning', 'afternoon']),
+  runType: z.enum(['Morning Run', 'Afternoon Run', 'Flexible']),
   clientType: z.enum(['one_off', 'returning', 'premium', 'asset_management']),
   serviceType: z.string().min(1, 'Please select a service package'),
   serviceGrade: z.enum(['standard', 'medium', 'heavy', 'extreme']),
@@ -85,6 +86,7 @@ export const Booking = () => {
       email: profile?.email || '',
       phone: '', // Users don't have phone in UserProfile
       timeSlot: 'morning',
+      runType: 'Morning Run',
       clientType: (searchParams.get('type') as any) || (profile ? (profile.clientType || 'returning') : 'one_off'),
       serviceType: (searchParams.get('package') as any) || 'residential_standard',
       serviceGrade: 'standard',
@@ -218,6 +220,7 @@ export const Booking = () => {
         status: (snapshot.isQuoteRequired ? 'quoted' : 'scheduled') as any,
         scheduledDate: new Date(data.date).getTime(),
         timeSlot: data.timeSlot,
+        runType: data.runType, // Morning Run / Afternoon Run / Flexible
         clientType: data.clientType,
         servicePackage: (data.serviceType || 'residential_standard') as any,
         serviceGrade: data.serviceGrade,
@@ -394,6 +397,7 @@ export const Booking = () => {
         status: currentSnapshot.isQuoteRequired ? 'quoted' : 'scheduled',
         scheduledDate: new Date(data.date).getTime(),
         timeSlot: data.timeSlot,
+        runType: data.runType, // Morning Run / Afternoon Run / Flexible
         clientType: data.clientType,
         servicePackage: (data.serviceType || 'residential_standard') as any,
         serviceGrade: data.serviceGrade,
@@ -760,6 +764,20 @@ export const Booking = () => {
                     setValue('timeSlot', slot);
                   }}
                 />
+
+                {/* Preferred Run — extra field, does not replace date/time above */}
+                <div className="space-y-1 pt-2">
+                  <Label className="text-clay/50 font-black uppercase text-[8px] tracking-[0.2em] italic">Preferred Run</Label>
+                  <Select {...register('runType')} className="h-11 text-xs font-bold rounded-xl">
+                    <option value="Morning Run">Morning Run</option>
+                    <option value="Afternoon Run">Afternoon Run</option>
+                    <option value="Flexible">Flexible</option>
+                  </Select>
+                  <p className="text-[9px] text-clay leading-relaxed pt-1">
+                    Morning Run is usually earlier in the day. Afternoon Run is usually later in the day. Flexible means GrassRoots can place the job where it best fits the route.
+                  </p>
+                </div>
+
                 <Button type="button" onClick={nextStep} disabled={!watchedValues.date} className="w-full bg-primary h-12 rounded-full font-black uppercase tracking-widest text-[10px] shadow-premium">
                   Select Service Profile <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>
