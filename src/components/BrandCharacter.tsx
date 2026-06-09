@@ -16,7 +16,7 @@ export const BrandCharacter: React.FC = () => {
         <GrassRootsGuardian variant="original" size={300} className="scale-110 group-hover:scale-125 transition-transform duration-700" />
       </div>
       <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-xl border border-white/20 whitespace-nowrap">
-        The GrassRoots Guardian
+        The GrassRoots Cultural Mark
       </div>
     </motion.div>
   );

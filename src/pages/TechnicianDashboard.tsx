@@ -154,7 +154,7 @@ export function TechnicianDashboard() {
       {/* Header Info */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 uppercase italic leading-none">Field Command</h1>
+          <h1 className="text-2xl font-black text-slate-900 uppercase italic leading-none">Field View</h1>
           <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Crew Dashboard • {format(new Date(), 'EEEE')}</p>
         </div>
         <div className="bg-orange-50 p-2 rounded-xl border border-orange-100 italic font-black text-orange-700 text-xs">

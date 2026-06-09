@@ -291,7 +291,7 @@ export const LandingPage = () => {
         </div>
       </section>
 
-      {/* Brand Mission Section - The Story Behind Our Artwork */}
+      {/* Brand Story Section - The Story Behind Our Artwork */}
       <section className="py-12 sm:py-24 px-4 sm:px-6 bg-white relative overflow-hidden">
         <div className="absolute top-0 right-0 w-1/3 h-full subtle-grid opacity-5 pointer-events-none" />
         <div className="absolute -bottom-20 -left-20 w-96 h-96 opacity-5 pointer-events-none grayscale">
@@ -413,22 +413,22 @@ export const LandingPage = () => {
           <div className="order-1 lg:order-2 space-y-8">
             <div className="space-y-4">
               <Badge className="bg-primary/20 text-primary border-none font-black px-4 py-1 text-[10px] uppercase tracking-widest">
-                Our Mascot
+                Our Cultural Mark
               </Badge>
               <h2 className="text-4xl lg:text-5xl font-black text-slate-900 leading-tight italic uppercase">
-                The <span className="text-primary italic">Warrior's</span> Touch
+                Rooted in <span className="text-primary italic">Country</span>, Built on Care
               </h2>
               <p className="text-base text-slate-600 font-medium leading-relaxed max-w-xl">
-                Every job we perform is guided by our custom artwork—representing the strength, reliability, and precision of a true field warrior. This isn't just lawn care; it's a commitment to professional excellence.
+                The GrassRoots Mowing Co artwork represents a Kalkutungu yuru — a Kalkadoon man — standing with strength, respect for Country, and responsibility to community. The brand is Aboriginal-led and built around reliable service, practical support, and pride in caring for people’s places properly.
               </p>
             </div>
-            
+
             <div className="grid sm:grid-cols-2 gap-6">
               {[
-                { title: "Military Precision", desc: "Operations executed with tactical accuracy." },
-                { title: "Indestructible Trust", desc: "A brand character built on reliability." },
-                { title: "Warrior Ethos", desc: "We never leave a property until it's perfect." },
-                { title: "Modern Heritage", desc: "Combining classic values with smart tech." }
+                { title: "Respect for Country", desc: "Every job is done with care for the land, the customer, and the community." },
+                { title: "Community Trust", desc: "Built through honesty, consistency, and showing up when people need support." },
+                { title: "Cultural Values", desc: "Respect, responsibility, and pride guide the way we work." },
+                { title: "Modern Service, Strong Roots", desc: "Combining Aboriginal-led community values with simple, reliable modern systems." }
               ].map((item, idx) => (
                 <div key={idx} className="space-y-2">
                   <h4 className="font-bold text-slate-900 text-sm uppercase italic tracking-wide">{item.title}</h4>
