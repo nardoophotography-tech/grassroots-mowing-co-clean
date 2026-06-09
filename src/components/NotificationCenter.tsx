@@ -204,8 +204,8 @@ export function NotificationCenter() {
       </div>
 
       <div className="p-3 bg-slate-900 text-center">
-        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 italic">
-          Local notifications — Firebase storage required for production
+        <p className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400 italic leading-relaxed">
+          Local setup notifications only — live booking, payment, and job alerts require Firebase production rules.
         </p>
       </div>
     </div>

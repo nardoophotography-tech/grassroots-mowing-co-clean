@@ -22,16 +22,20 @@ export interface AppNotificationItem {
   actionLabel?: string;
 }
 
-const STORAGE_KEY = 'grassroots_notifications_v1';
+// Bumped to v2 so the relabelled setup/test notices replace any older cached
+// seeds (older seeds only re-seed when storage is empty). Only setup notices
+// live here — no real customer data is lost.
+const STORAGE_KEY = 'grassroots_notifications_v2';
 
-// Seed defaults only when storage is empty. No fake customer/client alerts.
+// Seed SETUP/TEST notices only when storage is empty.
+// These are NOT live customer data — no fake client names, bookings, or payments.
 function seed(): AppNotificationItem[] {
   const now = Date.now();
   return [
     {
       id: 'seed-system',
-      title: 'System setup notification',
-      message: 'Bell notification centre is active. Live booking and payment alerts will appear here when connected.',
+      title: 'Setup notice — Notification centre active',
+      message: 'Local test notification. The bell is working. Live booking and payment alerts require Firebase production rules — not live customer data.',
       type: 'system',
       read: false,
       createdAt: now - 1000 * 60 * 2,
@@ -40,8 +44,8 @@ function seed(): AppNotificationItem[] {
     },
     {
       id: 'seed-schedule',
-      title: 'Schedule calendar active',
-      message: 'Morning Run, Afternoon Run and Flexible scheduling is active.',
+      title: 'Setup notice — Schedule calendar active',
+      message: 'Local test notification. Morning Run, Afternoon Run and Flexible scheduling is active. Not live customer data.',
       type: 'schedule',
       read: false,
       createdAt: now - 1000 * 60 * 20,
@@ -50,13 +54,23 @@ function seed(): AppNotificationItem[] {
     },
     {
       id: 'seed-equipment',
-      title: 'Equipment register active',
-      message: 'Equipment media and service history notifications will appear here.',
+      title: 'Setup notice — Equipment register active',
+      message: 'Local test notification. Equipment media and service history are active. Not live customer data.',
       type: 'equipment',
       read: false,
       createdAt: now - 1000 * 60 * 45,
       link: '/equipment',
       actionLabel: 'View equipment',
+    },
+    {
+      id: 'seed-firebase',
+      title: 'Setup notice — Firebase permission update required',
+      message: 'Local test notification. Firebase connection required for production so live booking, payment and job alerts can replace these setup notices.',
+      type: 'admin',
+      read: false,
+      createdAt: now - 1000 * 60 * 60,
+      link: '/admin/automations',
+      actionLabel: 'Manage',
     },
   ];
 }
