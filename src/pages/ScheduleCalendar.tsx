@@ -44,6 +44,13 @@ const RUN_STYLE: Record<RunType, string> = {
   Flexible: 'bg-stone-100 text-stone-600 border-stone-200',
 };
 
+// Empty-section text shown for each run when there are no jobs in it.
+const RUN_EMPTY: Record<RunType, string> = {
+  'Morning Run': 'No morning run jobs',
+  'Afternoon Run': 'No afternoon run jobs',
+  Flexible: 'No flexible jobs',
+};
+
 type ViewMode = 'daily' | 'weekly' | 'monthly';
 type FormState = Omit<ScheduleEntry, 'id' | 'createdAt' | 'updatedAt'>;
 
@@ -188,6 +195,7 @@ export const ScheduleCalendar = () => {
           <h1 className="text-3xl font-black text-charcoal uppercase italic tracking-tighter">Schedule</h1>
           {/* Temporary build-proof marker — confirms the correct component is live. */}
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-green-600">Schedule Calendar v2 Active</p>
+          <p className="text-[11px] font-bold text-charcoal">Runs: Morning Run • Afternoon Run • Flexible</p>
           <p className="text-stone-500 italic text-sm">Daily, weekly and monthly job calendar.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -360,30 +368,27 @@ export const ScheduleCalendar = () => {
             <Plus className="h-3.5 w-3.5" /> Add Entry
           </button>
         </div>
-        {dayEntries.length === 0 ? (
-          <div className="py-16 text-center border-2 border-dashed border-stone-200 rounded-2xl">
-            <p className="font-serif text-lg text-stone-500">No schedule entries for this day.</p>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {RUN_TYPES.map((run) => {
-              const group = dayEntries.filter((e) => e.runType === run);
-              return (
-                <div key={run}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className={'text-[11px] font-black uppercase tracking-widest px-3 py-1 rounded-full border ' + RUN_STYLE[run]}>{run}</span>
-                    <span className="text-[11px] font-bold text-stone-400">{group.length} job{group.length === 1 ? '' : 's'}</span>
-                  </div>
-                  {group.length === 0 ? (
-                    <p className="text-xs text-stone-400 italic pl-1">No jobs assigned to this run.</p>
-                  ) : (
-                    <div className="space-y-3">{group.map((e) => dayCard(e))}</div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+        {dayEntries.length === 0 && (
+          <p className="text-sm text-stone-500 italic mb-4">No schedule entries for this day.</p>
         )}
+        <div className="space-y-6">
+          {RUN_TYPES.map((run) => {
+            const group = dayEntries.filter((e) => e.runType === run);
+            return (
+              <div key={run}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className={'text-[11px] font-black uppercase tracking-widest px-3 py-1 rounded-full border ' + RUN_STYLE[run]}>{run}</span>
+                  <span className="text-[11px] font-bold text-stone-400">{group.length} job{group.length === 1 ? '' : 's'}</span>
+                </div>
+                {group.length === 0 ? (
+                  <p className="text-xs text-stone-400 italic pl-1">{RUN_EMPTY[run]}</p>
+                ) : (
+                  <div className="space-y-3">{group.map((e) => dayCard(e))}</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   }
@@ -415,11 +420,14 @@ export const ScheduleCalendar = () => {
                 <div className="space-y-2 flex-1">
                   {RUN_TYPES.map((run) => {
                     const g = list.filter((e) => e.runType === run);
-                    if (g.length === 0) return null;
                     return (
                       <div key={run}>
                         <p className={'text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded inline-block border ' + RUN_STYLE[run]}>{run}</p>
-                        <div className="space-y-1 mt-1">{g.map((e) => renderChip(e))}</div>
+                        {g.length === 0 ? (
+                          <p className="text-[8px] text-stone-400 italic mt-1">{RUN_EMPTY[run]}</p>
+                        ) : (
+                          <div className="space-y-1 mt-1">{g.map((e) => renderChip(e))}</div>
+                        )}
                       </div>
                     );
                   })}
@@ -477,20 +485,18 @@ export const ScheduleCalendar = () => {
                       <span className="text-[9px] font-black text-white bg-deep-red rounded-full px-1.5 py-0.5">{list.length}</span>
                     )}
                   </div>
-                  {list.length > 0 && (
-                    <div className="mt-1 space-y-0.5">
-                      {(() => {
-                        const c = runCounts(list);
-                        return (
-                          <>
-                            <p className="text-[9px] font-black text-amber-700 leading-tight">Morning: {c['Morning Run']}</p>
-                            <p className="text-[9px] font-black text-indigo-700 leading-tight">Afternoon: {c['Afternoon Run']}</p>
-                            <p className="text-[9px] font-black text-stone-500 leading-tight">Flexible: {c['Flexible']}</p>
-                          </>
-                        );
-                      })()}
-                    </div>
-                  )}
+                  <div className="mt-1 space-y-0.5">
+                    {(() => {
+                      const c = runCounts(list);
+                      return (
+                        <>
+                          <p className="text-[9px] font-black text-amber-700 leading-tight">Morning Run: {c['Morning Run']}</p>
+                          <p className="text-[9px] font-black text-indigo-700 leading-tight">Afternoon Run: {c['Afternoon Run']}</p>
+                          <p className="text-[9px] font-black text-stone-500 leading-tight">Flexible: {c['Flexible']}</p>
+                        </>
+                      );
+                    })()}
+                  </div>
                 </button>
               );
             })}
