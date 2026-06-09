@@ -38,6 +38,7 @@ import { ClientDetail } from '@/pages/ClientDetail';
 import { JobDetail } from '@/pages/JobDetail';
 import { ScheduleManager } from '@/pages/ScheduleManager';
 import { CalendarPage } from '@/pages/CalendarPage';
+import { ScheduleCalendar } from '@/pages/ScheduleCalendar';
 import { Booking } from '@/pages/Booking';
 import { BookingSuccess } from '@/pages/BookingSuccess';
 import { InvoiceList } from '@/pages/InvoiceList';
@@ -227,7 +228,7 @@ const AppContent = () => {
         <Route path="/jobs" element={<RoleGuard roles={['admin', 'staff']}><Layout><JobList /></Layout></RoleGuard>} />
         <Route path="/jobs/new" element={<RoleGuard roles={['admin', 'staff']}><Layout><NewJob /></Layout></RoleGuard>} />
         <Route path="/jobs/:id" element={<RoleGuard roles={['admin', 'staff']}><Layout><JobDetail /></Layout></RoleGuard>} />
-        <Route path="/schedule" element={<RoleGuard roles={['admin', 'staff']}><Layout><CalendarPage /></Layout></RoleGuard>} />
+        <Route path="/schedule" element={<RoleGuard roles={['admin', 'staff']}><Layout><ScheduleCalendar /></Layout></RoleGuard>} />
 
         {/* Admin Only */}
         <Route path="/admin" element={<RoleGuard roles={['admin']}><Layout><AdminPortal /></Layout></RoleGuard>} />
