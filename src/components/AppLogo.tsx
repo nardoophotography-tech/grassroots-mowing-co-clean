@@ -1,7 +1,6 @@
 import React from 'react';
 import { cn } from '../lib/utils';
 import { useSettings } from '../hooks/useFirebase';
-import { useLatestAsset } from '../hooks/useAssets';
 
 interface AppLogoProps {
   className?: string;
@@ -17,7 +16,9 @@ const AppLogo = ({
   showText = false,
 }: AppLogoProps) => {
   const { settings } = useSettings();
-  const { asset: logoAsset } = useLatestAsset('logo');
+  // Logo is fixed to the bundled asset. We intentionally do NOT read the
+  // Firebase `assets` collection here — its stored 'logo' record points at the
+  // OLD logo and would async-swap over /logo-new.png after first render.
   const [imgError, setImgError] = React.useState(false);
   const businessName = settings?.businessName || 'GRASSROOTS MOWING CO.';
   const nameParts = businessName.split(' ');
@@ -35,7 +36,7 @@ const AppLogo = ({
       >
         {!imgError ? (
           <img
-            src={logoAsset?.url || "/logo-new.png"}
+            src="/logo-new.png"
             alt="GrassRoots Mowing Co."
             className="h-10 w-auto object-contain block"
             style={{ mixBlendMode: 'normal' }}

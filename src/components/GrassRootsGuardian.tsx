@@ -24,7 +24,7 @@ export const GrassRootsGuardian: React.FC<GrassRootsGuardianProps> = ({
   variant = 'watermark'
 }) => {
   // Using the uploaded brand logo which contains the Guardian and Roots
-  const displayUrl = "/logo.png";
+  const displayUrl = "/logo-new.png";
 
   const getVariantClasses = () => {
     switch (variant) {
