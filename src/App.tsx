@@ -98,12 +98,10 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         <GlobalHeader profile={profile} onMenuClick={() => setIsSidebarOpen(true)} />
 
         {/* ── TEST VERSION BANNER ─────────────────────────────────────────────
-             Shown on deployed domains while VITE_LAUNCH_MODE is not 'live'.
-             To remove: add VITE_LAUNCH_MODE=live in Render env vars + redeploy.
+             Hidden by default (no env var needed for production).
+             To show banner locally: set VITE_LAUNCH_MODE=test in .env.local
              ──────────────────────────────────────────────────────────────── */}
-        {typeof window !== 'undefined' &&
-          !['localhost', '127.0.0.1'].includes(window.location.hostname) &&
-          import.meta.env.VITE_LAUNCH_MODE !== 'live' && (
+        {import.meta.env.VITE_LAUNCH_MODE === 'test' && (
           <div className="w-full bg-amber-400 text-amber-900 text-center text-xs font-bold py-2 px-4 shrink-0 z-50">
             ⚠️ TEST VERSION — for friend testing only. Do not enter real card details or make real payments.
           </div>
