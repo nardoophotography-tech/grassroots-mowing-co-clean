@@ -1,0 +1,20 @@
+=== Branch ===
+grassroots-clean-recovery-base
+
+=== Remote ===
+origin	https://github.com/nardoophotography-tech/grassroots-mowing-co-clean.git (fetch)
+origin	https://github.com/nardoophotography-tech/grassroots-mowing-co-clean.git (push)
+
+=== Recent commits ===
+21a4b71 feat: friend-test launch ΓÇö test banner, AutomationsManager MVP, safe Resend logging, restored App.tsx
+b819e22 Replace military wording with cultural values
+157b8d9 Stop old logo overlay and update favicon logo
+2aecc77 Replace old logo files with new final logo
+1409de5 Replace checked logo background with clean transparent logo
+
+=== Status ===
+?? git-info-output.txt
+?? git-info.bat
+?? git-status-check.bat
+
+=== Unpushed commits ===

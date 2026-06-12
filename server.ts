@@ -417,13 +417,14 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
         break;
 
       case 'payment-reminder':
-        emailSubject = `Payment Reminder: Invoice ${invoiceNumber || 'Outstanding'} - GrassRoots Mowing Co.`;
+        emailSubject = `Friendly Payment Reminder — Invoice ${invoiceNumber || 'Outstanding'}`;
         emailContent = settings.reminderTemplate
           ? replacePlaceholders(settings.reminderTemplate, { clientName, amount, invoiceNumber: invoiceNumber || '', paymentLink, pdfUrl })
-          : `Hi ${clientName},\n\nThis is a friendly reminder that your invoice${invoiceNumber ? ` (${invoiceNumber})` : ''} for $${(amount || 0)} is still outstanding.\n\nPlease pay securely using the link below:\n${paymentLink}\n\nIf you have any questions, please don't hesitate to get in touch.\n\nThanks,\nGrassRoots Mowing Co.`;
-        smsContent = `GrassRoots Mowing: Friendly reminder — your invoice of $${(amount || 0)} is outstanding. Pay here: ${paymentLink}`;
-        adminEmailSubject = `PAYMENT REMINDER SENT: ${clientName}`;
-        adminEmailContent = `A payment reminder has been sent to ${clientName} for $${(amount || 0)}. Invoice: ${invoiceNumber || 'N/A'}`;
+          : `Hi ${clientName},\n\nJust a friendly reminder that the following invoice is still outstanding:\n\n  Invoice:  ${invoiceNumber || 'N/A'}\n  Amount:   $${Number(amount || 0).toFixed(2)}\n${paymentLink ? `\nPay securely online:\n${paymentLink}\n` : ''}\nIf you have already paid, please disregard this message — and thank you!\n\nIf you have any questions, reply to this email or call us directly.\n\nThanks for choosing GrassRoots Mowing Co.,\nProject #156 — GrassRoots Team\nadmin@project156.com`;
+        smsContent = `GrassRoots Mowing: Friendly reminder — Invoice ${invoiceNumber || ''} for $${Number(amount || 0).toFixed(2)} is outstanding. Pay here: ${paymentLink}`;
+        // Admin confirmation — sent internally, not to the client
+        adminEmailSubject = `[ADMIN] Reminder dispatched → ${clientName}`;
+        adminEmailContent = `Reminder email successfully dispatched to ${clientName}.\n\nInvoice: ${invoiceNumber || 'N/A'}\nAmount: $${Number(amount || 0).toFixed(2)}\nClient email: ${clientEmail || 'unknown'}\nPayment link: ${paymentLink || 'none'}`;
         break;
 
       case 'staff-invite':
@@ -462,7 +463,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
     const sendEmail = async (to: string, subject: string, text: string) => {
       const keyPresent = !!process.env.RESEND_API_KEY;
       const keyPrefix = process.env.RESEND_API_KEY?.slice(0, 3) ?? 'n/a';
-      const fromAddr = process.env.RESEND_FROM_EMAIL || 'bookings@grassrootsmowing.com.au';
+      const fromAddr = process.env.RESEND_FROM_EMAIL || 'admin@project156.com';
       console.log(`[Resend] Attempting send — keyPresent=${keyPresent}, prefix=${keyPrefix}, from=${fromAddr}, to=${to}`);
 
       if (!resend) {
@@ -562,7 +563,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
         stripeConnected: !!process.env.STRIPE_SECRET_KEY,
         resendConnected: !!process.env.RESEND_API_KEY,
         twilioConnected: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN),
-        fromEmail: process.env.RESEND_FROM_EMAIL || 'bookings@grassrootsmowing.com.au',
+        fromEmail: process.env.RESEND_FROM_EMAIL || 'admin@project156.com',
       });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -724,6 +725,15 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
   app.post("/api/notify", async (req, res) => {
     try {
       const results = await handleNotification(req.body);
+      // If a client email was expected but Resend rejected it, surface the failure.
+      // This prevents the frontend from showing "Email sent" when no real message ID was returned.
+      const clientEmailExpected = !!(req.body.clientEmail);
+      if (clientEmailExpected && results.email === 'failed') {
+        return res.status(500).json({
+          error: 'Email delivery failed — check server logs for Resend error details',
+          results,
+        });
+      }
       res.json(results);
     } catch (err: any) {
       console.error("[Notify Endpoint Error]:", err.message);

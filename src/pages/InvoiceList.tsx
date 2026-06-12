@@ -79,12 +79,30 @@ export const InvoiceList = () => {
     }
 
     try {
-      await triggerNotification('payment-reminder', contactPayload as any, {
+      const result = await triggerNotification('payment-reminder', contactPayload as any, {
         amount: inv.totalAmount,
         link: inv.paymentLink,
         invoiceNumber: inv.invoiceNumber,
       });
-      toast.success('Reminder sent via Email & SMS');
+      // result is null when the API returned a non-200 (notificationService swallows the error)
+      if (!result) {
+        toast.error('Reminder failed — email not delivered. Check server logs for Resend error.');
+        return;
+      }
+      if (result.email === 'failed') {
+        toast.error('Email delivery failed. SMS may have sent. Check server logs.');
+        return;
+      }
+      // Only show success when Resend returned a real message ID (results.email === 'sent')
+      const emailOk = result.email === 'sent';
+      const smsOk = result.sms === 'sent';
+      if (emailOk) {
+        toast.success(smsOk ? 'Reminder sent via Email & SMS' : 'Email reminder sent (SMS skipped)');
+      } else if (smsOk) {
+        toast.success('SMS reminder sent (email skipped — no email on record)');
+      } else {
+        toast.error('No reminder channels delivered. Check server logs.');
+      }
     } catch (err) {
       toast.error('Failed to send reminder. Check server logs.');
     }
@@ -314,7 +332,7 @@ export const InvoiceList = () => {
           <div className="flex items-center gap-3 p-4 bg-red-50 text-red-700 rounded-lg border border-red-100">
             <AlertCircle className="h-5 w-5 shrink-0" />
             <p className="text-sm font-medium">
-              Are you sure you want to delete this invoice? This action cannot be undone and will reset the associated job to "Completed" status.
+              Are you sure you want to delete this invoice? This action cannot be undone and will reset the associated job to &quot;Completed&quot; status.
             </p>
           </div>
           <div className="flex gap-3 justify-end pt-2">
@@ -338,5 +356,3 @@ export const InvoiceList = () => {
     </div>
   );
 };
-
-export default InvoiceList;

@@ -200,11 +200,12 @@ class NotificationService {
     // - Email/SMS for client/admin
     // - Document generation (PDFs)
     // - Database notifications for admins/clients
-    await this.triggerExternalNotification(type, job, extra);
+    const notifyResult = await this.triggerExternalNotification(type, job, extra);
 
     // 2. Client-side local feedback (optional/legacy)
     // Most complexity is now server-side to prevent permission errors and ensure reliable delivery
     console.log(`[NotificationService] Notification lifecycle initiated: ${type}`);
+    return notifyResult;
   }
 
   /**
