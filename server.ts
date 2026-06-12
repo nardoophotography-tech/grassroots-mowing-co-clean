@@ -16,7 +16,8 @@ dotenv.config();
 
 // Startup diagnostic — safe logging only (no key values printed)
 console.log(`[Startup] RESEND_API_KEY present=${!!process.env.RESEND_API_KEY}, prefix=${process.env.RESEND_API_KEY?.slice(0, 3) ?? 'n/a'}`);
-console.log(`[Startup] RESEND_FROM_EMAIL=${process.env.RESEND_FROM_EMAIL || '(unset)'}`);
+console.log(`[Startup] RESEND_FROM_EMAIL=${process.env.RESEND_FROM_EMAIL ?? '(unset — will use fallback admin@project156.com)'}`);
+console.log(`[Startup] RENDER env flag=${process.env.RENDER ?? '(not set — likely local)'}`);
 
 // Initialize Firebase Admin
 let adminAppConfig: any = {};
@@ -559,11 +560,18 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
   // Automation status endpoint — returns service connection state (key presence only, no values)
   app.get("/api/automations/status", (_req, res) => {
     try {
+      const resendKeyPresent = !!process.env.RESEND_API_KEY;
+      const resendKeyPrefix = process.env.RESEND_API_KEY?.slice(0, 3) ?? 'n/a';
+      const fromEmailEnv = process.env.RESEND_FROM_EMAIL;
       res.json({
         stripeConnected: !!process.env.STRIPE_SECRET_KEY,
-        resendConnected: !!process.env.RESEND_API_KEY,
+        resendConnected: resendKeyPresent,
+        resendApiKeyPresent: resendKeyPresent,
+        resendApiKeyPrefix: resendKeyPrefix,           // safe: first 3 chars only (e.g. "re_")
         twilioConnected: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN),
-        fromEmail: process.env.RESEND_FROM_EMAIL || 'admin@project156.com',
+        fromEmail: fromEmailEnv || 'admin@project156.com',
+        fromEmailSource: fromEmailEnv ? 'env' : 'fallback',  // distinguishes set vs fallback
+        renderEnvDetected: !!process.env.RENDER,              // Render sets RENDER=true at runtime
       });
     } catch (err: any) {
       res.status(500).json({ error: err.message });

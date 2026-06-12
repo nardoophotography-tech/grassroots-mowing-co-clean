@@ -62,7 +62,7 @@ type BookingFormValues = z.infer<typeof bookingSchema>;
 export const Booking = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, profile, signInAnonymously } = useAuth();
+  const { user, profile } = useAuth();
   const { jobs, addJob } = useJobs();
   const { addClient } = useClients();
   const { settings, loading: settingsLoading } = useSettings();
@@ -143,13 +143,10 @@ export const Booking = () => {
     const snapshot = calculateEstimate();
     setIsSubmitting(true);
     try {
-      let currentUserId = user?.uid || profile?.uid || '';
-      
-      if (!currentUserId) {
-        console.log('[Booking] Initiating secure fallback anonymous session configuration...');
-        await signInAnonymously();
-        currentUserId = 'anonymous_guest_' + Date.now();
-      }
+      // Use Firebase uid if available (logged-in user), otherwise a guest booking ID.
+      // Anonymous sign-in is intentionally NOT used here — it would persist a Firebase
+      // session in localStorage that would cause the "auto-login as guest" issue.
+      const currentUserId = user?.uid || profile?.uid || ('anonymous_guest_' + Date.now());
 
       const clientPayload = {
         name: data.name,

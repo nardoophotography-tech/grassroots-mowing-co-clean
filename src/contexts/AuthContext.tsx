@@ -106,7 +106,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
-      
+
       // Clean up previous profile listener if auth state changes
       if (unsubscribeProfile) {
         unsubscribeProfile();
@@ -114,11 +114,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (currentUser) {
+        // ── PRODUCTION ANONYMOUS GUARD ──────────────────────────────────────
+        // Anonymous Firebase sessions must NOT receive an app profile on
+        // production. They can still write to Firestore (e.g. booking form)
+        // because Firebase auth is valid, but profile=null means every route
+        // guard redirects them to /login — no "auto-login as guest" possible.
+        // The local-dev bypass (?localAdmin=true) is explicitly exempted.
+        if (currentUser.isAnonymous &&
+            !isLocalDev() &&
+            sessionStorage.getItem('local_dev_admin') !== 'true') {
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+        // ────────────────────────────────────────────────────────────────────
+
         const userDocRef = doc(db, 'users', currentUser.uid);
         
         unsubscribeProfile = safeOnSnapshot(userDocRef, async (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data() as UserProfile;
+
+            // PRODUCTION ADMIN ROLE CORRECTION ─────────────────────────────────
+            // If the user's email is in ADMIN_EMAILS but their Firestore doc has
+            // the wrong role (e.g. 'client'), correct it immediately — both in
+            // memory (so the UI updates now) and in Firestore (so the next load
+            // is already correct). Handles docs created before the email was in
+            // ADMIN_EMAILS, or docs accidentally reset to 'client'.
+            if (currentUser.email && ADMIN_EMAILS.includes(currentUser.email) && data.role !== 'admin') {
+              const correctedData = { ...data, role: 'admin' as UserRole };
+              updateDoc(userDocRef, { role: 'admin' }).catch(err =>
+                handleFirestoreError(err, OperationType.UPDATE, `users/${currentUser.uid}`)
+              );
+              setProfile(correctedData);
+              setLoading(false);
+              return;
+            }
+            // ────────────────────────────────────────────────────────────────────
 
             // LOCAL DEV ADMIN: if the doc exists but role is not 'admin', and we're in the
             // dev bypass session, call the server to upgrade it. onSnapshot will re-fire
@@ -163,6 +195,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setDoc(userDocRef, newProfile).catch(err => {
                 handleFirestoreError(err, OperationType.WRITE, `users/${currentUser.uid}`);
               });
+              // Set profile immediately — don't wait for onSnapshot to re-fire.
+              // Without this, loading=false + profile=null redirects the user to /login.
+              setProfile(newProfile);
             } else if (currentUser.isAnonymous && sessionStorage.getItem('local_dev_admin') === 'true') {
               // LOCAL DEV ADMIN BYPASS: anonymous token has no email, so the Firestore
               // isAdmin() rule would fail. Call the server (Admin SDK, bypasses rules)
@@ -316,9 +351,16 @@ await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
     }
   };
 
-  const effectiveProfile = localDevAdminActive && profile
-    ? { ...profile, role: 'admin' as const }
-    : profile;
+  // Belt-and-suspenders: if the user's email is in ADMIN_EMAILS, always
+  // surface role:'admin' regardless of what Firestore currently has stored.
+  // The onSnapshot correction above will fix the Firestore doc async, but
+  // this ensures the UI is correct immediately on first load.
+  const effectiveProfile =
+    (localDevAdminActive && profile)
+      ? { ...profile, role: 'admin' as const }
+      : (profile && user?.email && ADMIN_EMAILS.includes(user.email))
+      ? { ...profile, role: 'admin' as const }
+      : profile;
 
   return (
     <AuthContext.Provider value={{ user, profile: effectiveProfile, loading, signIn, signOut, localDevAdminActive }}>

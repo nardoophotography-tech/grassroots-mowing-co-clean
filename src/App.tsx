@@ -129,6 +129,8 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 };
 
 const RoleGuard = ({ children, roles }: { children: React.ReactNode, roles: string[] }) => {
+  // Hook MUST be called unconditionally at the top — React Rules of Hooks.
+  const { user, profile, loading } = useAuth();
 
   // LOCAL DEV ROLEGUARD BYPASS — DO NOT ENABLE IN PRODUCTION.
   const isLocalDev =
@@ -140,22 +142,21 @@ const RoleGuard = ({ children, roles }: { children: React.ReactNode, roles: stri
     return <>{children}</>;
   }
 
-  const { user, profile, loading } = useAuth();
-  
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent" />
     </div>
   );
 
-  if (!user) {
+  // Anonymous Firebase users (e.g. booking guests) must not access protected routes
+  if (!user || user.isAnonymous) {
     return <Navigate to="/login" replace />;
   }
-  
+
   if (!profile || !roles.includes(profile.role)) {
     return <Navigate to="/dashboard" replace />;
   }
-  
+
   return <>{children}</>;
 };
 
@@ -234,9 +235,9 @@ const AppContent = () => {
         <Route path="/pay/:id" element={<InvoicePayment />} />
         <Route path="/tech" element={<RoleGuard roles={['admin', 'staff']}><Layout><TechnicianDashboard /></Layout></RoleGuard>} />
         
-        {/* Protected Routes — require explicit login (user + profile from AuthContext) */}
-        <Route path="/dashboard" element={user && profile ? <Layout><Dashboard /></Layout> : <Navigate to="/login" replace />} />
-        <Route path="/settings" element={user && profile ? <Layout><ScheduleManager /></Layout> : <Navigate to="/login" replace />} />
+        {/* Protected Routes — require explicit (non-anonymous) login */}
+        <Route path="/dashboard" element={user && !user.isAnonymous && profile ? <Layout><Dashboard /></Layout> : <Navigate to="/login" replace />} />
+        <Route path="/settings" element={user && !user.isAnonymous && profile ? <Layout><ScheduleManager /></Layout> : <Navigate to="/login" replace />} />
 
         {/* Public Utility Routes */}
         <Route path="/onboarding/:token" element={<StaffOnboardingPortal />} />
