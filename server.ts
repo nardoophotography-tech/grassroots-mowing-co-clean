@@ -18,6 +18,12 @@ dotenv.config();
 console.log(`[Startup] RESEND_API_KEY present=${!!process.env.RESEND_API_KEY}, prefix=${process.env.RESEND_API_KEY?.slice(0, 3) ?? 'n/a'}`);
 console.log(`[Startup] RESEND_FROM_EMAIL=${process.env.RESEND_FROM_EMAIL ?? '(unset — will use fallback admin@project156.com)'}`);
 console.log(`[Startup] RENDER env flag=${process.env.RENDER ?? '(not set — likely local)'}`);
+console.log(`[Startup] STRIPE_SECRET_KEY present=${!!process.env.STRIPE_SECRET_KEY}, mode=${process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_') ? 'LIVE' : (process.env.STRIPE_SECRET_KEY?.startsWith('sk_test_') ? 'TEST' : 'not set')}`);
+console.log(`[Startup] STRIPE_WEBHOOK_SECRET present=${!!process.env.STRIPE_WEBHOOK_SECRET}`);
+console.log(`[Startup] APP_URL=${process.env.APP_URL ? 'set' : '(unset — Stripe redirects fall back to VITE_APP_URL or localhost)'}`);
+if (!process.env.APP_URL && process.env.RENDER) {
+  console.warn('[Startup] WARNING: APP_URL not set on Render. Set APP_URL=https://grassroots-mowing-co-au.onrender.com to fix Stripe post-payment redirects.');
+}
 
 // Initialize Firebase Admin
 let adminAppConfig: any = {};
@@ -591,9 +597,15 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
       if (endpointSecret && sig) {
         event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
       } else {
-        // Fallback for dev without secret (only if not in production or explicit dev mode)
+        // In production (RENDER env set), REJECT unsigned webhooks — no fallback.
+        // Without signature verification, anyone can forge payment events.
+        if (process.env.RENDER) {
+          console.error("[Stripe Webhook]: REJECTED — STRIPE_WEBHOOK_SECRET not set on production. Set it in Render environment variables.");
+          return res.status(400).send("Webhook Error: Signature verification required in production. Set STRIPE_WEBHOOK_SECRET.");
+        }
+        // Dev-only fallback (localhost only): parse without signature for local testing
         try {
-          console.warn("[Stripe Webhook]: No secret provided. Parsing payload (UNSAFE for production).");
+          console.warn("[Stripe Webhook]: No secret — dev fallback active (localhost only). UNSAFE for production.");
           event = JSON.parse(req.body.toString());
         } catch (parseErr) {
           console.error("[Stripe Webhook]: Failed to parse fallback payload:", parseErr);
@@ -906,8 +918,8 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
             },
           ],
           mode: "payment",
-          success_url: `${process.env.VITE_APP_URL || 'http://localhost:3000'}/invoices?success=true&invoiceId=${invoiceId}`,
-          cancel_url: `${process.env.VITE_APP_URL || 'http://localhost:3000'}/jobs/${jobId}`,
+          success_url: `${process.env.APP_URL || process.env.VITE_APP_URL || 'http://localhost:3000'}/invoices?success=true&invoiceId=${invoiceId}`,
+          cancel_url: `${process.env.APP_URL || process.env.VITE_APP_URL || 'http://localhost:3000'}/jobs/${jobId}`,
           metadata: {
             jobId,
             invoiceId,

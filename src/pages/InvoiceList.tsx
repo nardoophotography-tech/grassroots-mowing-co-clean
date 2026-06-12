@@ -7,16 +7,18 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { format } from 'date-fns';
-import { 
-  FileText, 
-  DollarSign, 
-  Clock, 
-  CheckCircle, 
-  Search, 
-  ArrowLeft, 
-  Send, 
+import {
+  FileText,
+  DollarSign,
+  Clock,
+  CheckCircle,
+  Search,
+  ArrowLeft,
+  Send,
   Trash2,
-  AlertCircle
+  AlertCircle,
+  Copy,
+  ClipboardList
 } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import { toast } from 'react-hot-toast';
@@ -218,91 +220,114 @@ export const InvoiceList = () => {
       </div>
 
       <div className="earth-card rounded-3xl overflow-hidden shadow-premium">
+        {/* overflow-x-auto retained as safety net; table is sized to fit ~1366px without scrolling */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="w-full text-left min-w-[700px]">
             <thead className="bg-background border-b border-border text-clay text-[10px] font-black uppercase tracking-[0.2em]">
               <tr>
-                <th className="px-8 py-5 italic">Credential</th>
-                <th className="px-8 py-5">Account Holder</th>
-                <th className="px-8 py-5">Emission Date</th>
-                <th className="px-8 py-5">Appraisal</th>
-                <th className="px-8 py-5">Status</th>
-                <th className="px-8 py-5 text-right">Operations</th>
+                <th className="px-4 py-3 italic">Credential</th>
+                <th className="px-4 py-3">Account Holder</th>
+                <th className="px-4 py-3 hidden sm:table-cell">Date</th>
+                <th className="px-4 py-3">Amount</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
               {filteredInvoices.map(invoice => (
                 <tr key={invoice.id} className="hover:bg-background/50 transition-colors group">
-                  <td className="px-8 py-6 font-mono font-black text-secondary tracking-tighter text-xs">{invoice.invoiceNumber}</td>
-                  <td className="px-8 py-6">
-                    <p className="font-black text-charcoal text-sm italic">{invoice.clientName}</p>
-                    <p className="text-[10px] text-clay font-medium truncate max-w-[200px] mt-0.5">{invoice.clientAddress}</p>
+                  <td className="px-4 py-4 font-mono font-black text-secondary tracking-tighter text-xs whitespace-nowrap">{invoice.invoiceNumber}</td>
+                  <td className="px-4 py-4 max-w-[180px]">
+                    <p className="font-black text-charcoal text-sm italic truncate">{invoice.clientName}</p>
+                    <p className="text-[10px] text-clay font-medium truncate mt-0.5">{invoice.clientAddress}</p>
                   </td>
-                  <td className="px-8 py-6 text-clay text-xs font-black uppercase tracking-widest">{format(invoice.createdAt, 'MMM d, yyyy')}</td>
-                  <td className="px-8 py-6 font-black text-charcoal text-base">${invoice.totalAmount.toFixed(2)}</td>
-                  <td className="px-8 py-6">
-                    <Badge variant={invoice.status === 'paid' ? 'success' : 'warning'}>
-                      {invoice.status}
-                    </Badge>
+                  <td className="px-4 py-4 text-clay text-xs font-black uppercase tracking-widest whitespace-nowrap hidden sm:table-cell">{format(invoice.createdAt, 'MMM d, yyyy')}</td>
+                  <td className="px-4 py-4 font-black text-charcoal text-sm whitespace-nowrap">${invoice.totalAmount.toFixed(2)}</td>
+                  <td className="px-4 py-4">
+                    {invoice.status === 'paid' ? (
+                      <Badge variant="success" title={invoice.paidAt ? `Paid ${format(invoice.paidAt, 'MMM d, yyyy')}` : undefined}>
+                        {invoice.paymentMethod === 'stripe' ? '✓ Stripe' :
+                         invoice.paymentMethod === 'cash' ? '✓ Cash' :
+                         invoice.paymentMethod === 'bank-transfer' ? '✓ Manual' :
+                         '✓ Paid'}
+                      </Badge>
+                    ) : invoice.status === 'pending-cash' ? (
+                      <Badge variant="warning">Cash Pending</Badge>
+                    ) : invoice.status === 'overdue' ? (
+                      <Badge variant="destructive">Overdue</Badge>
+                    ) : (
+                      <Badge variant="warning">Sent</Badge>
+                    )}
                   </td>
-                  <td className="px-8 py-6 text-right">
-                    <div className="flex justify-end gap-3 px-2">
+                  {/* ── Action column: icon-only buttons with title tooltips to stay compact ── */}
+                  <td className="px-4 py-4 text-right">
+                    <div className="flex justify-end items-center gap-0.5">
                       {isAdmin && invoice.status !== 'paid' && (
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           size="sm"
+                          title="Mark Paid"
                           onClick={() => handleMarkAsPaid(invoice.id, invoice.status === 'pending-cash' ? 'cash' : 'bank-transfer')}
-                          className="text-primary"
+                          className="text-primary h-8 w-8 p-0"
                         >
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          Mark Paid
+                          <CheckCircle className="h-4 w-4" />
                         </Button>
                       )}
                       {!isAdmin && invoice.status !== 'paid' && (
-                        <Button 
+                        <Button
                           size="sm"
                           variant="secondary"
+                          title="Pay Now"
                           onClick={() => navigate(`/pay/${invoice.id}`)}
+                          className="h-8 w-8 p-0"
                         >
-                          <DollarSign className="h-4 w-4 mr-2" />
-                          Pay Now
+                          <DollarSign className="h-4 w-4" />
                         </Button>
                       )}
                       {isAdmin && invoice.status !== 'paid' && (
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           size="sm"
+                          title="Send Reminder"
                           onClick={() => sendReminder(invoice.id)}
+                          className="h-8 w-8 p-0"
                         >
-                          <Send className="h-4 w-4 mr-2" />
-                          Remind
+                          <Send className="h-4 w-4" />
                         </Button>
                       )}
                       {isAdmin && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          title="Copy Payment Link"
                           onClick={() => {
                             const link = `${window.location.origin}/pay/${invoice.id}`;
                             navigator.clipboard.writeText(link);
                             toast.success('Payment link copied');
                           }}
-                          className="text-accent"
+                          className="text-accent h-8 w-8 p-0"
                         >
-                          Copy Link
+                          <Copy className="h-4 w-4" />
                         </Button>
                       )}
-                      <Button variant="ghost" size="sm" onClick={() => navigate(`/jobs/${invoice.jobId}`)}>
-                        Audit
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        title="Audit Job"
+                        onClick={() => navigate(`/jobs/${invoice.jobId}`)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <ClipboardList className="h-4 w-4" />
                       </Button>
                       {isAdmin && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          title="Delete Invoice"
                           disabled={isDeleting && deletingId === invoice.id}
                           onClick={() => handleDeleteClick(invoice.id)}
                           className={cn(
-                            "text-secondary hover:bg-secondary/5",
+                            "text-secondary hover:bg-secondary/5 h-8 w-8 p-0",
                             isDeleting && deletingId === invoice.id && "opacity-50 cursor-not-allowed"
                           )}
                         >
