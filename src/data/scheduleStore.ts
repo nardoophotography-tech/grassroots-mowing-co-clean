@@ -1,13 +1,14 @@
 import * as React from 'react';
-
-// ============================================================================
-// Schedule store — TEMPORARY BROWSER STORAGE
-// ----------------------------------------------------------------------------
-// Temporary browser schedule storage — Firebase upgrade required for production.
-// The Firestore `jobs` collection is permission-denied for the live session,
-// so this store keeps the calendar fully working locally (add/edit/delete,
-// daily/weekly/monthly views) using localStorage.
-// ============================================================================
+import { db, safeOnSnapshot } from '../firebase';
+import {
+  collection,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  query,
+  orderBy,
+} from 'firebase/firestore';
 
 export type ScheduleStatus =
   | 'Scheduled'
@@ -20,7 +21,6 @@ export type RunType = 'Morning Run' | 'Afternoon Run' | 'Flexible';
 
 export const RUN_TYPES: RunType[] = ['Morning Run', 'Afternoon Run', 'Flexible'];
 
-// Sort/group order: Morning Run first, then Afternoon Run, then Flexible.
 export const RUN_ORDER: Record<RunType, number> = {
   'Morning Run': 0,
   'Afternoon Run': 1,
@@ -63,23 +63,20 @@ export interface ScheduleEntry {
   notes: string;
   createdAt: number;
   updatedAt: number;
+  isJob?: boolean;
+  jobId?: string;
 }
 
+const FIRESTORE_COLLECTION = 'scheduleEntries';
 const STORAGE_KEY = 'grassroots_schedule_v1';
 
-function read(): ScheduleEntry[] {
+function readLocal(): ScheduleEntry[] {
   if (typeof window === 'undefined') return [];
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw === null) {
-      // Start empty — empty states render the calendar layout + Add buttons.
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
-      return [];
-    }
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    // Backfill: older entries without a runType fall back to 'Flexible'
-    // so they keep working and never break the grouped views.
     return (parsed as ScheduleEntry[]).map((e) => ({
       ...e,
       runType: (e as any).runType ?? 'Flexible',
@@ -89,51 +86,87 @@ function read(): ScheduleEntry[] {
   }
 }
 
-function write(items: ScheduleEntry[]): void {
+function writeLocal(items: ScheduleEntry[]): void {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
   window.dispatchEvent(new Event('schedule-changed'));
 }
 
 export const scheduleStore = {
-  getAll(): ScheduleEntry[] {
-    return read();
-  },
-
-  add(data: Omit<ScheduleEntry, 'id' | 'createdAt' | 'updatedAt'>): ScheduleEntry {
-    const items = read();
+  async add(data: Omit<ScheduleEntry, 'id' | 'createdAt' | 'updatedAt'>): Promise<ScheduleEntry> {
     const now = Date.now();
-    const entry: ScheduleEntry = {
-      ...data,
-      id: `sch-${now}-${Math.random().toString(36).slice(2, 6)}`,
-      createdAt: now,
-      updatedAt: now,
-    };
-    items.push(entry);
-    write(items);
-    return entry;
+    const payload = { ...data, createdAt: now, updatedAt: now };
+    try {
+      const docRef = await addDoc(collection(db, FIRESTORE_COLLECTION), payload);
+      return { ...payload, id: docRef.id };
+    } catch (err) {
+      console.warn('[scheduleStore] Firestore write failed, using localStorage:', err);
+      const id = 'sch-' + now + '-' + Math.random().toString(36).slice(2, 6);
+      const entry: ScheduleEntry = { ...payload, id };
+      const items = readLocal();
+      items.push(entry);
+      writeLocal(items);
+      return entry;
+    }
   },
 
-  update(id: string, data: Partial<ScheduleEntry>): void {
-    write(read().map((e) => (e.id === id ? { ...e, ...data, id, updatedAt: Date.now() } : e)));
+  async update(id: string, data: Partial<ScheduleEntry>): Promise<void> {
+    const updated = { ...data, updatedAt: Date.now() };
+    if (!id.startsWith('sch-')) {
+      try {
+        await updateDoc(doc(db, FIRESTORE_COLLECTION, id), updated);
+        return;
+      } catch (err) {
+        console.warn('[scheduleStore] Firestore update failed, using localStorage:', err);
+      }
+    }
+    writeLocal(readLocal().map((e) => (e.id === id ? { ...e, ...updated } : e)));
   },
 
-  remove(id: string): void {
-    write(read().filter((e) => e.id !== id));
+  async remove(id: string): Promise<void> {
+    if (!id.startsWith('sch-')) {
+      try {
+        await deleteDoc(doc(db, FIRESTORE_COLLECTION, id));
+        return;
+      } catch (err) {
+        console.warn('[scheduleStore] Firestore delete failed, using localStorage:', err);
+      }
+    }
+    writeLocal(readLocal().filter((e) => e.id !== id));
   },
 };
 
 export function useSchedule(): ScheduleEntry[] {
-  const [items, setItems] = React.useState<ScheduleEntry[]>(() => scheduleStore.getAll());
+  const [items, setItems] = React.useState<ScheduleEntry[]>(readLocal);
+
   React.useEffect(() => {
-    const refresh = () => setItems(scheduleStore.getAll());
-    window.addEventListener('schedule-changed', refresh);
-    window.addEventListener('storage', refresh);
-    refresh();
+    const q = query(collection(db, FIRESTORE_COLLECTION), orderBy('createdAt', 'asc'));
+    const unsub = safeOnSnapshot(
+      q,
+      (snapshot) => {
+        const entries = snapshot.docs.map((d) => ({
+          id: d.id,
+          ...(d.data() as object),
+          runType: ((d.data() as any).runType ?? 'Flexible') as RunType,
+        })) as ScheduleEntry[];
+        setItems(entries);
+      },
+      (_err: any) => {
+        console.warn('[useSchedule] Firestore unavailable, using localStorage fallback');
+        setItems(readLocal());
+      }
+    );
+
+    const onStorage = () => setItems(readLocal());
+    window.addEventListener('schedule-changed', onStorage);
+    window.addEventListener('storage', onStorage);
+
     return () => {
-      window.removeEventListener('schedule-changed', refresh);
-      window.removeEventListener('storage', refresh);
+      unsub();
+      window.removeEventListener('schedule-changed', onStorage);
+      window.removeEventListener('storage', onStorage);
     };
   }, []);
+
   return items;
 }

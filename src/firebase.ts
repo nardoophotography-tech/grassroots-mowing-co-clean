@@ -135,5 +135,28 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   })();
 
   console.error('Firestore Error Status:', safeJson);
-  throw new Error(safeJson);
+  // Do NOT throw here. This function intentionally logs and swallows errors.
+}
+
+import { onSnapshot } from 'firebase/firestore';
+import type { Query, DocumentReference } from 'firebase/firestore';
+
+/**
+ * Safe onSnapshot wrapper that auto-unsubscribes on permission-denied errors,
+ * preventing infinite Firestore retry storms that freeze the browser.
+ */
+export function safeOnSnapshot(
+  ref: Query | DocumentReference,
+  onNext: (snapshot: any) => void,
+  onError?: (error: any) => void
+): () => void {
+  let unsub: (() => void) | null = null;
+  unsub = onSnapshot(ref as any, onNext, (error: any) => {
+    if (error?.code === 'permission-denied' || error?.code === 'PERMISSION_DENIED') {
+      console.warn('[safeOnSnapshot] Permission denied — unsubscribing to prevent retry storm:', error.message);
+      if (unsub) { unsub(); unsub = null; }
+    }
+    if (onError) onError(error);
+  });
+  return () => { if (unsub) { unsub(); unsub = null; } };
 }

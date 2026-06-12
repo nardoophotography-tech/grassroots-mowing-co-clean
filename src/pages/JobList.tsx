@@ -18,7 +18,7 @@ export const JobList = () => {
   const [searchParams] = useSearchParams();
   const initialFilter = searchParams.get('filter') || 'all';
 
-  const { jobs, loading, updateJob } = useJobs();
+  const { jobs, loading, firestoreError, updateJob } = useJobs();
   const [search, setSearch] = React.useState('');
   const [filter, setFilter] = React.useState(initialFilter);
   const [sortBy, setSortBy] = React.useState<'date' | 'suburb'>('date');
@@ -26,6 +26,16 @@ export const JobList = () => {
 
   if (loading) {
     return <div className="p-8 text-center">Loading jobs...</div>;
+  }
+
+  if (firestoreError) {
+    return (
+      <div className="p-8 text-center">
+        <p className="text-red-600 font-bold mb-2">Failed to load jobs from Firestore</p>
+        <p className="text-sm text-gray-500">{firestoreError}</p>
+        <p className="text-xs text-gray-400 mt-2">Check the browser console (F12) for the full error details.</p>
+      </div>
+    );
   }
 
   const handleQuickComplete = async (e: React.ChangeEvent<HTMLInputElement>, jobId: string) => {
@@ -44,8 +54,8 @@ export const JobList = () => {
   };
 
   const filteredJobs = jobs.filter(job => {
-    const matchesSearch = job.clientName.toLowerCase().includes(search.toLowerCase()) || 
-                          job.description.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = (job.clientName ?? '').toLowerCase().includes(search.toLowerCase()) ||
+                          (job.description ?? '').toLowerCase().includes(search.toLowerCase());
     const matchesFilter = filter === 'all' || job.status === filter;
     return matchesSearch && matchesFilter;
   }).sort((a, b) => {
@@ -173,7 +183,7 @@ export const JobList = () => {
 };
 
 const JobCard: React.FC<{ job: any, handleQuickComplete: any }> = ({ job, handleQuickComplete }) => (
-  <Card className="border-ochre/10 shadow-sm hover:shadow-md transition-all rounded-xl overflow-hidden bg-white/80 backdrop-blur-sm">
+  <Card className="earth-card shadow-sm hover:shadow-md transition-all overflow-hidden">
     <Link to={`/jobs/${job.id}`} className="block p-5">
       <div className="flex justify-between items-start">
         <div className="space-y-2">
@@ -207,12 +217,13 @@ const JobCard: React.FC<{ job: any, handleQuickComplete: any }> = ({ job, handle
               onClick={(e) => e.stopPropagation()}
               onChange={(e) => handleQuickComplete(e, job.id)}
               disabled={job.status === 'completed' || job.status === 'invoiced_final' || job.status === 'paid'}
-              className="h-6 w-6 rounded border-ochre/30 text-deep-red focus:ring-deep-red cursor-pointer"
+              className="w-5 h-5 accent-deep-red cursor-pointer"
             />
           </div>
-          <Button variant="ghost" size="sm" className="text-ochre hover:text-deep-red hover:bg-ochre/5 font-bold uppercase text-[10px] tracking-widest mt-2">Details</Button>
         </div>
       </div>
     </Link>
   </Card>
 );
+
+export default JobList;

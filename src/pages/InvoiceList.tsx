@@ -58,11 +58,36 @@ export const InvoiceList = () => {
   const sendReminder = async (invoiceId: string) => {
     const inv = invoices.find(i => i.id === invoiceId);
     if (!inv) return;
-    const job = jobs.find(j => j.id === inv.jobId);
-    if (!job) return;
 
-    await triggerNotification('payment-reminder', job, { amount: inv.totalAmount, link: inv.paymentLink });
-    toast.success('Reminder sent via Email & SMS');
+    // Build a minimal job-shaped object from the invoice's own stored contact fields
+    // so reminders work even if the original job document is deleted.
+    const job = jobs.find(j => j.id === inv.jobId);
+    const contactPayload = {
+      id: inv.jobId,
+      clientName: inv.clientName,
+      clientEmail: (inv as any).clientEmail || job?.clientEmail || '',
+      clientPhone: (inv as any).clientPhone || job?.clientPhone || '',
+      address: (inv as any).clientAddress || job?.address || '',
+      price: inv.totalAmount,
+      paymentLink: inv.paymentLink,
+      invoiceId: inv.id,
+    };
+
+    if (!contactPayload.clientEmail && !contactPayload.clientPhone) {
+      toast.error('No email or phone on record for this client. Reminder not sent.');
+      return;
+    }
+
+    try {
+      await triggerNotification('payment-reminder', contactPayload as any, {
+        amount: inv.totalAmount,
+        link: inv.paymentLink,
+        invoiceNumber: inv.invoiceNumber,
+      });
+      toast.success('Reminder sent via Email & SMS');
+    } catch (err) {
+      toast.error('Failed to send reminder. Check server logs.');
+    }
   };
 
   const handleMarkAsPaid = async (id: string, method: 'bank-transfer' | 'cash' = 'bank-transfer') => {
@@ -174,7 +199,7 @@ export const InvoiceList = () => {
         </Card>
       </div>
 
-      <div className="bg-surface rounded-3xl border border-border overflow-hidden shadow-premium">
+      <div className="earth-card rounded-3xl overflow-hidden shadow-premium">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead className="bg-background border-b border-border text-clay text-[10px] font-black uppercase tracking-[0.2em]">
@@ -246,7 +271,7 @@ export const InvoiceList = () => {
                           }}
                           className="text-accent"
                         >
-                          Liaise
+                          Copy Link
                         </Button>
                       )}
                       <Button variant="ghost" size="sm" onClick={() => navigate(`/jobs/${invoice.jobId}`)}>
@@ -292,29 +317,20 @@ export const InvoiceList = () => {
               Are you sure you want to delete this invoice? This action cannot be undone and will reset the associated job to "Completed" status.
             </p>
           </div>
-          
-          <div className="flex justify-end gap-3 mt-6">
+          <div className="flex gap-3 justify-end pt-2">
             <Button
-              variant="ghost"
+              variant="outline"
               onClick={() => setIsConfirmingDelete(false)}
               disabled={isDeleting}
-              className="font-bold text-gray-500"
             >
               Cancel
             </Button>
             <Button
               onClick={confirmDelete}
               disabled={isDeleting}
-              className="bg-red-600 text-white hover:bg-red-700 font-bold min-w-[100px]"
+              className="bg-red-600 hover:bg-red-700 text-white"
             >
-              {isDeleting ? (
-                <>
-                  <div className="h-4 w-4 border-2 border-white border-t-transparent animate-spin rounded-full mr-2" />
-                  Deleting...
-                </>
-              ) : (
-                'Delete Invoice'
-              )}
+              {isDeleting ? 'Deleting...' : 'Delete Invoice'}
             </Button>
           </div>
         </div>
@@ -322,3 +338,5 @@ export const InvoiceList = () => {
     </div>
   );
 };
+
+export default InvoiceList;

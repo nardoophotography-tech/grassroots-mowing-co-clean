@@ -1,0 +1,21 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Core Rules for Jobs/Bookings
+    match /jobs/{jobId} {
+      // 1. Anyone can create a booking from the public website
+      allow create: if true;
+      
+      // 2. Only authenticated users with the 'admin' role can read or modify jobs
+      allow read, update, delete: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Rules for User Profiles (Required to check roles safely)
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}

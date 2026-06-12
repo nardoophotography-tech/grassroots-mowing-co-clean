@@ -123,7 +123,7 @@ export const ClientList = () => {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 relative z-10">
-        <Card className="bg-white/80 backdrop-blur-sm border-ochre/10 shadow-sm">
+        <Card className="earth-card shadow-sm">
           <CardContent className="pt-4">
             <p className="text-[8px] text-ochre font-black uppercase tracking-widest mb-1 opacity-60">Total Clients</p>
             <div className="flex items-center gap-2">
@@ -132,7 +132,7 @@ export const ClientList = () => {
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-white/80 backdrop-blur-sm border-ochre/10 shadow-sm">
+        <Card className="earth-card shadow-sm">
           <CardContent className="pt-4">
             <p className="text-[8px] text-ochre font-black uppercase tracking-widest mb-1 opacity-60">Overdue Invoices</p>
             <div className="flex items-center gap-2">
@@ -177,7 +177,7 @@ export const ClientList = () => {
 
                <div className="space-y-4">
                   <Label className="text-charcoal font-black uppercase text-[10px] tracking-widest pl-1">Site Identification Protocol</Label>
-                  <LocationPicker 
+                  <LocationPicker autoDetect={false} 
                     onLocationSelect={(loc) => {
                       setValue('location', loc);
                       // Extract suburb naively
@@ -255,7 +255,7 @@ export const ClientList = () => {
 
         <div className="grid grid-cols-1 gap-3">
           {filteredClients.map(client => (
-            <Card key={client.id} className="group hover:bg-ochre/[0.02] border-ochre/10 shadow-sm hover:shadow-md transition-all rounded-2xl overflow-hidden bg-white/80 backdrop-blur-sm cursor-pointer" onClick={() => navigate(`/clients/${client.id}`)}>
+            <Card key={client.id} className="group earth-card shadow-sm hover:shadow-md transition-all overflow-hidden cursor-pointer" onClick={() => navigate(`/clients/${client.id}`)}>
               <div className="flex flex-col md:flex-row md:items-center">
                 <div className="p-5 flex-1 flex items-center gap-6">
                   <div className="h-14 w-14 rounded-2xl bg-ochre/10 flex items-center justify-center text-deep-red font-serif text-2xl font-black group-hover:bg-deep-red/10 transition-colors">

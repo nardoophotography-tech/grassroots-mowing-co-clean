@@ -79,6 +79,13 @@ import { APIProvider } from '@vis.gl/react-google-maps';
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_PLATFORM_KEY || '';
 
+// Safe dev-only diagnostic: reports ONLY whether the Maps key is present.
+// Never logs the key value.
+if (import.meta.env.DEV) {
+  // eslint-disable-next-line no-console
+  console.log('[GrassRoots] Google Maps key present:', Boolean(GOOGLE_MAPS_API_KEY), '| Map ID present:', Boolean(import.meta.env.VITE_GOOGLE_MAPS_MAP_ID));
+}
+
 const Layout = ({ children }: { children: React.ReactNode }) => {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
   const { profile } = useAuth();
@@ -89,6 +96,14 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
       
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         <GlobalHeader profile={profile} onMenuClick={() => setIsSidebarOpen(true)} />
+
+        {/* ── TEST VERSION BANNER — shown on deployed domains only, not localhost ── */}
+        {typeof window !== 'undefined' &&
+          !['localhost', '127.0.0.1'].includes(window.location.hostname) && (
+          <div className="w-full bg-amber-400 text-amber-900 text-center text-xs font-bold py-2 px-4 shrink-0 z-50">
+            ⚠️ TEST VERSION — for friend testing only. Do not enter real card details or make real payments.
+          </div>
+        )}
 
         <main className="flex-1 overflow-y-auto bg-background/30 relative">
           {/* Decorative outback gradient overlay */}
@@ -219,7 +234,7 @@ const AppContent = () => {
         <Route path="/pay/:id" element={<InvoicePayment />} />
         <Route path="/tech" element={<RoleGuard roles={['admin', 'staff']}><Layout><TechnicianDashboard /></Layout></RoleGuard>} />
         
-        {/* Protected Routes */}
+        {/* Protected Routes — require explicit login (user + profile from AuthContext) */}
         <Route path="/dashboard" element={user && profile ? <Layout><Dashboard /></Layout> : <Navigate to="/login" replace />} />
         <Route path="/settings" element={user && profile ? <Layout><ScheduleManager /></Layout> : <Navigate to="/login" replace />} />
 
@@ -258,17 +273,10 @@ const AppContent = () => {
 
 export default function App() {
   return (
-    <APIProvider 
-      apiKey={GOOGLE_MAPS_API_KEY} 
-      version="weekly"
-      libraries={['places', 'drawing', 'geometry', 'geocoding', 'marker']}
-    >
-      <Router>
-        <AuthProvider>
-          <Toaster position="top-right" />
-          <AppContent />
-        </AuthProvider>
-      </Router>
-    </APIProvider>
+    <Router>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </Router>
   );
 }

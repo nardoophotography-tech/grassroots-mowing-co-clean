@@ -55,10 +55,12 @@ export const BookingSuccess = () => {
     return (
       <div className="min-h-screen bg-cream flex flex-col items-center justify-center p-6">
         <Loader2 className="h-8 w-8 text-ochre animate-spin mb-4" />
-        <p className="text-charcoal/60 font-serif">Verifying payment status...</p>
+        <p className="text-charcoal/60 font-serif">Loading your booking…</p>
       </div>
     );
   }
+
+  const isPaid = data?.paymentStatus === 'paid' || data?.paymentStatus === 'successful' || data?.status === 'paid';
 
   return (
     <div className="min-h-screen bg-cream flex items-center justify-center p-6 relative overflow-hidden">
@@ -86,9 +88,11 @@ export const BookingSuccess = () => {
           <CheckCircle className="h-10 w-10" />
         </div>
         
-        <h1 className="text-3xl font-serif text-charcoal mb-4">Payment Confirmed!</h1>
+        <h1 className="text-3xl font-serif text-charcoal mb-4">{isPaid ? 'Payment Confirmed!' : 'Booking Confirmed!'}</h1>
         <p className="text-charcoal/60 mb-8 leading-relaxed text-sm">
-          Thank you for your payment. Your booking has been successfully confirmed and your account is up to date.
+          {isPaid
+            ? 'Thank you for your payment. Your booking has been successfully confirmed and your account is up to date.'
+            : 'Thank you. Your booking has been confirmed — our team will be in touch, and payment is on arrival.'}
         </p>
 
         <div className="bg-ochre/5 p-6 rounded-2xl mb-8 border border-ochre/10 text-left">
@@ -108,7 +112,7 @@ export const BookingSuccess = () => {
             <div>
               <span className="text-[10px] font-bold text-ochre uppercase tracking-widest block mb-1">Status</span>
               <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-[9px] font-bold uppercase tracking-wider">
-                PAID & CONFIRMED
+                {isPaid ? 'PAID & CONFIRMED' : 'CONFIRMED'}
               </span>
             </div>
             {data?.amountPaid && (

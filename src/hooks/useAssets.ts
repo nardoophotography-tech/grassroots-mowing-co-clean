@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
-import { db } from '../firebase';
+import { collection, query, where, orderBy } from 'firebase/firestore';
+import { db, safeOnSnapshot } from '../firebase';
 import { AppAsset } from '../types';
 
 export function useAssets(type?: AppAsset['type'], includeInactive = false) {
@@ -12,7 +12,7 @@ export function useAssets(type?: AppAsset['type'], includeInactive = false) {
     // during the initial setup where indices might not yet be provisioned.
     const q = query(collection(db, 'assets'));
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribe = safeOnSnapshot(q, (snapshot) => {
       const allAssets = snapshot.docs.map(doc => {
         const d = doc.data();
         const v = d.versionNumber || 1;

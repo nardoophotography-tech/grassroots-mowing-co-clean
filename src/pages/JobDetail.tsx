@@ -1,4 +1,6 @@
-import * as React from 'react';
+﻿import * as React from 'react';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 import { GrassRootsGuardian } from '@/components/GrassRootsGuardian';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useJobs } from '@/hooks/useFirebase';
@@ -56,6 +58,7 @@ export const JobDetail = () => {
   
   const [isUpdating, setIsUpdating] = React.useState(false);
   const [showPaymentOptions, setShowPaymentOptions] = React.useState(false);
+  const [isLoadingStripe, setIsLoadingStripe] = React.useState(false);
   const [showAddOnModal, setShowAddOnModal] = React.useState(false);
   const [showApprovalModal, setShowApprovalModal] = React.useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
@@ -253,6 +256,68 @@ export const JobDetail = () => {
       setIsUpdating(false);
     }
   };
+  const handleTapToPay = async () => {
+    if (!job) return;
+    setIsLoadingStripe(true);
+    try {
+      const response = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobId: job.id,
+          invoiceId: (job as any).invoiceId || '',
+          clientName: job.clientName,
+          clientEmail: job.clientEmail || '',
+          pricingSnapshot: {
+            total: job.price || 0,
+            packageId: job.servicePackage || 'manual',
+            packageName: 'Mowing Service',
+            basePrice: job.price || 0,
+            addOnTotal: 0,
+            tierAdjustment: 0,
+            isQuoteRequired: false
+          }
+        })
+      });
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        toast.error(data.error || 'Could not create payment session. Check Stripe configuration.');
+      }
+    } catch (err: any) {
+      toast.error('Failed to connect to payment gateway');
+    } finally {
+      setIsLoadingStripe(false);
+    }
+  };
+
+  const handleCashPaid = async () => {
+    if (!job?.id) return;
+
+    const confirmed = window.confirm('Mark this job as PAID by CASH?');
+    if (!confirmed) return;
+
+    try {
+      setIsUpdating(true);
+
+      await updateDoc(doc(db, 'jobs', job.id), {
+        status: 'paid',
+        paymentStatus: 'successful',
+        paymentMethod: 'cash',
+        paymentDate: Date.now(),
+        paidAt: Date.now(),
+        updatedAt: Date.now()
+      });
+
+      toast.success('Cash payment recorded. Job marked as paid.');
+    } catch (error) {
+      console.error('[JobDetail] Failed to mark cash payment:', error);
+      toast.error('Failed to mark cash payment.');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   return (
     <div className="p-4 lg:p-8 space-y-8 max-w-4xl mx-auto pb-24 relative overflow-hidden">
@@ -269,7 +334,7 @@ export const JobDetail = () => {
       <div className="flex items-center gap-4 relative z-10">
         <div className="flex-1">
           <h2 className="text-3xl font-bold text-deep-red font-serif tracking-tight">{job.clientName}</h2>
-          <p className="text-ochre font-bold uppercase tracking-widest text-[10px]">{format(job.scheduledDate, 'EEEE, MMMM d, yyyy')} • {TIME_SLOT_LABELS[job.timeSlot]}</p>
+          <p className="text-ochre font-bold uppercase tracking-widest text-[10px]">{format(job.scheduledDate, 'EEEE, MMMM d, yyyy')} â€¢ {TIME_SLOT_LABELS[job.timeSlot]}</p>
         </div>
         <Badge variant="outline" className="ml-auto border-ochre/30 text-ochre font-bold uppercase text-[10px] tracking-widest">
           {JOB_STATUS_LABELS[job.status]}
@@ -537,7 +602,7 @@ export const JobDetail = () => {
                       <p className="text-[9px] font-bold text-ochre/60 uppercase">Add-ons Breakdown</p>
                       {job.pricingSnapshot.addOns.map((addon) => (
                         <div key={addon.id} className="flex justify-between text-xs text-charcoal/70 pl-2">
-                          <span>• {addon.name}</span>
+                          <span>â€¢ {addon.name}</span>
                           <span>+${(addon.price || 0).toFixed(2)}</span>
                         </div>
                       ))}
@@ -634,7 +699,7 @@ export const JobDetail = () => {
                   <CheckCircle className="mr-2 h-4 w-4" /> COMPLETE JOB (AUTO-INVOICE)
                 </Button>
               )}
-              {job.status === 'scheduled' && (
+              {['new', 'scheduled'].includes(job.status) && (
                 <Button variant="outline" className="w-full border-ochre/20 text-ochre hover:bg-ochre/5 h-10 rounded-xl font-bold uppercase text-[10px] tracking-widest mt-2" onClick={() => handleStatusChange('on-the-way')} isLoading={isUpdating}>
                   <Truck className="mr-2 h-3 w-3" /> Start Transit
                 </Button>
@@ -681,8 +746,13 @@ export const JobDetail = () => {
                 >
                   <Send className="mr-2 h-4 w-4 text-ochre" /> Send Payment Link
                 </Button>
-                <Button variant="outline" className="w-full justify-start bg-white border-ochre/20 text-charcoal hover:bg-ochre/5 rounded-xl h-12 font-bold">
-                  <CreditCard className="mr-2 h-4 w-4 text-charcoal/60" /> Tap to Pay (Stripe)
+                <Button
+                  variant="outline"
+                  className="w-full justify-start bg-white border-ochre/20 text-charcoal hover:bg-ochre/5 rounded-xl h-12 font-bold disabled:opacity-50"
+                  onClick={handleTapToPay}
+                  disabled={isLoadingStripe}
+                >
+                  <CreditCard className="mr-2 h-4 w-4 text-charcoal/60" /> {isLoadingStripe ? 'Opening Stripe...' : 'Tap to Pay (Stripe)'}
                 </Button>
                 <Button variant="ghost" className="w-full text-[10px] font-bold uppercase tracking-widest text-ochre" onClick={() => setShowPaymentOptions(false)}>Cancel</Button>
               </CardContent>
@@ -1033,37 +1103,43 @@ export const JobDetail = () => {
       {showAddOnModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-deep-red/20 backdrop-blur-md">
           <Card className="w-full max-w-md border-ochre/20 shadow-2xl rounded-2xl overflow-hidden">
-            <CardHeader className="bg-ochre/5 border-b border-ochre/10">
-              <CardTitle className="font-serif text-deep-red">Add On-Site Service</CardTitle>
+            <CardHeader className="bg-ochre/10 border-b border-ochre/20 px-5 py-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-lg text-charcoal font-serif">Add Service Add-On</h3>
+                <Button variant="ghost" size="sm" onClick={() => setShowAddOnModal(false)}>✕</Button>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-2 pt-6 max-h-[60vh] overflow-y-auto">
-              {Object.keys(PRICING_RULES.addOns).map((key) => (
-                <Button
-                  key={key}
-                  variant="outline"
-                  className="w-full justify-between h-14 border-ochre/20 text-charcoal hover:bg-ochre/5 rounded-xl font-bold px-6"
-                  onClick={() => handleAddAddOn(key)}
-                >
-                  <span className="font-serif text-lg">{ADD_ON_LABELS[key]}</span>
-                  <span className="font-black text-deep-red text-xl">${(PRICING_RULES.addOns as any)[key]}</span>
-                </Button>
-              ))}
-              <Button variant="ghost" className="w-full mt-6 text-[10px] font-bold uppercase tracking-widest text-ochre" onClick={() => setShowAddOnModal(false)}>
-                Cancel
-              </Button>
+            <CardContent className="p-5 space-y-3">
+              <p className="text-sm text-charcoal/60">Select an add-on to append to this job:</p>
+              <div className="grid grid-cols-1 gap-2 max-h-72 overflow-y-auto">
+                {Object.entries(ADD_ON_LABELS).map(([key, label]) => {
+                  const price = (PRICING_RULES.addOns as any)[key];
+                  const already = job.addOns?.some((a: any) => a.id?.startsWith(key) && a.selected);
+                  return (
+                    <button
+                      key={key}
+                      disabled={already}
+                      onClick={() => handleAddAddOn(key)}
+                      className={`flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-medium transition-all ${
+                        already
+                          ? 'bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed'
+                          : 'bg-white border-ochre/30 text-charcoal hover:bg-ochre/5 hover:border-ochre/60'
+                      }`}
+                    >
+                      <span>{label}</span>
+                      <span className="text-deep-red font-black">
+                        {already ? 'Added' : price != null ? `+$${price.toFixed(2)}` : 'Custom'}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </CardContent>
           </Card>
         </div>
       )}
-
-      <PasscodeModal
-        isOpen={showApprovalModal}
-        onClose={() => setShowApprovalModal(false)}
-        onSuccess={handleApprovalSuccess}
-        error={approvalError}
-        title="Admin Approval Required"
-        description={`An admin must approve the addition of ${pendingAddOn?.name}.`}
-      />
     </div>
   );
 };
+
+export default JobDetail;

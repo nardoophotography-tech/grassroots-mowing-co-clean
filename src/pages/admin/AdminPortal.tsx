@@ -167,7 +167,7 @@ export const AdminPortal: React.FC = () => {
             onClick={() => navigate(module.to)}
             className="group relative text-left outline-none"
           >
-            <Card className="h-full border-2 border-transparent hover:border-primary/20 shadow-premium hover:shadow-hover transition-all duration-300 rounded-[2rem] overflow-hidden bg-white">
+            <Card className="h-full border-2 border-transparent hover:border-primary/20 shadow-premium hover:shadow-hover transition-all duration-300 rounded-[2rem] overflow-hidden earth-card">
               <CardContent className="p-8">
                 <div className={`w-14 h-14 rounded-2xl ${module.color} text-white flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 shadow-lg`}>
                   <module.icon className="h-7 w-7" />

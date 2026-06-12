@@ -36,7 +36,7 @@ const AppLogo = ({
       >
         {!imgError ? (
           <img
-            src="/logo-new.png"
+            src="/logo-new-transparent.png"
             alt="GrassRoots Mowing Co."
             className="h-10 w-auto object-contain block"
             style={{ mixBlendMode: 'normal' }}

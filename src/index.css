@@ -21,6 +21,17 @@
   --color-ochre: #c47a2c;
   --color-deep-red: var(--color-secondary);
 
+  /* ── Cultural / earthy palette (GrassRoots — Aboriginal-led, Mount Isa) ── */
+  --color-charcoal-black: #111111;
+  --color-rock-red: #8F2F1F;
+  --color-ochre-earth: #C6862D;
+  --color-yellow-ochre: #F4C430;
+  --color-gum-green: #234F2E;
+  --color-grass-green: #6BA368;
+  --color-sand: #E8D8B8;
+  --color-off-white: #F8F3E7;
+  --color-dark-brown: #3A2416;
+
   --radius-lg: 14px;
   --radius-md: 10px;
   --radius-sm: 8px;
@@ -50,6 +61,104 @@
 
   .cultural-pattern {
     background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%236b4a2d' fill-opacity='0.1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4v-4H4v4H0v2h4v4h2v-4h4v-2H6zM36 4v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────
+     Cultural design system (GrassRoots Mowing Co — Aboriginal-led)
+     Earthy surfaces, rock-art impression overlays, ochre/green actions.
+     Impression overlays reference /cultural/*.png (added once supplied).
+     ───────────────────────────────────────────────────────────────────── */
+  .cultural-page {
+    background-color: var(--color-off-white);
+    color: var(--color-charcoal-black);
+  }
+
+  .sunrock-hero {
+    position: relative;
+    background-color: var(--color-charcoal-black);
+    background-image: url('/cultural/sun-rock-original.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+
+  /* Dark, readable overlay for text over the rock-art hero. */
+  .rock-overlay::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(17,17,17,0.74) 0%, rgba(35,79,46,0.55) 100%);
+    pointer-events: none;
+  }
+  .rock-overlay > * { position: relative; z-index: 1; }
+
+  /* Transparent rock-art impression overlay — set the image inline per use. */
+  .rock-impression {
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    opacity: 0.12;
+    pointer-events: none;
+  }
+  .rock-impression-soft {
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    opacity: 0.06;
+    pointer-events: none;
+  }
+
+  /* Earthy card — sand / warm off-white with a soft brown edge. */
+  .earth-card {
+    background-color: var(--color-off-white);
+    border: 1px solid rgba(58, 36, 22, 0.22);
+    border-radius: 22px;
+    box-shadow: 0 6px 18px rgba(17, 17, 17, 0.08);
+  }
+
+  .ochre-button {
+    background-color: var(--color-ochre-earth);
+    color: var(--color-charcoal-black);
+    border: 1px solid rgba(58, 36, 22, 0.25);
+    font-weight: 800;
+    border-radius: 9999px;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+  }
+  .ochre-button:hover { background-color: var(--color-yellow-ochre); }
+
+  .green-button {
+    background-color: var(--color-gum-green);
+    color: var(--color-off-white);
+    border: 1px solid rgba(17, 17, 17, 0.15);
+    font-weight: 800;
+    border-radius: 9999px;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+  }
+  .green-button:hover { background-color: var(--color-grass-green); }
+
+  /* Thin red / ochre / green cultural strip (under header, footer accents). */
+  .cultural-values-strip {
+    height: 5px;
+    width: 100%;
+    pointer-events: none;
+    background: linear-gradient(90deg,
+      var(--color-rock-red) 0%,
+      var(--color-rock-red) 33.33%,
+      var(--color-ochre-earth) 33.33%,
+      var(--color-ochre-earth) 66.66%,
+      var(--color-gum-green) 66.66%,
+      var(--color-gum-green) 100%);
+  }
+
+  /* Small respectful Aboriginal flag badge wrapper (flag drawn in component). */
+  .aboriginal-flag-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    line-height: 0;
   }
 
   .bg-noise {

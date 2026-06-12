@@ -45,7 +45,7 @@ const DrawingTool = ({ onAreaMeasured }: { onAreaMeasured: (area: number) => voi
   useEffect(() => {
     if (!map || !drawingLib || !geometryLib) return;
 
-    const dm = new google.maps.drawing.DrawingManager({
+    const dm = new (google.maps.drawing.DrawingManager as any)({
       drawingMode: google.maps.drawing.OverlayType.POLYGON,
       drawingControl: true,
       drawingControlOptions: {
@@ -63,7 +63,7 @@ const DrawingTool = ({ onAreaMeasured }: { onAreaMeasured: (area: number) => voi
       }
     });
 
-    dm.setMap(map);
+    (dm as any).setMap(map);
     drawingManagerRef.current = dm;
 
     google.maps.event.addListener(dm, 'overlaycomplete', (event: any) => {
@@ -74,7 +74,7 @@ const DrawingTool = ({ onAreaMeasured }: { onAreaMeasured: (area: number) => voi
         
         const newPolygon = event.overlay;
         polygonRef.current = newPolygon;
-        dm.setDrawingMode(null); // Stop drawing mode after one polygon
+        (dm as any).setDrawingMode(null); // Stop drawing mode after one polygon
 
         const updateArea = () => {
           const path = newPolygon.getPath();
@@ -89,7 +89,7 @@ const DrawingTool = ({ onAreaMeasured }: { onAreaMeasured: (area: number) => voi
     });
 
     return () => {
-      dm.setMap(null);
+      (dm as any).setMap(null);
       if (polygonRef.current) polygonRef.current.setMap(null);
     };
   }, [map, drawingLib, geometryLib]);

@@ -181,6 +181,11 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /automationLogs/{logId} {
+      allow read: if isWorkforce();
+      allow write: if false; // Only written by backend via Admin SDK (bypasses rules)
+    }
+
     match /settings/{settingId} {
       allow read: if true;
       allow write: if isAdmin();

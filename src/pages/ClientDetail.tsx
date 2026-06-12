@@ -304,7 +304,7 @@ export const ClientDetail = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4">
                       <Label className="text-[10px] font-black uppercase tracking-widest text-ochre pl-1">Automated Site Location Detection</Label>
-                      <LocationPicker 
+                      <LocationPicker {...({ autoDetect: false } as any)} 
                         onLocationSelect={(loc) => {
                           setValue('location', loc);
                           // Extract suburb naively

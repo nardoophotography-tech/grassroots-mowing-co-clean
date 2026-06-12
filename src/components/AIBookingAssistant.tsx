@@ -191,13 +191,11 @@ export function AIBookingAssistant() {
         )}
       </AnimatePresence>
 
-      <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
+      <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "w-16 h-16 rounded-[24px] shadow-premium flex items-center justify-center relative overflow-hidden transition-all duration-500 border-2",
-          isOpen ? "bg-charcoal border-primary" : "bg-primary border-primary/20 hover:scale-110"
+          "w-16 h-16 rounded-[24px] shadow-premium flex items-center justify-center relative overflow-hidden transition-all duration-200 border-2 hover:scale-105 active:scale-95",
+          isOpen ? "bg-charcoal border-primary" : "bg-primary border-primary/20"
         )}
       >
         <AnimatePresence mode="wait">
@@ -231,7 +229,7 @@ export function AIBookingAssistant() {
             className="absolute -top-1 -right-1 w-6 h-6 bg-secondary border-4 border-surface rounded-full shadow-premium"
           />
         )}
-      </motion.button>
+      </button>
     </div>
   );
 }

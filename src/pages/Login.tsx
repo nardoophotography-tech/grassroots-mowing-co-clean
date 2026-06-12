@@ -10,6 +10,7 @@ import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../firebase';
 import { GrassRootsLogo } from '../components/GrassRootsLogo';
 import { GrassRootsGuardian } from '../components/GrassRootsGuardian';
+import { AboriginalFlagBadge } from '../components/AboriginalFlagBadge';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { UserRole } from '../types';
@@ -232,6 +233,11 @@ export const Login = () => {
         <GrassRootsLogo className="h-16 w-auto mx-auto mb-4" />
         <h1 className={`text-3xl font-serif font-black ${currentTheme.text} uppercase tracking-tighter`}>{currentTheme.heading}</h1>
         <p className={`text-[10px] font-bold uppercase tracking-[0.3em] ${intendedRole === 'client' ? 'text-stone-400' : 'text-ochre'}`}>{currentTheme.subheading}</p>
+        <div className="flex items-center justify-center gap-2 mt-3">
+          <AboriginalFlagBadge height={14} />
+          <span className={`text-[8px] font-black uppercase tracking-[0.25em] italic ${intendedRole === 'client' ? 'text-stone-400' : 'text-ochre'}`}>Aboriginal-led • Respect for Country</span>
+        </div>
+        <div className="cultural-values-strip mx-auto mt-4 max-w-[160px] rounded-full" />
       </div>
 
       <Card className={`w-full max-w-md shadow-2xl border-t-8 ${currentTheme.border} relative z-10 ${intendedRole === 'client' ? currentTheme.cardBg : 'bg-white/90 backdrop-blur-sm'} rounded-[40px] overflow-hidden transition-all border-x border-b border-white/10`}>

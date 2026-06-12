@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { useForm, useWatch, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -106,7 +106,7 @@ const jobSchema = z.object({
     if (!data.location || !data.location.verified) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Please confirm the job location on the map.",
+        message: "Please enter the job location.",
         path: ["location"]
       });
     }
@@ -370,7 +370,7 @@ export const NewJob = () => {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex flex-col">
             <GrassRootsLogo className="h-16 w-auto" />
-            <p className="text-ochre font-bold uppercase tracking-widest text-[10px] mt-1">New Job • {settings?.serviceLocation || 'Mount Isa'} Region</p>
+            <p className="text-ochre font-bold uppercase tracking-widest text-[10px] mt-1">New Job â€¢ {settings?.serviceLocation || 'Mount Isa'} Region</p>
           </div>
           <div className="text-right bg-white/80 backdrop-blur-sm p-4 rounded-xl border border-ochre/10 shadow-sm min-w-[200px]">
             <p className="text-[10px] text-ochre font-bold uppercase tracking-wider mb-1">Estimated Total</p>
@@ -469,7 +469,7 @@ export const NewJob = () => {
                       </div>
                       <div className="space-y-2">
                         <Label>Automated Location Intelligence</Label>
-                        <LocationPicker 
+                        <LocationPicker autoDetect={false} 
                           onLocationSelect={(loc) => {
                             setValue('location', loc);
                             // Extract suburb from formatted address if possible
@@ -599,7 +599,7 @@ export const NewJob = () => {
                 <div className="flex items-center justify-between p-4 bg-deep-red/5 border border-deep-red/10 rounded-2xl mb-4">
                   <div className="space-y-1">
                     <Label htmlFor="urgent-toggle" className="text-deep-red font-black uppercase tracking-widest text-xs">Urgent Booking</Label>
-                    <p className="text-[10px] text-deep-red/60 font-bold uppercase">Priority Dispatch • +$60 Surcharge</p>
+                    <p className="text-[10px] text-deep-red/60 font-bold uppercase">Priority Dispatch â€¢ +$60 Surcharge</p>
                   </div>
                   <input 
                     type="checkbox" 
@@ -724,3 +724,5 @@ export const NewJob = () => {
     </div>
   );
 };
+
+

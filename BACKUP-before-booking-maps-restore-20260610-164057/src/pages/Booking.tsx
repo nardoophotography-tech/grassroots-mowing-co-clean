@@ -1,0 +1,583 @@
+import * as React from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { useJobs, useClients, useSettings } from '@/hooks/useFirebase';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Label } from '@/components/ui/Label';
+import { Select } from '@/components/ui/Select';
+import { Textarea } from '@/components/ui/Textarea';
+import { Badge } from '@/components/ui/Badge';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
+import { SUBURBS, ADD_ON_LABELS, CLIENT_TYPE_LABELS } from '@/constants';
+import { format, addDays, getDay } from 'date-fns';
+import { motion } from 'motion/react';
+import { CheckCircle2, ChevronRight, MapPin, Calendar, Users, CreditCard, DollarSign, ArrowLeft, Zap, Sparkles, Building2, ClipboardList } from 'lucide-react';
+import AppLogo from '@/components/AppLogo';
+import { AboriginalFlagBadge } from '@/components/AboriginalFlagBadge';
+import { cn } from '@/lib/utils';
+import { Mythos } from '@/lib/mythos';
+import { ClientCalendar } from '@/components/Calendar/ClientCalendar';
+import { ImagePlaceholder } from '@/components/ImagePlaceholder';
+import { calculateServicePrice } from '@/services/pricingEngine';
+import { notificationService } from '@/services/notificationService';
+import { GrassRootsGuardian } from '@/components/GrassRootsGuardian';
+
+const bookingSchema = z.object({
+  name: z.string().min(2, 'Name is required'),
+  email: z.string().email('Valid email is required'),
+  phone: z.string().min(8, 'Valid phone number is required'),
+  location: z.any().refine(val => val && val.verified === true, 'Please confirm your property location.'),
+  suburb: z.string().optional(),
+  date: z.string().min(1, 'Please select a date'),
+  timeSlot: z.enum(['morning', 'afternoon']),
+  runType: z.enum(['Morning Run', 'Afternoon Run', 'Flexible']),
+  clientType: z.enum(['one_off', 'returning', 'premium', 'asset_management']),
+  serviceType: z.string().min(1, 'Please select a service package'),
+  serviceGrade: z.enum(['standard', 'medium', 'heavy', 'extreme']),
+  agencyName: z.string().optional(),
+  squareFootage: z.number().optional(),
+  addOns: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    price: z.number(),
+    selected: z.boolean(),
+  })),
+  conditionFactors: z.object({
+    timeSinceLastMow: z.enum(['under-2-weeks', '2-4-weeks', '1-2-months', 'over-2-months']),
+    grassHeight: z.enum(['short', 'medium', 'tall', 'very-tall']),
+    thickness: z.enum(['light', 'medium', 'thick', 'very-thick']),
+    obstacles: z.enum(['low', 'medium', 'high']),
+    urgency: z.enum(['normal', 'priority', 'urgent']),
+  }),
+  notes: z.string().optional(),
+});
+
+type BookingFormValues = z.infer<typeof bookingSchema>;
+
+export const Booking = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { user, profile, signInAnonymously } = useAuth();
+  const { jobs, addJob } = useJobs();
+  const { addClient } = useClients();
+  const { settings, loading: settingsLoading } = useSettings();
+
+  const [step, setStep] = React.useState((searchParams.get('type') === 'one_off' || searchParams.get('type') === 'asset_management') ? 2 : 1);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [paymentMethod, setPaymentMethod] = React.useState<'card' | 'cash'>('card');
+  const [createdJobId, setCreatedJobId] = React.useState<string | null>(null);
+
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<BookingFormValues>({
+    resolver: zodResolver(bookingSchema) as any,
+    defaultValues: {
+      name: profile?.displayName || '',
+      email: profile?.email || '',
+      phone: '', 
+      timeSlot: 'morning',
+      runType: 'Morning Run',
+      clientType: (searchParams.get('type') as any) || (profile ? (profile.clientType || 'returning') : 'one_off'),
+      serviceType: (searchParams.get('package') as any) || 'residential_standard',
+      serviceGrade: 'standard',
+      squareFootage: 0,
+      addOns: Object.entries(settings?.pricing?.addOns || {}).map(([id, price]) => {
+        const detail = settings?.pricing?.addOnDetails?.[id];
+        if (detail && !detail.active) return null;
+        return {
+          id,
+          name: detail?.name || ADD_ON_LABELS[id] || id,
+          price: (settings?.pricing?.addOns as any)?.[id] || 0,
+          selected: false
+        };
+      }).filter((a): a is any => a !== null),
+      conditionFactors: {
+        timeSinceLastMow: 'under-2-weeks',
+        grassHeight: 'short',
+        thickness: 'light',
+        obstacles: 'low',
+        urgency: 'normal',
+      }
+    }
+  });
+
+  const watchedValues = watch();
+
+  const [manualAddress, setManualAddress] = React.useState('');
+  const [accessNotes, setAccessNotes] = React.useState('');
+  
+  React.useEffect(() => {
+    if (watchedValues.location?.address && !manualAddress) {
+      setManualAddress(watchedValues.location.address);
+    }
+  }, [watchedValues.location?.address]); 
+
+  const locationConfirmed = !!watchedValues.location?.verified;
+
+  if (settingsLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-secondary border-t-transparent" />
+      </div>
+    );
+  }
+
+  const calculateEstimate = () => {
+    const rules = settings?.pricing || { base: {}, addOns: {} };
+    return calculateServicePrice(
+      rules,
+      watchedValues.serviceType || 'residential_standard',
+      watchedValues.clientType,
+      watchedValues.serviceGrade,
+      watchedValues.conditionFactors,
+      watchedValues.addOns.filter(a => a.selected),
+      'standard',
+      watchedValues.squareFootage
+    );
+  };
+
+  const onSubmit = async (data: BookingFormValues) => {
+    const snapshot = calculateEstimate();
+    setIsSubmitting(true);
+    try {
+      let currentUserId = user?.uid || profile?.uid || '';
+      
+      if (!currentUserId) {
+        console.log('[Booking] Initiating secure fallback anonymous session configuration...');
+        await signInAnonymously();
+        currentUserId = 'anonymous_guest_' + Date.now();
+      }
+
+      const clientPayload = {
+        name: data.name,
+        customerName: data.name,
+        clientName: data.name,
+        address: data.location?.address || '',
+        location: data.location || null,
+        phone: data.phone,
+        clientPhone: data.phone,
+        email: data.email,
+        clientEmail: data.email,
+        suburb: data.suburb || '',
+        clientType: data.clientType,
+        agencyName: data.agencyName ?? null,
+        notes: "Lead from website booking. Reference: " + currentUserId
+      };
+      
+      console.log('[Booking] Upserting Client Identity Context...');
+      if (addClient) {
+        await addClient(clientPayload, currentUserId);
+      }
+
+      const jobData: any = {
+        clientId: currentUserId,
+        customerName: data.name,
+        clientName: data.name,
+        name: data.name,
+        clientPhone: data.phone,
+        phone: data.phone,
+        clientEmail: data.email,
+        email: data.email,
+        address: data.location?.address || '',
+        location: data.location || null,
+        suburb: data.suburb || '',
+        status: "new",
+        scheduledDate: new Date(data.date).getTime(),
+        preferredDate: data.date,
+        timeSlot: data.timeSlot,
+        runType: data.runType, 
+        clientType: data.clientType,
+        servicePackage: (data.serviceType || 'residential_standard') as any,
+        serviceType: data.serviceType,
+        service: data.serviceType,
+        jobType: data.serviceType,
+        serviceGrade: data.serviceGrade,
+        yardSize: data.squareFootage ? `${data.squareFootage} sqft` : "Town block",
+        conditionFactors: data.conditionFactors,
+        addOns: data.addOns.filter(a => a.selected).map(a => ({ id: a.id, name: a.name, price: a.price, selected: true })),
+        basePrice: snapshot.basePrice,
+        gradeAdjustment: snapshot.gradeAdjustment,
+        conditionSurcharge: snapshot.conditionSurcharge,
+        addOnTotal: snapshot.addOnTotal,
+        urgencySurcharge: snapshot.urgencySurcharge,
+        price: snapshot.total,
+        squareFootage: data.squareFootage,
+        pricingSnapshot: {
+          ...snapshot,
+          squareFootage: data.squareFootage,
+          addOns: snapshot.addOns.map(a => ({ id: a.id, name: a.name, price: a.price, selected: true }))
+        },
+        billingType: (snapshot.isQuoteRequired ? 'quote-required' : 'standard') as any,
+        recurringSchedule: 'one-off' as any,
+        description: `Website Booking: ${snapshot.packageName}`,
+        notes: data.notes || '',
+        paymentStatus: (snapshot.isQuoteRequired ? 'unpaid' : 'pending') as any,
+        source: "website_booking",
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      };
+
+      console.log('[Booking] Committing clean transactional record entry...');
+      const jobId = await addJob(jobData);
+      if (!jobId) throw new Error('Database pipeline refused transaction. Verify connection parameters.');
+
+      setCreatedJobId(jobId);
+
+      try {
+        await notificationService.notifyRole(
+          'admin', 
+          'New Deployment Authorized', 
+          `${data.name} in ${data.suburb}. Scope: ${snapshot.packageName}.`,
+          `/jobs/${jobId}`,
+          'success'
+        );
+
+        const stage = (snapshot.isQuoteRequired ? 'lead-captured' : 'booking-created');
+        await notificationService.triggerNotification(stage as any, { ...jobData, id: jobId } as any);
+      } catch (err) {
+        console.warn("[Booking] Notification engine skipped safely:", err);
+      }
+
+      if (!snapshot.isQuoteRequired && (data.clientType === 'one_off')) {
+         setStep(6);
+      } else {
+        navigate(`/booking-success?jobId=${jobId}`);
+      }
+    } catch (error: any) {
+      console.error('Booking Process Error:', error);
+      toast.error(error.message || 'The booking system encountered an operational hurdle.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handlePaymentSelection = async () => {
+    setIsSubmitting(true);
+    try {
+      const data = watchedValues;
+      const snapshot = calculateEstimate();
+      
+      if (paymentMethod === 'card') {
+        const response = await fetch('/api/create-checkout-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jobId: createdJobId,
+            clientName: data.name,
+            clientEmail: data.email,
+            serviceType: data.serviceType,
+            clientType: data.clientType,
+            serviceGrade: data.serviceGrade,
+            conditionFactors: data.conditionFactors,
+            addOns: data.addOns.filter(a => a.selected).map(a => ({ id: a.id, name: a.name, price: a.price })),
+            pricingSnapshot: {
+              ...snapshot,
+              addOns: data.addOns.filter(a => a.selected).map(a => ({ id: a.id, name: a.name, price: a.price }))
+            }
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(`Stripe Portal Error: ${errorData.error || 'Unknown error'}`);
+        }
+
+        const { url } = await response.json();
+        if (url) {
+          window.location.href = url;
+          return;
+        } else {
+          throw new Error('Stripe failed to return a valid checkout URL.');
+        }
+      } else {
+        const response = await fetch('/api/confirm-cash-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jobId: createdJobId,
+            clientName: data.name,
+            clientEmail: data.email,
+            pricingSnapshot: { ...snapshot }
+          })
+        });
+
+        if (!response.ok) throw new Error('Failed to confirm cash payment.');
+        navigate(`/booking-success?jobId=${createdJobId}`); 
+      }
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const onInvalid = (formErrors: any) => {
+    console.error('Form Validation Errors:', formErrors);
+    const errorEntries = Object.entries(formErrors);
+    if (errorEntries.length > 0) {
+      const [field, error] = errorEntries[0];
+      const message = (error as any).message || `Invalid ${field}`;
+      toast.error(message);
+    }
+  };
+
+  const nextStep = () => setStep(s => s + 1);
+
+  return (
+    <div className="min-h-screen bg-background pb-32 relative overflow-hidden">
+      <div className="absolute inset-0 subtle-grid opacity-10 pointer-events-none" />
+      
+      <div className="fixed -top-10 -left-10 w-64 h-64 pointer-events-none select-none opacity-[0.02]">
+        <GrassRootsGuardian size={250} />
+      </div>
+
+      <div className="bg-charcoal text-white py-14 px-6 mb-12 relative overflow-hidden">
+        <div className="max-w-xl mx-auto relative z-10">
+          <div className="flex justify-between items-center mb-10">
+            <div className="flex items-center gap-3">
+              <Button variant="ghost" size="sm" onClick={() => navigate('/')} className="text-white hover:bg-white/10 h-10 w-10 rounded-full border border-white/20 p-0 flex items-center justify-center">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            </div>
+            <AppLogo className="h-10 w-auto" textClassName="text-white" />
+          </div>
+
+          <div className="text-center">
+            <h1 className="text-4xl font-black mb-2 tracking-tight italic uppercase">Book Your Mow</h1>
+            <p className="text-primary font-black mb-2 uppercase tracking-[0.3em] text-[10px]">{settings?.serviceLocation || 'Mount Isa'} Local Service</p>
+            <div className="flex items-center justify-center gap-2 mt-3">
+              <AboriginalFlagBadge height={14} />
+              <span className="text-[8px] font-black uppercase tracking-[0.25em] italic" style={{ color: 'var(--color-yellow-ochre)' }}>Aboriginal-led • Respect for Country</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-xl mx-auto px-4 relative z-10 mt-12 grid grid-cols-3 gap-4 mb-4">
+        <ImagePlaceholder id={12} seed="booking-extra-1" height={120} label="Community" />
+        <ImagePlaceholder id={13} seed="booking-extra-2" height={120} label="Reliable" />
+        <ImagePlaceholder id={14} seed="booking-extra-3" height={120} label="Local" />
+      </div>
+
+      <div className="max-w-xl mx-auto px-4 relative z-10">
+        <form onSubmit={handleSubmit(onSubmit as any, onInvalid)}>
+          {step === 1 && (
+            <Card className="border-border shadow-premium rounded-[32px] overflow-hidden bg-surface/80 backdrop-blur-sm">
+              <CardHeader className="bg-primary/5 py-4 border-b border-border">
+                <CardTitle className="flex items-center gap-2 font-black text-charcoal uppercase tracking-tight italic text-sm">
+                  <Users size={16} className="text-primary" />
+                  Gateway Selection
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 pt-4 px-4 pb-6">
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: 'one_off', label: 'One-Off', icon: Zap },
+                    { id: 'returning', label: 'Regular', icon: Users },
+                    { id: 'premium', label: 'Premium', icon: Sparkles },
+                    { id: 'asset_management', label: 'Asset Mgmt', icon: Building2 }
+                  ].map((type) => (
+                    <button
+                      key={type.id}
+                      type="button"
+                      onClick={() => {
+                        setValue('clientType', type.id as any);
+                        nextStep();
+                      }}
+                      className={cn(
+                        "flex flex-col items-center justify-center p-4 rounded-2xl border-2 text-center transition-all h-24",
+                        watchedValues.clientType === type.id ? "border-secondary bg-secondary/5 shadow-premium" : "border-border bg-background hover:border-primary/20"
+                      )}
+                    >
+                      <type.icon size={18} className={cn("mb-2", watchedValues.clientType === type.id ? "text-secondary" : "text-clay/40")} />
+                      <span className="font-black text-[10px] uppercase tracking-tight italic">{type.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {step === 2 && (
+            <Card className="border-border shadow-premium rounded-[32px] overflow-hidden bg-surface/80 backdrop-blur-sm">
+              <CardHeader className="bg-primary/5 py-4 border-b border-border">
+                <CardTitle className="flex items-center gap-2 font-black text-charcoal uppercase tracking-tight italic text-sm">
+                  <MapPin size={16} className="text-primary" />
+                  Identity & Location
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 pt-4 px-4 pb-6">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-clay/50 font-black uppercase text-[8px] tracking-[0.2em] italic">Full Name</Label>
+                    <Input {...register('name')} className="h-10 text-xs font-bold rounded-xl" placeholder="John Doe" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-clay/50 font-black uppercase text-[8px] tracking-[0.2em] italic">Mobile</Label>
+                    <Input {...register('phone')} className="h-10 text-xs font-bold rounded-xl" placeholder="0400..." />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-clay/50 font-black uppercase text-[8px] tracking-[0.2em] italic">Email</Label>
+                  <Input {...register('email')} className="h-10 text-xs font-bold rounded-xl" placeholder="email@region.co" />
+                </div>
+                
+                <div className="space-y-3 pt-2">
+                  <div className="space-y-1">
+                    <Label className="text-clay/50 font-black uppercase text-[8px] tracking-[0.2em] italic">Property address</Label>
+                    <Input value={manualAddress} onChange={(e) => setManualAddress(e.target.value)} className="h-10 text-xs font-bold rounded-xl" placeholder="e.g. 12 Simpson Street" />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-clay/50 font-black uppercase text-[8px] tracking-[0.2em] italic">Suburb</Label>
+                    <Input {...register('suburb')} className="h-10 text-xs font-bold rounded-xl" placeholder="e.g. Mount Isa" />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-clay/50 font-black uppercase text-[8px] tracking-[0.2em] italic">Access notes (optional)</Label>
+                    <Textarea value={accessNotes} onChange={(e) => setAccessNotes(e.target.value)} className="text-xs rounded-xl min-h-[60px]" placeholder="Gate codes, Best entry etc..." />
+                  </div>
+                </div>
+
+                <Button
+                  type="button"
+                  onClick={() => {
+                    const addr = manualAddress.trim();
+                    const sub = (watchedValues.suburb || '').trim();
+                    if (!watchedValues.name?.trim() || !watchedValues.phone?.trim()) {
+                      toast.error('Please enter your name and mobile first.');
+                      return;
+                    }
+                    if (!addr || !sub) { toast.error('Address and Suburb fields required.'); return; }
+                    setValue('location', { latitude: 0, longitude: 0, address: addr, accuracy: 0, source: 'pin', verified: true }, { shouldValidate: true });
+                    setValue('suburb', sub);
+                    if (accessNotes.trim()) setValue('notes', accessNotes.trim());
+                    nextStep();
+                  }}
+                  className="w-full bg-primary hover:bg-primary-hover text-white h-12 rounded-full font-black uppercase tracking-[0.2em] text-[10px]"
+                >
+                  Confirm Location <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {step === 3 && (
+            <Card className="border-border shadow-premium rounded-[32px] overflow-hidden bg-surface/80 backdrop-blur-sm">
+              <CardHeader className="bg-primary/5 py-4 border-b border-border">
+                <CardTitle className="flex items-center gap-2 font-black text-charcoal uppercase tracking-tight italic text-sm">
+                  <Calendar size={16} className="text-primary" />
+                  Booking Window
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 pt-4 px-4 pb-6">
+                <ClientCalendar
+                  suburb={watchedValues.suburb}
+                  jobs={jobs}
+                  settings={settings!}
+                  selectedDate={watchedValues.date}
+                  selectedSlot={watchedValues.timeSlot}
+                  onSelect={(date, slot) => {
+                    setValue('date', date);
+                    setValue('timeSlot', slot);
+                  }}
+                />
+                <Button type="button" onClick={nextStep} disabled={!watchedValues.date} className="w-full bg-primary h-12 rounded-full font-black uppercase tracking-widest text-[10px] shadow-premium">
+                  Select Service Profile <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {step === 4 && (
+            <Card className="border-border shadow-premium rounded-[32px] overflow-hidden bg-surface/80 backdrop-blur-sm">
+              <CardHeader className="bg-primary/5 py-4 border-b border-border">
+                <CardTitle className="flex items-center gap-2 font-black text-charcoal uppercase tracking-tight italic text-sm">
+                  <ClipboardList size={16} className="text-primary" />
+                  Service Matrix
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 pt-4 px-4 pb-6">
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.entries(settings?.pricing?.base || {}).slice(0, 4).map(([id, price]) => {
+                    const detail = settings?.pricing?.packageDetails?.[id];
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => setValue('serviceType', id as any)}
+                        className={cn("flex flex-col p-3 rounded-2xl border-2 text-left h-32 relative", watchedValues.serviceType === id ? "border-secondary bg-secondary/5" : "border-border bg-background")}
+                      >
+                        <span className="font-black text-[10px] uppercase tracking-tight italic">{detail?.name || id.replace('_', ' ')}</span>
+                        <span className="text-[9px] text-clay font-bold mt-1 line-clamp-2">{detail?.description}</span>
+                        <span className="mt-auto text-xs font-black text-primary">${price}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <Button type="button" onClick={nextStep} className="w-full bg-primary h-12 rounded-full font-black uppercase tracking-widest text-[10px] shadow-premium">
+                  Review & Finalize <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {step === 5 && (
+            <Card className="border-border shadow-premium rounded-[32px] overflow-hidden bg-surface/80 backdrop-blur-sm">
+              <CardHeader className="bg-primary/5 py-4 border-b border-border">
+                <CardTitle className="flex items-center gap-2 font-black text-charcoal uppercase tracking-tight italic text-sm">
+                  <CheckCircle2 size={16} className="text-primary" />
+                  Final Operational Audit
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 pt-4 px-4 pb-6">
+                <div className="bg-background p-4 rounded-2xl border border-border space-y-3">
+                  <div className="flex justify-between text-[9px] font-bold text-clay uppercase italic border-b border-border/40 pb-2">
+                    <span>Customer</span>
+                    <span className="text-charcoal">{watchedValues.name}</span>
+                  </div>
+                  <div className="flex justify-between items-center pt-2">
+                    <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em] italic">Net Total</span>
+                    <span className="text-xl font-black text-primary">${calculateEstimate().total.toFixed(2)}</span>
+                  </div>
+                </div>
+                <Button type="submit" className="w-full bg-secondary hover:bg-secondary-hover text-white h-14 rounded-full font-black uppercase tracking-[0.2em] text-[11px] shadow-premium italic" isLoading={isSubmitting}>
+                  Confirm Booking <Zap size={16} className="ml-2" />
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {step === 6 && (
+            <Card className="border-border shadow-premium rounded-[32px] overflow-hidden bg-surface/80 backdrop-blur-sm">
+              <CardHeader className="bg-charcoal py-4 border-b border-border">
+                <CardTitle className="flex items-center gap-2 font-black text-white uppercase tracking-tight italic text-sm">
+                  <CreditCard size={16} className="text-primary" />
+                  Fiscal Resolution
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 pt-6 px-4 pb-6 text-center">
+                <div className="grid grid-cols-2 gap-3">
+                   <button type="button" onClick={() => setPaymentMethod('cash')} className={cn("p-6 rounded-2xl border-2 flex flex-col items-center gap-2", paymentMethod === 'cash' ? "border-secondary bg-secondary/5" : "border-border")}>
+                     <DollarSign size={24} />
+                     <span className="text-[10px] font-black uppercase tracking-tight italic">CASH ON ARRIVAL</span>
+                   </button>
+                   <button type="button" onClick={() => setPaymentMethod('card')} className={cn("p-6 rounded-2xl border-2 flex flex-col items-center gap-2", paymentMethod === 'card' ? "border-secondary bg-secondary/5" : "border-border")}>
+                     <CreditCard size={24} />
+                     <span className="text-[10px] font-black uppercase tracking-tight italic">ONLINE CARD</span>
+                   </button>
+                </div>
+                <Button onClick={handlePaymentSelection} isLoading={isSubmitting} className="w-full bg-secondary h-14 rounded-full font-black uppercase tracking-[0.2em] text-[11px] mt-6 italic">
+                   CONFIRM RESOLUTION
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </form>
+      </div>
+    </div>
+  );
+};

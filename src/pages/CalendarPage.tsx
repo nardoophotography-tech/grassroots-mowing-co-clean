@@ -15,11 +15,11 @@ type ViewType = 'monthly' | 'weekly' | 'daily';
 
 export const CalendarPage = () => {
   const { profile } = useAuth();
-  const { jobs, updateJob, reorderJob, assignWorker, loading: jobsLoading, error: jobsError } = useJobs();
-  const { staff, loading: staffLoading, error: staffError } = useStaff();
+  const { jobs, updateJob, reorderJob, assignWorker, loading: jobsLoading } = useJobs();
+  const { staff, loading: staffLoading } = useStaff();
   const { settings } = useSettings();
   const navigate = useNavigate();
-  const dataError = jobsError || staffError;
+  const dataError = null;
 
   const [view, setView] = React.useState<ViewType>(
     profile?.role === 'admin' ? 'monthly' : 'daily'

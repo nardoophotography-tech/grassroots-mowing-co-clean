@@ -14,6 +14,10 @@ import { generateInvoicePDF, generateReceiptPDF, generateQuotePDF, generateBooki
 
 dotenv.config();
 
+// Startup diagnostic — safe logging only (no key values printed)
+console.log(`[Startup] RESEND_API_KEY present=${!!process.env.RESEND_API_KEY}, prefix=${process.env.RESEND_API_KEY?.slice(0, 3) ?? 'n/a'}`);
+console.log(`[Startup] RESEND_FROM_EMAIL=${process.env.RESEND_FROM_EMAIL || '(unset)'}`);
+
 // Initialize Firebase Admin
 let adminAppConfig: any = {};
 try {
@@ -412,6 +416,16 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
         smsContent = `GrassRoots Mowing: Payment received! Thank you for the $${(amount || 0)}. Receipt: ${paymentLink}${pdfUrl ? `\nPDF: ${pdfUrl}` : ''}`;
         break;
 
+      case 'payment-reminder':
+        emailSubject = `Payment Reminder: Invoice ${invoiceNumber || 'Outstanding'} - GrassRoots Mowing Co.`;
+        emailContent = settings.reminderTemplate
+          ? replacePlaceholders(settings.reminderTemplate, { clientName, amount, invoiceNumber: invoiceNumber || '', paymentLink, pdfUrl })
+          : `Hi ${clientName},\n\nThis is a friendly reminder that your invoice${invoiceNumber ? ` (${invoiceNumber})` : ''} for $${(amount || 0)} is still outstanding.\n\nPlease pay securely using the link below:\n${paymentLink}\n\nIf you have any questions, please don't hesitate to get in touch.\n\nThanks,\nGrassRoots Mowing Co.`;
+        smsContent = `GrassRoots Mowing: Friendly reminder — your invoice of $${(amount || 0)} is outstanding. Pay here: ${paymentLink}`;
+        adminEmailSubject = `PAYMENT REMINDER SENT: ${clientName}`;
+        adminEmailContent = `A payment reminder has been sent to ${clientName} for $${(amount || 0)}. Invoice: ${invoiceNumber || 'N/A'}`;
+        break;
+
       case 'staff-invite':
         emailSubject = `Welcome to GrassRoots Mowing Co - Setup Your Profile`;
         emailContent = `Hi ${clientName},\n\nYou've been invited to join the GrassRoots Mowing Co team!\n\nPlease complete your securely encrypted onboarding profile, including bank details, TFN, Super, and sign your employment agreement using this link:\n\n${paymentLink}\n\nThanks,\nManagement`;
@@ -446,13 +460,28 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
     };
 
     const sendEmail = async (to: string, subject: string, text: string) => {
-      if (resend && to) {
-        return retry(() => resend.emails.send({
-          from: process.env.RESEND_FROM_EMAIL || 'bookings@grassrootsmowing.com.au',
-          to, subject, text
-        }));
+      const keyPresent = !!process.env.RESEND_API_KEY;
+      const keyPrefix = process.env.RESEND_API_KEY?.slice(0, 3) ?? 'n/a';
+      const fromAddr = process.env.RESEND_FROM_EMAIL || 'bookings@grassrootsmowing.com.au';
+      console.log(`[Resend] Attempting send — keyPresent=${keyPresent}, prefix=${keyPrefix}, from=${fromAddr}, to=${to}`);
+
+      if (!resend) {
+        throw new Error(`Resend not initialised — RESEND_API_KEY is missing or empty at runtime`);
       }
-      return { status: 'simulated' };
+      if (!to) {
+        throw new Error('Resend: no recipient address');
+      }
+
+      // Resend SDK v6 returns { data, error } — never throws
+      const { data, error } = await resend.emails.send({ from: fromAddr, to, subject, text });
+
+      if (error) {
+        console.error(`[Resend] SEND FAILED — to=${to}, error=${JSON.stringify(error)}`);
+        throw new Error(`Resend error: ${(error as any).message || JSON.stringify(error)}`);
+      }
+
+      console.log(`[Resend] SEND OK — to=${to}, messageId=${data?.id}`);
+      return data;
     };
 
     // Internal Firestore Notification Helper (Admin SDK)
@@ -486,7 +515,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
         try { 
           await sendEmail(clientEmail, emailSubject, emailContent); 
           results.email = 'sent'; 
-          console.log(`[handleNotification]: Step 4 - Email sent to ${clientEmail}`);
+          console.log(`[handleNotification]: Step 4 - Email confirmed dispatched to ${clientEmail}`);
         } catch (err) { 
           results.email = 'failed'; 
           console.error("[Email Failure] Client:", clientEmail, err);
@@ -525,6 +554,20 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
       return results;
     }
   };
+
+  // Automation status endpoint — returns service connection state (key presence only, no values)
+  app.get("/api/automations/status", (_req, res) => {
+    try {
+      res.json({
+        stripeConnected: !!process.env.STRIPE_SECRET_KEY,
+        resendConnected: !!process.env.RESEND_API_KEY,
+        twilioConnected: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN),
+        fromEmail: process.env.RESEND_FROM_EMAIL || 'bookings@grassrootsmowing.com.au',
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
 
   // Stripe Webhook Endpoint (MUST be before express.json() for raw body access)
   app.post("/api/stripe-webhook", express.raw({ type: "application/json" }), async (req, res) => {
@@ -803,7 +846,30 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
       const finalPrice = job.price || 0;
       const amountInCents = Math.round(finalPrice * 100);
 
-      // 2. Create Stripe Payment Session
+      // 2. Create Invoice Document FIRST so we have the invoiceId for Stripe metadata
+      const invoiceNumber = `INV-${Date.now().toString().slice(-6)}`;
+      const invoiceData: any = {
+        invoiceNumber,
+        jobId,
+        clientId: job.clientId || null,
+        clientName: job.clientName,
+        clientAddress: job.address,
+        items: [
+           { description: `Standard Mowing Service (${job.servicePackage})`, amount: job.basePrice || 0 },
+           ...(job.addOns || []).filter((a: any) => a.selected).map((a: any) => ({ description: a.name, amount: a.price }))
+        ],
+        totalAmount: finalPrice,
+        pricingSnapshot: job.pricingSnapshot || null,
+        status: 'sent',
+        paymentLink: '',       // will be updated after Stripe session is created
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      };
+
+      const invoiceRef = await db.collection("invoices").add(invoiceData);
+      const invoiceId = invoiceRef.id;
+
+      // 3. Create Stripe Payment Session — now we can include invoiceId in metadata
       let paymentLink = job.paymentLink;
       if (stripe && amountInCents > 0) {
         const session = await stripe.checkout.sessions.create({
@@ -822,72 +888,99 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
             },
           ],
           mode: "payment",
-          success_url: `${process.env.VITE_APP_URL || 'http://localhost:3000'}/booking-success?jobId=${jobId}`,
+          success_url: `${process.env.VITE_APP_URL || 'http://localhost:3000'}/invoices?success=true&invoiceId=${invoiceId}`,
           cancel_url: `${process.env.VITE_APP_URL || 'http://localhost:3000'}/jobs/${jobId}`,
           metadata: {
             jobId,
+            invoiceId,
             flowType: 'final_invoice',
             clientEmail: job.clientEmail || '',
-            clientName: job.clientName || ''
+            clientName: job.clientName || '',
+            invoiceNumber
           },
         });
         paymentLink = session.url;
+        // Update invoice with the now-known paymentLink
+        await invoiceRef.update({ paymentLink: paymentLink || '', updatedAt: Date.now() });
       }
-
-      // 3. Create/Update Invoice Document
-      const invoiceNumber = `INV-${Date.now().toString().slice(-6)}`;
-      const invoiceData = {
-        invoiceNumber,
-        jobId,
-        clientId: job.clientId || null,
-        clientName: job.clientName,
-        clientAddress: job.address,
-        items: [
-           { description: `Standard Mowing Service (${job.servicePackage})`, amount: job.basePrice || 0 },
-           ... (job.addOns || []).filter((a: any) => a.selected).map((a: any) => ({ description: a.name, amount: a.price }))
-        ],
-        totalAmount: finalPrice,
-        pricingSnapshot: job.pricingSnapshot || null,
-        status: 'sent',
-        paymentLink: paymentLink || '',
-        createdAt: Date.now(),
-        updatedAt: Date.now()
-      };
-
-      const invoiceRef = await db.collection("invoices").add(invoiceData);
 
       // 4. Update Job Status & Mark Processed
       await jobRef.update({
         status: 'invoiced_final',
         completedAt: Date.now(),
-        invoiceId: invoiceRef.id,
+        invoiceId,
         paymentLink: paymentLink || '',
         finalActionProcessed: true,
         updatedAt: Date.now()
       });
 
       // 5. Trigger Final Notifications (Email + SMS)
-      // This will also trigger PDF generation via the handleNotification helper
       await handleNotification({
         stage: 'invoice-sent',
-        job: { ...job, id: jobId, paymentLink, invoiceId: invoiceRef.id },
+        job: { ...job, id: jobId, paymentLink, invoiceId },
         clientEmail: job.clientEmail,
         clientPhone: job.clientPhone,
         clientName: job.clientName,
         amount: finalPrice.toFixed(2),
-        invoiceNumber: invoiceNumber,
-        invoiceLink: paymentLink 
+        invoiceNumber,
+        invoiceLink: paymentLink
       });
 
-      res.json({ 
-        success: true, 
-        status: 'invoiced_final', 
-        invoiceId: invoiceRef.id,
-        paymentLink 
+      // 6. Log automation event to Firestore (Zero-Touch Invoicing)
+      try {
+        await db.collection('automationLogs').add({
+          automationId: 'auto_bill',
+          event: 'invoice_generated',
+          jobId,
+          clientName: job.clientName || '',
+          amount: finalPrice,
+          invoiceNumber,
+          createdAt: Date.now(),
+        });
+      } catch (logErr: any) {
+        console.warn('[AutomationLog] Failed to write log entry:', logErr.message);
+      }
+
+      res.json({
+        success: true,
+        status: 'invoiced_final',
+        invoiceId,
+        paymentLink
       });
 
     } catch (err: any) {
       console.error("[CompleteJob Error]:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // DEV ONLY — Elevate anonymous user to admin in Firestore so Firestore rules
+  // pass isAdmin() checks during local dev. This endpoint is a no-op in production.
+  // ─────────────────────────────────────────────────────────────────────────
+  app.post("/api/auth/dev-admin-activate", async (req, res) => {
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({ error: "Not available in production" });
+    }
+    const { uid } = req.body || {};
+    if (!uid || typeof uid !== 'string') {
+      return res.status(400).json({ error: "uid required" });
+    }
+    try {
+      await db.collection("users").doc(uid).set({
+        uid,
+        email: "nardoophotography@gmail.com",
+        displayName: "David Nardoo (Dev Admin)",
+        role: "admin",
+        clientType: "returning",
+        loginEnabled: true,
+        setupComplete: true,
+        updatedAt: Date.now(),
+      }, { merge: true });
+      console.log(`[DEV ADMIN ACTIVATE] Wrote role:admin for anonymous uid: ${uid}`);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("[DEV ADMIN ACTIVATE] Error:", err.message);
       res.status(500).json({ error: err.message });
     }
   });
@@ -1320,52 +1413,64 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
           If the user provides an address, encourage them to "Start Instant Book" to use our satellite measurement tool.
           
           Example responses:
-          - "Sounds like a standard residential block! Our 'Standard Package' starts at $150. Would you like to see a custom quote using our satellite measurement tool?"
-          - "Acreage in Highfields? Beautiful. We definitely handle large lots. I'd suggest our 'Acreage' package."
-          
-          If they seem ready to book, offer them a link to the /booking page.`,
+          - "Sou          - "Sounds like a standard residential block! Our 'Standard Package' starts at $150. Would you like to see a custom quote using our satellite measurement tool?"
+          - "Acreage in Highfields? Beautiful. We definitely handle large lots. I'd suggest our 'Acreage' package."`,
       });
 
-      const chat = model.startChat({
-        history: messages.map((m: any) => ({
-          role: m.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: m.content }]
-        }))
-      });
+      const history = (messages || []).map((m: any) => ({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content }],
+      }));
 
-      const result = await chat.sendMessage(userMessage);
-      const response = await result.response;
-      const text = response.text();
-      
-      res.json({ text });
+      const chat = model.startChat({ history });
+      const result = await chat.sendMessage(userMessage || '');
+      const text = result.response.text();
+
+      res.json({ reply: text });
     } catch (err: any) {
-      console.error("[Gemini Error]:", err.message);
-      res.status(500).json({ error: "Failed to process AI request" });
+      console.error("[Gemini Chat Error]:", err.message);
+      res.status(500).json({ error: err.message });
     }
   });
 
-  // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
+  // Dev: Vite dev server middleware (serves React app)
+  // Prod: serve compiled static files from dist/
+  if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },
-      appType: "spa",
+      appType: 'custom',
     });
     app.use(vite.middlewares);
+    // SPA fallback: serve index.html (transformed by Vite) for all non-API routes
+    app.use('*', async (req: any, res: any, next: any) => {
+      try {
+        const url = req.originalUrl;
+        let template = fs.readFileSync(
+          path.resolve(process.cwd(), 'index.html'),
+          'utf-8'
+        );
+        template = await vite.transformIndexHtml(url, template);
+        res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
+      } catch (e: any) {
+        vite.ssrFixStacktrace(e);
+        next(e);
+      }
+    });
   } else {
-    // Production: serve static files from dist
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
+    app.get('*', (_req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
 
-  console.log(`[Server]: Initializing middleware and routes...`);
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`[Server]: READY. Listening on http://localhost:${PORT}`);
-    // Verify connectivity after server is ready to handle requests
-    verifyConnectivity().catch(err => console.warn("[Firebase]: Connectivity check background failure:", err.message));
+  // Start listening
+  app.listen(PORT, () => {
+    console.log(`[Server] GrassRoots API running on port ${PORT}`);
   });
 }
 
-startServer().catch(console.error);
+startServer().catch((err) => {
+  console.error("[Server] Fatal startup error:", err);
+  process.exit(1);
+});

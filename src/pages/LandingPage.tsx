@@ -46,6 +46,7 @@ import { cn } from '@/lib/utils';
 import AppLogo from '@/components/AppLogo';
 import { GrassRootsLogo } from '@/components/GrassRootsLogo';
 import { GrassRootsGuardian } from '@/components/GrassRootsGuardian';
+import { AboriginalFlagBadge } from '@/components/AboriginalFlagBadge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { PRICING_RULES, ADD_ON_LABELS, CLIENT_TYPE_LABELS } from '@/constants';
 import { calculateServicePrice } from '@/services/pricingEngine';
@@ -205,86 +206,90 @@ export const LandingPage = () => {
 
   return (
     <div className="min-h-screen bg-[#FDFCFB] selection:bg-primary/20 selection:text-primary">
-      <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-border px-4 sm:px-6 py-3 shadow-sm">
+      <nav className="sticky top-0 z-50 backdrop-blur-md border-b px-4 sm:px-6 py-3 shadow-sm" style={{ backgroundColor: 'rgba(17,17,17,0.92)', borderColor: 'rgba(255,255,255,0.1)' }}>
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-3 cursor-pointer group" onClick={() => navigate('/')}>
             <AppLogo className="h-10 w-auto group-hover:scale-105 transition-transform" />
-            <div className="hidden lg:block ml-2 border-l border-border pl-4">
-              <p className="text-[8px] font-black text-clay uppercase tracking-[0.2em] leading-none">Operational</p>
-              <p className="text-[7px] font-bold text-primary uppercase tracking-widest leading-none mt-1">Ready</p>
+            <div className="hidden lg:block ml-2 border-l pl-4" style={{ borderColor: 'rgba(255,255,255,0.18)' }}>
+              <p className="text-[8px] font-black uppercase tracking-[0.2em] leading-none text-white/70">Aboriginal-led</p>
+              <p className="text-[7px] font-bold uppercase tracking-widest leading-none mt-1" style={{ color: 'var(--color-yellow-ochre)' }}>Community Service</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button 
+          <div className="flex items-center gap-3">
+            <span className="hidden sm:flex items-center gap-1.5 mr-1" title="Aboriginal-led community service">
+              <AboriginalFlagBadge height={16} />
+              <span className="text-[8px] font-black uppercase tracking-[0.2em] text-white/70 italic">Aboriginal-led</span>
+            </span>
+            <Button
                 variant="ghost"
                 onClick={() => navigate('/booking?type=one_off')}
-                className="px-4 py-2 rounded-full bg-secondary text-white hover:bg-secondary/90 text-[10px] font-black uppercase tracking-widest italic h-9"
+                className="px-4 py-2 rounded-full ochre-button text-[10px] tracking-widest italic h-9"
             >
               quick book
             </Button>
-            <Button 
-                variant="ghost" 
+            <Button
+                variant="ghost"
                 onClick={() => navigate('/login')}
-                className="h-9 px-4 rounded-full bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 text-[10px] font-black uppercase tracking-widest"
+                className="h-9 px-4 rounded-full bg-white/10 text-white border border-white/30 hover:bg-white/20 text-[10px] font-black uppercase tracking-widest"
             >
               Portal
             </Button>
           </div>
         </div>
       </nav>
+      {/* Thin red / ochre / green cultural strip under the header */}
+      <div className="cultural-values-strip sticky top-[60px] z-40" />
 
-      {/* Action-First Hero */}
-      <section className="relative pt-8 sm:pt-12 pb-8 sm:pb-12 px-4 sm:px-6 overflow-hidden bg-white border-b border-border/40">
-        <div className="absolute inset-0 subtle-grid opacity-5 pointer-events-none" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-           <GrassRootsGuardian variant="spotlight" className="opacity-10 w-[600px] h-auto" />
-        </div>
-        <div className="max-w-7xl mx-auto flex flex-col items-center text-center relative z-10">
-          <motion.div 
+      {/* Cultural hero — original rock art background with a dark overlay */}
+      <section className="relative pt-16 sm:pt-24 pb-16 sm:pb-20 px-4 sm:px-6 overflow-hidden sunrock-hero rock-overlay text-white border-b-4" style={{ borderColor: 'var(--color-rock-red)' }}>
+        <div className="max-w-7xl mx-auto flex flex-col items-center text-center">
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="w-full max-w-4xl"
           >
-            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-black text-charcoal leading-[0.9] tracking-tighter uppercase italic mb-6">
-              Yard Care <span className="text-primary italic">On Demand.</span>
+            <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black leading-[0.95] tracking-tighter uppercase italic mb-4 drop-shadow-lg">
+              GrassRoots Mowing Co
             </h1>
-            
-            <p className="text-clay text-xs lg:text-sm font-bold max-w-xl mx-auto mb-6 sm:mb-10 leading-relaxed uppercase tracking-[0.15em]">
-              Professional maintenance for {settings?.serviceLocation || 'Mount Isa'}. <br />
-              Select your path below for instant processing.
+            <p className="text-lg sm:text-2xl font-black uppercase tracking-tight italic mb-4" style={{ color: 'var(--color-yellow-ochre)' }}>
+              Aboriginal-led community lawn care for {settings?.serviceLocation || 'Mount Isa'}
+            </p>
+            <p className="text-sm lg:text-base font-medium max-w-2xl mx-auto mb-8 sm:mb-10 leading-relaxed" style={{ color: 'var(--color-sand)' }}>
+              Practical yard support built on respect, Country, community, and cultural values.
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6 sm:mb-10">
-              <Button 
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <Button
                 onClick={() => navigate('/booking?type=one_off')}
-                className="h-16 sm:h-20 bg-secondary hover:bg-secondary/90 text-white font-black uppercase tracking-[0.2em] text-[11px] rounded-2xl shadow-xl shadow-secondary/10 italic flex flex-col items-center justify-center gap-1 group"
+                style={{ backgroundColor: 'var(--color-ochre-earth)', color: '#111111' }}
+                className="h-16 sm:h-20 hover:brightness-110 font-black uppercase tracking-[0.2em] text-[11px] rounded-2xl shadow-xl italic flex flex-col items-center justify-center gap-1 group border-0"
               >
                 <div className="flex items-center gap-2">
-                   <Zap size={16} /> ONE-OFF BOOKING
+                   <Zap size={16} /> BOOK A SERVICE
                 </div>
-                <span className="text-[8px] opacity-70 tracking-[0.3em] font-medium italic">Instant Quote • 5 Clicks to Success</span>
+                <span className="text-[8px] opacity-80 tracking-[0.3em] font-medium italic">One-off booking • Instant quote</span>
               </Button>
-              
-              <Button 
-                variant="outline"
+
+              <Button
                 onClick={() => navigate('/login?intendedRole=returning')}
-                className="h-16 sm:h-20 border-primary/20 text-primary hover:bg-primary/5 font-black uppercase tracking-[0.2em] text-[11px] rounded-2xl italic flex flex-col items-center justify-center gap-1"
+                style={{ backgroundColor: 'var(--color-gum-green)', color: '#ffffff' }}
+                className="h-16 sm:h-20 hover:brightness-110 font-black uppercase tracking-[0.2em] text-[11px] rounded-2xl italic flex flex-col items-center justify-center gap-1 border-0"
               >
                 <div className="flex items-center gap-2">
                    <Users size={16} /> REGULAR CLIENTS
                 </div>
-                <span className="text-[8px] opacity-70 tracking-[0.3em] font-medium italic">Manage Plans • Job History</span>
+                <span className="text-[8px] opacity-80 tracking-[0.3em] font-medium italic">Manage plans • Job history</span>
               </Button>
 
-              <Button 
-                variant="outline"
+              <Button
                 onClick={() => navigate('/login?intendedRole=asset_management')}
-                className="h-16 sm:h-20 border-slate-900/20 text-slate-900 hover:bg-slate-50 font-black uppercase tracking-[0.2em] text-[11px] rounded-2xl italic flex flex-col items-center justify-center gap-1"
+                style={{ backgroundColor: 'rgba(255,255,255,0.12)', color: '#ffffff', borderColor: 'rgba(255,255,255,0.3)' }}
+                className="h-16 sm:h-20 hover:bg-white/20 font-black uppercase tracking-[0.2em] text-[11px] rounded-2xl italic flex flex-col items-center justify-center gap-1 border"
               >
                 <div className="flex items-center gap-2">
                    <Building2 size={16} /> ASSET MANAGERS
                 </div>
-                <span className="text-[8px] opacity-70 tracking-[0.3em] font-medium italic">Agency Portal • Bulk Invoicing</span>
+                <span className="text-[8px] opacity-80 tracking-[0.3em] font-medium italic">Agency portal • Bulk invoicing</span>
               </Button>
             </div>
           </motion.div>
@@ -328,7 +333,8 @@ export const LandingPage = () => {
               </div>
             </div>
             
-            <div className="bg-slate-50 p-8 rounded-[2rem] border border-border/40 relative">
+            <div className="earth-card p-8 relative overflow-hidden">
+              <div className="rock-impression-soft absolute bottom-2 right-2 w-20 h-24 z-0" style={{ backgroundImage: "url('/cultural/rock-impression-figure-3.png')" }} aria-hidden="true" />
                <div className="absolute top-4 right-4 opacity-10">
                   <Leaf className="text-primary" size={40} />
                </div>
@@ -440,8 +446,10 @@ export const LandingPage = () => {
         </div>
       </section>
 
-      {/* High Density Operations Grid */}
-      <section className="py-8 bg-[#FDFCFB] cultural-pattern">
+      {/* Services hub */}
+      <section className="py-8 bg-[#FDFCFB] cultural-pattern relative overflow-hidden">
+        {/* Subtle rock-art impression behind the services area (not over any form) */}
+        <div className="absolute inset-0 rock-impression-soft" style={{ backgroundImage: "url('/cultural/rock-impression-set-transparent.png')", backgroundSize: 'cover' }} aria-hidden="true" />
         <div className="max-w-7xl mx-auto px-6 relative z-10">
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {/* Total Care List */}
@@ -450,8 +458,9 @@ export const LandingPage = () => {
                 <div className="w-1 h-4 bg-secondary rounded-full" />
                 <h2 className="text-[9px] font-black text-slate-900 uppercase tracking-[0.2em] italic">Total Care Matrix (Gold)</h2>
               </div>
-              <div className="bg-white rounded-[24px] border border-border/40 p-4 shadow-sm">
-                <div className="grid grid-cols-2 gap-y-1.5 gap-x-4">
+              <div className="earth-card p-4 relative overflow-hidden">
+                <div className="rock-impression-soft absolute bottom-1 right-1 w-16 h-20 z-0" style={{ backgroundImage: "url('/cultural/rock-impression-figure-1.png')" }} aria-hidden="true" />
+                <div className="grid grid-cols-2 gap-y-1.5 gap-x-4 relative z-10">
                   {goldPackageInclusions.map((item) => (
                     <div key={item} className="flex items-center gap-1.5 text-[8px] font-bold text-clay uppercase tracking-tight truncate">
                       <CheckCircle2 size={10} className="text-secondary shrink-0" />
@@ -516,11 +525,19 @@ export const LandingPage = () => {
         </div>
       </section>
 
-      {/* Footer - Minimal */}
-      <footer className="bg-slate-950 text-slate-400 py-12 px-4 sm:px-6 border-t border-white/5">
+      {/* Footer — dark earthy, Aboriginal-led */}
+      <footer className="relative overflow-hidden text-slate-300 px-4 sm:px-6 border-t border-white/5" style={{ backgroundColor: 'var(--color-dark-brown)' }}>
+        <div className="cultural-values-strip" />
+        {/* Faint rock-art impression strip across the footer */}
+        <div className="absolute inset-0 rock-impression-soft" style={{ backgroundImage: "url('/cultural/rock-impression-set-transparent.png')", backgroundSize: 'cover' }} aria-hidden="true" />
+        <div className="relative z-10 py-12">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
-            <div className="flex flex-col items-center md:items-start gap-4">
+            <div className="flex flex-col items-center md:items-start gap-3">
               <AppLogo className="h-8 w-auto" textClassName="text-white" />
+              <div className="flex items-center gap-2">
+                <AboriginalFlagBadge height={16} />
+                <p className="text-[8px] font-black uppercase tracking-[0.25em] italic" style={{ color: 'var(--color-yellow-ochre)' }}>Aboriginal-led • Community-focused • Respect for Country</p>
+              </div>
               <p className="text-[8px] font-bold uppercase tracking-[0.3em] opacity-50 italic">© {new Date().getFullYear()} {settings?.businessName?.toUpperCase() || 'GRASSROOTS MOWING CO.'}</p>
             </div>
             
@@ -542,6 +559,7 @@ export const LandingPage = () => {
                 </div>
               </div>
             </div>
+        </div>
         </div>
       </footer>
 

@@ -95,7 +95,7 @@ export const StaffList = () => {
         </div>
       </div>
 
-      <div className="bg-surface rounded-3xl border border-border overflow-hidden shadow-premium">
+      <div className="earth-card rounded-3xl overflow-hidden shadow-premium">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead className="bg-background border-b border-border text-clay text-[10px] font-black uppercase tracking-[0.2em]">

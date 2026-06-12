@@ -1,0 +1,303 @@
+{
+  "testName": "GrassRoots mock booking to paid invoice flow",
+  "mode": "MOCK_ONLY_NO_FIREBASE_NO_TWILIO_NO_STRIPE",
+  "createdAt": "2026-06-10T10:47:40.937Z",
+  "passed": true,
+  "errorCount": 0,
+  "errors": [],
+  "log": [
+    {
+      "time": "2026-06-10T10:47:40.935Z",
+      "step": "1. Booking request created",
+      "status": "PASS",
+      "details": {
+        "id": "mock-booking-1781088460935",
+        "source": "mock_booking_test",
+        "customerName": "David Mock Customer",
+        "clientName": "David Mock Customer",
+        "clientPhone": "+61404231448",
+        "clientEmail": "mock.customer@example.com",
+        "address": "3 Dot Street, Mount Isa QLD",
+        "suburb": "Mount Isa",
+        "servicePackage": "residential_standard",
+        "serviceGrade": "Standard",
+        "schedule": "One-Off",
+        "preferredDate": "2026-06-10",
+        "timeSlot": "morning",
+        "addOns": [
+          {
+            "id": "edges",
+            "name": "Edge Trimming",
+            "price": 15,
+            "selected": true
+          },
+          {
+            "id": "blowing",
+            "name": "Path Blowing",
+            "price": 10,
+            "selected": true
+          }
+        ],
+        "price": 175,
+        "status": "booking-created",
+        "createdAt": 1781088460935
+      }
+    },
+    {
+      "time": "2026-06-10T10:47:40.936Z",
+      "step": "2. Booking converted to job",
+      "status": "PASS",
+      "details": {
+        "id": "mock-job-1781088460936",
+        "bookingId": "mock-booking-1781088460935",
+        "clientId": "mock-client-1781088460936",
+        "customerName": "David Mock Customer",
+        "clientName": "David Mock Customer",
+        "clientPhone": "+61404231448",
+        "clientEmail": "mock.customer@example.com",
+        "address": "3 Dot Street, Mount Isa QLD",
+        "suburb": "Mount Isa",
+        "status": "paid",
+        "servicePackage": "residential_standard",
+        "serviceGrade": "Standard",
+        "schedule": "One-Off",
+        "timeSlot": "morning",
+        "price": 175,
+        "paymentStatus": "successful",
+        "invoiceId": "mock-invoice-1781088460936",
+        "createdAt": 1781088460936,
+        "updatedAt": 1781088460937,
+        "paymentMethod": "mock-card-payment",
+        "paymentDate": 1781088460937
+      }
+    },
+    {
+      "time": "2026-06-10T10:47:40.936Z",
+      "step": "3. Job starts as scheduled",
+      "status": "PASS",
+      "details": {
+        "expected": "scheduled",
+        "actual": "scheduled"
+      }
+    },
+    {
+      "time": "2026-06-10T10:47:40.936Z",
+      "step": "4. Start Transit moves job to on-the-way",
+      "status": "PASS",
+      "details": {
+        "expected": "on-the-way",
+        "actual": "on-the-way"
+      }
+    },
+    {
+      "time": "2026-06-10T10:47:40.936Z",
+      "step": "5. Start On-Site Work moves job to in-progress",
+      "status": "PASS",
+      "details": {
+        "expected": "in-progress",
+        "actual": "in-progress"
+      }
+    },
+    {
+      "time": "2026-06-10T10:47:40.937Z",
+      "step": "6. Complete Job creates invoice",
+      "status": "PASS",
+      "details": {
+        "id": "mock-invoice-1781088460936",
+        "jobId": "mock-job-1781088460936",
+        "clientName": "David Mock Customer",
+        "clientPhone": "+61404231448",
+        "clientEmail": "mock.customer@example.com",
+        "subtotal": 175,
+        "gst": 17.5,
+        "totalAmount": 192.5,
+        "status": "paid",
+        "sentAt": 1781088460937,
+        "paidAt": 1781088460937,
+        "createdAt": 1781088460937
+      }
+    },
+    {
+      "time": "2026-06-10T10:47:40.937Z",
+      "step": "7. Job moves to invoiced_final",
+      "status": "PASS",
+      "details": {
+        "expected": "invoiced_final",
+        "actual": "invoiced_final"
+      }
+    },
+    {
+      "time": "2026-06-10T10:47:40.937Z",
+      "step": "8. Invoice starts as draft",
+      "status": "PASS",
+      "details": {
+        "expected": "draft",
+        "actual": "draft"
+      }
+    },
+    {
+      "time": "2026-06-10T10:47:40.937Z",
+      "step": "9. Invoice sent",
+      "status": "PASS",
+      "details": {
+        "expected": "sent",
+        "actual": "sent"
+      }
+    },
+    {
+      "time": "2026-06-10T10:47:40.937Z",
+      "step": "10. Payment recorded",
+      "status": "PASS",
+      "details": {
+        "id": "mock-payment-1781088460937",
+        "invoiceId": "mock-invoice-1781088460936",
+        "jobId": "mock-job-1781088460936",
+        "amount": 192.5,
+        "method": "mock-card-payment",
+        "status": "successful",
+        "paidAt": 1781088460937,
+        "mocked": true
+      }
+    },
+    {
+      "time": "2026-06-10T10:47:40.937Z",
+      "step": "11. Invoice marked paid",
+      "status": "PASS",
+      "details": {
+        "expected": "paid",
+        "actual": "paid"
+      }
+    },
+    {
+      "time": "2026-06-10T10:47:40.937Z",
+      "step": "12. Job marked paid",
+      "status": "PASS",
+      "details": {
+        "expected": "paid",
+        "actual": "paid"
+      }
+    },
+    {
+      "time": "2026-06-10T10:47:40.937Z",
+      "step": "13. Job paymentStatus successful",
+      "status": "PASS",
+      "details": {
+        "expected": "successful",
+        "actual": "successful"
+      }
+    },
+    {
+      "time": "2026-06-10T10:47:40.937Z",
+      "step": "14. Notifications created",
+      "status": "PASS",
+      "details": {
+        "count": 5,
+        "notifications": [
+          "job-status",
+          "job-status",
+          "job-status",
+          "invoice-sent",
+          "payment-receipt"
+        ]
+      }
+    }
+  ],
+  "finalMockDb": {
+    "clients": {},
+    "jobs": {
+      "mock-job-1781088460936": {
+        "id": "mock-job-1781088460936",
+        "bookingId": "mock-booking-1781088460935",
+        "clientId": "mock-client-1781088460936",
+        "customerName": "David Mock Customer",
+        "clientName": "David Mock Customer",
+        "clientPhone": "+61404231448",
+        "clientEmail": "mock.customer@example.com",
+        "address": "3 Dot Street, Mount Isa QLD",
+        "suburb": "Mount Isa",
+        "status": "paid",
+        "servicePackage": "residential_standard",
+        "serviceGrade": "Standard",
+        "schedule": "One-Off",
+        "timeSlot": "morning",
+        "price": 175,
+        "paymentStatus": "successful",
+        "invoiceId": "mock-invoice-1781088460936",
+        "createdAt": 1781088460936,
+        "updatedAt": 1781088460937,
+        "paymentMethod": "mock-card-payment",
+        "paymentDate": 1781088460937
+      }
+    },
+    "invoices": {
+      "mock-invoice-1781088460936": {
+        "id": "mock-invoice-1781088460936",
+        "jobId": "mock-job-1781088460936",
+        "clientName": "David Mock Customer",
+        "clientPhone": "+61404231448",
+        "clientEmail": "mock.customer@example.com",
+        "subtotal": 175,
+        "gst": 17.5,
+        "totalAmount": 192.5,
+        "status": "paid",
+        "sentAt": 1781088460937,
+        "paidAt": 1781088460937,
+        "createdAt": 1781088460937
+      }
+    },
+    "payments": {
+      "mock-payment-1781088460937": {
+        "id": "mock-payment-1781088460937",
+        "invoiceId": "mock-invoice-1781088460936",
+        "jobId": "mock-job-1781088460936",
+        "amount": 192.5,
+        "method": "mock-card-payment",
+        "status": "successful",
+        "paidAt": 1781088460937,
+        "mocked": true
+      }
+    },
+    "notifications": [
+      {
+        "type": "job-status",
+        "jobId": "mock-job-1781088460936",
+        "status": "on-the-way",
+        "createdAt": 1781088460936,
+        "mocked": true
+      },
+      {
+        "type": "job-status",
+        "jobId": "mock-job-1781088460936",
+        "status": "in-progress",
+        "createdAt": 1781088460936,
+        "mocked": true
+      },
+      {
+        "type": "job-status",
+        "jobId": "mock-job-1781088460936",
+        "status": "completed",
+        "createdAt": 1781088460936,
+        "mocked": true
+      },
+      {
+        "type": "invoice-sent",
+        "invoiceId": "mock-invoice-1781088460936",
+        "jobId": "mock-job-1781088460936",
+        "sms": "mock-sent",
+        "email": "mock-skipped",
+        "createdAt": 1781088460937,
+        "mocked": true
+      },
+      {
+        "type": "payment-receipt",
+        "invoiceId": "mock-invoice-1781088460936",
+        "jobId": "mock-job-1781088460936",
+        "paymentId": "mock-payment-1781088460937",
+        "sms": "mock-sent",
+        "email": "mock-skipped",
+        "createdAt": 1781088460937,
+        "mocked": true
+      }
+    ]
+  }
+}

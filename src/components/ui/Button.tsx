@@ -1,8 +1,7 @@
 import * as React from 'react';
-import { motion, HTMLMotionProps } from 'motion/react';
 import { cn } from '@/lib/utils';
 
-interface ButtonProps extends HTMLMotionProps<'button'> {
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'success';
   size?: 'sm' | 'md' | 'lg' | 'icon';
   isLoading?: boolean;
@@ -27,13 +26,11 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     };
 
     return (
-      <motion.button
+      <button
         ref={ref}
-        whileTap={{ scale: 0.97 }}
-        whileHover={{ y: -1 }}
         disabled={disabled || isLoading}
         className={cn(
-          'inline-flex items-center justify-center rounded-md transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0',
+          'inline-flex items-center justify-center rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-px active:scale-[0.97]',
           variants[variant],
           sizes[size],
           className
@@ -43,8 +40,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         {isLoading ? (
           <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
         ) : null}
-        {children as React.ReactNode}
-      </motion.button>
+        {children}
+      </button>
     );
   }
 );

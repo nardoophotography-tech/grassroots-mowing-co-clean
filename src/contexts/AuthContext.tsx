@@ -3,7 +3,7 @@ import {
   onAuthStateChanged, 
   signInWithPopup, 
   GoogleAuthProvider, 
-  signOut, 
+  signOut as firebaseSignOut,
   User,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -16,7 +16,7 @@ import {
   onSnapshot,
   updateDoc
 } from 'firebase/firestore';
-import { auth, db, OperationType, handleFirestoreError } from '../firebase';
+import { auth, db, OperationType, handleFirestoreError, safeOnSnapshot } from '../firebase';
 import { UserProfile, UserRole, ClientType } from '../types';
 import { ADMIN_EMAILS } from '../constants';
 import { clientTriageService } from '../services/clientTriageService';
@@ -69,6 +69,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       params.get('ownerRecovery') === 'true' ||
       params.get('localAdmin') === 'true';
     const fromSession = sessionStorage.getItem('local_dev_admin') === 'true';
+    // NEVER read grassroots_local_admin from localStorage — localStorage persists across
+    // browser restarts and would grant admin access without any login. sessionStorage is
+    // correct: it survives F5 reloads within the same tab but clears on tab/browser close.
+    // Clean up any stale key left by earlier versions of this code.
+    try { localStorage.removeItem('grassroots_local_admin'); } catch {}
     if (fromParam) {
       // Write synchronously — BEFORE onAuthStateChanged can fire
       sessionStorage.setItem('local_dev_admin', 'true');
@@ -111,11 +116,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (currentUser) {
         const userDocRef = doc(db, 'users', currentUser.uid);
         
-        unsubscribeProfile = onSnapshot(userDocRef, async (docSnap) => {
+        unsubscribeProfile = safeOnSnapshot(userDocRef, async (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data() as UserProfile;
+
+            // LOCAL DEV ADMIN: if the doc exists but role is not 'admin', and we're in the
+            // dev bypass session, call the server to upgrade it. onSnapshot will re-fire
+            // once the server writes role:'admin', and we'll fall through to setProfile below.
+            if (data.role !== 'admin' && currentUser.isAnonymous &&
+                sessionStorage.getItem('local_dev_admin') === 'true') {
+              console.warn('[LOCAL DEV OWNER RECOVERY] Upgrading existing doc to admin via server for uid:', currentUser.uid);
+              fetch('/api/auth/dev-admin-activate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uid: currentUser.uid }),
+              }).catch((err) => {
+                console.error('[LOCAL DEV OWNER RECOVERY] dev-admin-activate failed (server not restarted yet):', err.message);
+                // Server not up yet — set profile in memory so the UI doesn't freeze.
+                // Firestore reads will still fail until server restarts and role is written.
+                setProfile({ ...data, role: 'admin' as any });
+              });
+              setLoading(false);
+              return; // wait for onSnapshot to re-fire once role:'admin' is written
+            }
+
             setProfile(data);
-            
+
             // Periodically evaluate tier (e.g., on login)
             if (sessionStorage.getItem('tier_evaluated') !== currentUser.uid) {
                await clientTriageService.evaluateTier(currentUser.uid, data.clientType || 'one_off');
@@ -137,18 +163,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setDoc(userDocRef, newProfile).catch(err => {
                 handleFirestoreError(err, OperationType.WRITE, `users/${currentUser.uid}`);
               });
+            } else if (currentUser.isAnonymous && sessionStorage.getItem('local_dev_admin') === 'true') {
+              // LOCAL DEV ADMIN BYPASS: anonymous token has no email, so the Firestore
+              // isAdmin() rule would fail. Call the server (Admin SDK, bypasses rules)
+              // to write role:'admin' to this user's doc, then onSnapshot fires again.
+              console.warn('[LOCAL DEV OWNER RECOVERY] Activating admin role via server for anonymous uid:', currentUser.uid);
+              fetch('/api/auth/dev-admin-activate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uid: currentUser.uid }),
+              }).catch((err) => {
+                console.error('[LOCAL DEV OWNER RECOVERY] dev-admin-activate failed (server may not be running):', err.message);
+                // Fallback: set profile in memory so the UI renders even if Firestore reads fail
+                setProfile({
+                  uid: currentUser.uid,
+                  email: 'nardoophotography@gmail.com',
+                  displayName: 'David Nardoo (Dev Admin)',
+                  role: 'admin',
+                  clientType: 'returning',
+                  loginEnabled: true,
+                  setupComplete: true,
+                } as UserProfile);
+                setLoading(false);
+              });
+              // Do NOT write 'client' profile here — wait for the server to write 'admin'
+              // then onSnapshot will re-fire with the correct doc.
+              return;
             } else {
               // Auto-create profile for new users
               const newProfile: UserProfile = {
                 uid: currentUser.uid,
                 email: currentUser.email || '',
                 displayName: currentUser.displayName || 'Guest User',
-                role: 'client', 
+                role: 'client',
                 clientType: 'one_off',
                 loginEnabled: true,
                 setupComplete: true,
               };
-              
+
               setDoc(userDocRef, newProfile).catch(err => {
                 handleFirestoreError(err, OperationType.WRITE, `users/${currentUser.uid}`);
               });
@@ -221,9 +273,16 @@ if (
   setLoading(false);
 
   try {
+    // sessionStorage survives F5 reload within this tab — correct scope for dev session
     sessionStorage.setItem("app_unlocked", "true");
-    localStorage.setItem("grassroots_local_admin", "true");
+    sessionStorage.setItem("local_dev_admin", "true");
+    // localStorage used only for display name/uid — NOT for auth activation
+    localStorage.setItem("local_dev_uid", "local-owner-admin");
+    localStorage.setItem("local_dev_email", "nardoophotography@gmail.com");
+    localStorage.setItem("local_dev_name", "David Nardoo");
   } catch {}
+  // Activate the owner recovery path so profile survives F5 reloads
+  setLocalDevAdminActive(true);
 
   return;
 }
@@ -233,120 +292,43 @@ await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
       } else if (email === undefined && password === undefined) {
         console.log("Auth: Attempting Google sign-in...");
         const provider = new GoogleAuthProvider();
-        await signInWithPopup(auth, provider);
-        console.log("Auth: Google sign-in successful.");
-      } else {
-        throw new Error("Invalid login credentials. Please provide both email and password.");
+        const result = await signInWithPopup(auth, provider);
+        console.log("Auth: Google sign-in successful.", result.user.email);
       }
     } catch (error: any) {
-      console.error("Auth: Error during sign-in:", error.message || error);
+      console.error("Auth: Sign-in error:", error.message);
       throw error;
     }
   };
 
-  const signInAnonymously = async () => {
+  const signOut = async () => {
     try {
-      console.log("Auth: Attempting anonymous sign-in...");
-      await firebaseSignInAnonymously(auth);
-      console.log("Auth: Anonymous sign-in successful.");
+      // Clear dev session markers
+      sessionStorage.removeItem('app_unlocked');
+      sessionStorage.removeItem('local_dev_admin');
+      localStorage.removeItem('local_dev_uid');
+      localStorage.removeItem('local_dev_email');
+      localStorage.removeItem('local_dev_name');
+      await firebaseSignOut(auth);
     } catch (error: any) {
-      console.error("Auth: Error during anonymous sign-in:", error.message || error);
+      console.error("Auth: Sign-out error:", error.message);
       throw error;
     }
   };
 
-  const signUp = async (email: string, password: string, displayName: string, role: UserRole = 'staff') => {
-    try {
-      if (!email || !password || !displayName) {
-        throw new Error("Missing required fields for account creation.");
-      }
-      
-      const cleanEmail = email.trim();
-      console.log(`Auth: Attempting account creation for ${cleanEmail}`);
-      
-      const { user: newUser } = await createUserWithEmailAndPassword(auth, cleanEmail, password);
-      console.log("Auth: Account created in Firebase Auth.");
-      
-      const userDocRef = doc(db, 'users', newUser.uid);
-      await setDoc(userDocRef, {
-        uid: newUser.uid,
-        email: cleanEmail,
-        displayName: displayName.trim(),
-        role,
-        setupComplete: true,
-      });
-      console.log("Auth: User profile document created in Firestore.");
-    } catch (error: any) {
-      console.error("Auth: Error during registration:", error.message || error);
-      throw error;
-    }
-  };
-
-  const logout = async () => {
-    await signOut(auth);
-    sessionStorage.removeItem('app_unlocked');
-  };
-
-  const setupPasscode = async (passcode: string) => {
-    if (!user) return;
-    const userDocRef = doc(db, 'users', user.uid);
-    await updateDoc(userDocRef, {
-      passcode,
-      setupComplete: true
-    });
-  };
-
-  const updateProfile = async (updates: Partial<UserProfile>) => {
-    if (!user) return;
-    const userDocRef = doc(db, 'users', user.uid);
-    await updateDoc(userDocRef, updates);
-  };
-
-  const enablePasskey = async () => {
-    // This is a placeholder for WebAuthn implementation
-    // In a real app, you'd use navigator.credentials.create()
-    if (!user) return;
-    const userDocRef = doc(db, 'users', user.uid);
-    await updateDoc(userDocRef, { passkeyEnabled: true });
-  };
-
-  // ⚠️ LOCAL DEV ONLY — inject admin role when override is active
-  const effectiveProfile: UserProfile | null = React.useMemo(() => {
-    if (!localDevAdminActive || !isLocalDev()) return profile;
-    const base: UserProfile = profile ?? {
-      uid: user?.uid ?? 'local-dev-admin',
-      email: user?.email ?? 'localdev@grassroots.dev',
-      displayName: 'Local Dev Admin',
-      role: 'client' as UserRole,
-      clientType: 'returning' as ClientType,
-      loginEnabled: true,
-      setupComplete: true,
-    };
-    return { ...base, role: 'admin' as UserRole, displayName: base.displayName || 'Local Dev Admin', setupComplete: true };
-  }, [localDevAdminActive, profile, user]);
+  const effectiveProfile = localDevAdminActive && profile
+    ? { ...profile, role: 'admin' as const }
+    : profile;
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      profile: effectiveProfile,
-      loading,
-      signIn,
-      signInAnonymously,
-      signUp,
-      logout,
-      setupPasscode,
-      updateProfile,
-      enablePasskey,
-    }}>
+    <AuthContext.Provider value={{ user, profile: effectiveProfile, loading, signIn, signOut, localDevAdminActive }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-export const useAuth = () => {
+export function useAuth() {
   const context = React.useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
-};
+}

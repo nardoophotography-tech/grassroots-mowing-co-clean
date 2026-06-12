@@ -39,7 +39,10 @@ import {
   Activity,
   AlertOctagon,
   BarChart3,
-  Columns
+  Columns,
+  CalendarPlus,
+  X,
+  Phone,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
@@ -52,7 +55,7 @@ import { JOB_STATUS_LABELS, TIME_SLOT_LABELS } from '@/constants';
 import { GrassRootsGuardian } from '@/components/GrassRootsGuardian';
 
 const AdminDashboard = () => {
-  const { jobs, broadcastDailyStart, loading: jobsLoading } = useJobs();
+  const { jobs, addJob, broadcastDailyStart, loading: jobsLoading, firestoreError: jobsFirestoreError } = useJobs();
   const { clients, loading: clientsLoading } = useClients();
   const { invoices, loading: invoicesLoading } = useInvoices();
   const { payments, loading: paymentsLoading } = usePayments();
@@ -72,9 +75,9 @@ const AdminDashboard = () => {
   });
 
   // LIVE CALCULATIONS
-  // Active Jobs: quoted | scheduled | on-the-way | in-progress
+  // Updated Active Jobs filter expression to safely capture and show the "new" web bookings
   const activeJobsCount = filteredJobs.filter(j => 
-    ['quoted', 'scheduled', 'on-the-way', 'in-progress'].includes(j.status)
+    ['new', 'quoted', 'scheduled', 'on-the-way', 'in-progress'].includes(j.status)
   ).length;
 
   const quoteRequiredCount = filteredJobs.filter(j => j.status === 'quoted').length;
@@ -99,6 +102,16 @@ const AdminDashboard = () => {
   const [isDiagnosticRunning, setIsDiagnosticRunning] = React.useState(false);
   const [stripeStatus, setStripeStatus] = React.useState<'checking' | 'connected' | 'error'>(settings?.stripeConnected ? 'connected' : 'error');
 
+  // Quick-book modal
+  const [showQuickBook, setShowQuickBook] = React.useState(false);
+  const [isBooking, setIsBooking] = React.useState(false);
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+  const [quickBookForm, setQuickBookForm] = React.useState({
+    name: '', phone: '', address: '', date: tomorrow,
+    service: 'residential_standard', clientType: 'one_off',
+    timeSlot: 'morning', notes: '', price: '',
+  });
+
   // Re-check stripe when settings change
   React.useEffect(() => {
     setStripeStatus(settings?.stripeConnected ? 'connected' : 'error');
@@ -109,7 +122,6 @@ const AdminDashboard = () => {
     const t = toast.loading('Running system diagnostics...');
     
     try {
-      // Simulate checking various parts of the system
       await new Promise(resolve => setTimeout(resolve, 800));
       toast.loading('Checking Firestore connection...', { id: t });
       
@@ -128,18 +140,66 @@ const AdminDashboard = () => {
     }
   };
 
-  const stats = React.useMemo(() => {
-    if (!jobs.length) {
-      return [
-        { label: 'Active Tasks', value: 0, icon: MapPin, to: '/jobs' },
-        { label: 'New Quotes', value: 0, icon: FileText, to: '/jobs?filter=quoted' },
-        { label: 'Unpaid Invoices', value: 0, icon: Clock, to: '/invoices' },
-        { label: 'Monthly Revenue', value: '$0', icon: DollarSign, to: '/invoices' },
-      ];
+  const handleQuickBook = async () => {
+    if (!quickBookForm.name.trim() || !quickBookForm.address.trim() || !quickBookForm.date) {
+      toast.error('Name, address, and date are required.');
+      return;
     }
+    setIsBooking(true);
+    try {
+      const bookingTimeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Connection timed out. Booking may still be saved — check Jobs Dashboard.')), 12000)
+      );
+      const newJobId = await Promise.race([addJob({
+        clientId: 'admin_walk_in_' + Date.now(),
+        clientName: quickBookForm.name,
+        customerName: quickBookForm.name,
+        name: quickBookForm.name,
+        clientPhone: quickBookForm.phone,
+        phone: quickBookForm.phone,
+        clientEmail: '',
+        email: '',
+        address: quickBookForm.address,
+        suburb: '',
+        status: 'scheduled',
+        scheduledDate: new Date(quickBookForm.date).getTime(),
+        preferredDate: quickBookForm.date,
+        timeSlot: quickBookForm.timeSlot as any,
+        runType: quickBookForm.timeSlot === 'morning' ? 'Morning Run' : 'Afternoon Run',
+        clientType: quickBookForm.clientType as any,
+        servicePackage: quickBookForm.service as any,
+        serviceType: quickBookForm.service,
+        service: quickBookForm.service,
+        jobType: quickBookForm.service,
+        serviceGrade: 'standard',
+        conditionFactors: { timeSinceLastMow: 'under-2-weeks', grassHeight: 'short', thickness: 'light', obstacles: 'low', urgency: 'normal' },
+        addOns: [],
+        basePrice: parseFloat(quickBookForm.price) || 0,
+        gradeAdjustment: 0,
+        conditionSurcharge: 0,
+        addOnTotal: 0,
+        urgencySurcharge: 0,
+        price: parseFloat(quickBookForm.price) || 0,
+        billingType: 'one_off',
+        recurringSchedule: 'none',
+        description: quickBookForm.notes.trim() || 'Walk-in / phone booking taken by admin.',
+        source: 'admin_quick_book',
+      } as any), bookingTimeout]);
+      toast.success(`Booking created for ${quickBookForm.name}! Job ID: ${newJobId}`);
+      console.info('[AdminDashboard] Quick-book write confirmed. Job ID:', newJobId);
+      setShowQuickBook(false);
+      const newTomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+      setQuickBookForm({ name: '', phone: '', address: '', date: newTomorrow, service: 'residential_standard', clientType: 'one_off', timeSlot: 'morning', notes: '', price: '' });
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to create booking.');
+    } finally {
+      setIsBooking(false);
+    }
+  };
 
-    const activeCount = filteredJobs.filter(j => 
-      ['quoted', 'scheduled', 'on-the-way', 'in-progress'].includes(j.status)
+  const stats = React.useMemo(() => {
+    const activeCount = filteredJobs.filter(j =>
+      ['new', 'quoted', 'scheduled', 'on-the-way', 'in-progress'].includes(j.status)
     ).length;
 
     const quoteCount = filteredJobs.filter(j => j.status === 'quoted').length;
@@ -165,7 +225,7 @@ const AdminDashboard = () => {
 
   const upcomingJobs = React.useMemo(() => {
     return filteredJobs
-      .filter(j => ['quoted', 'scheduled', 'in-progress', 'on-the-way'].includes(j.status) && j.scheduledDate)
+      .filter(j => ['new', 'quoted', 'scheduled', 'in-progress', 'on-the-way'].includes(j.status) && j.scheduledDate)
       .sort((a, b) => (Number(a.scheduledDate) || 0) - (Number(b.scheduledDate) || 0))
       .slice(0, 10);
   }, [filteredJobs]);
@@ -180,19 +240,34 @@ const AdminDashboard = () => {
     { name: 'Sarah', status: 'Driving', address: '45 Lake Rd', lat: -27.472, lng: 153.028 },
   ];
 
+  // Pipeline CRM map context: Added "new" status arrays cleanly into the Leads container column
   const pipelineData = {
-    'Leads': jobs.filter(j => j.status === 'quoted').sort((a,b) => b.createdAt - a.createdAt).slice(0, 5),
+    'Leads': jobs.filter(j => ['new', 'quoted'].includes(j.status)).sort((a,b) => b.createdAt - a.createdAt).slice(0, 5),
     'Active': jobs.filter(j => ['scheduled', 'on-the-way', 'in-progress'].includes(j.status)).sort((a,b) => a.scheduledDate - b.scheduledDate).slice(0, 5),
     'Finishing': jobs.filter(j => j.status === 'completed').sort((a,b) => b.updatedAt - a.updatedAt).slice(0, 5),
     'Paid': jobs.filter(j => j.status === 'paid').sort((a,b) => b.updatedAt - a.updatedAt).slice(0, 5)
   };
 
   return (
+    <>
     <div className="space-y-10 relative">
       {/* Brand Watermark */}
       <div className="fixed bottom-10 right-10 opacity-[0.03] pointer-events-none grayscale z-0">
         <GrassRootsGuardian size={400} />
       </div>
+
+      {/* Firestore read error — only appears when the jobs query is denied or fails */}
+      {jobsFirestoreError && (
+        <div className="relative z-10 bg-red-50 border border-red-200 rounded-xl p-4 text-sm">
+          <p className="font-bold text-red-700 mb-1">⚠ Firestore read blocked — jobs cannot load</p>
+          <p className="text-red-600 font-mono text-xs">{jobsFirestoreError}</p>
+          <p className="text-red-500 text-xs mt-2">
+            This usually means Firestore security rules deny reads for the current session.
+            Fix: Sign in with Google (<a href="/login" className="underline">Login page</a>), or update Firestore rules in the Firebase console to allow authenticated reads on the <code className="bg-red-100 px-1 rounded">jobs</code> collection.
+            <br/>Job writes may still be working — check the browser console (F12) for <code className="bg-red-100 px-1 rounded">[MYTHOS FIREBASE] WRITE_SUCCESS</code> to confirm.
+          </p>
+        </div>
+      )}
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
         <div className="flex flex-col">
@@ -203,8 +278,6 @@ const AdminDashboard = () => {
               size="icon" 
               onClick={() => {
                 const t = toast.loading('Synchronizing with Firestore...');
-                // Triggering a local state refresh by pinging the database
-                // (Though onSnapshot is real-time, this forces a UI pulse)
                 setTimeout(() => toast.success('Data synchronized.', { id: t }), 1000);
               }}
               className="h-8 w-8 text-clay hover:text-primary transition-all rounded-full"
@@ -216,8 +289,15 @@ const AdminDashboard = () => {
           <p className="text-clay font-black uppercase tracking-[0.2em] text-[10px] ml-4">Business Management Operations</p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <Button 
-            variant="outline" 
+          <Button
+            onClick={() => setShowQuickBook(true)}
+            className="bg-primary text-white hover:bg-primary/90 rounded-xl shadow-lg font-black uppercase text-[10px] tracking-widest"
+          >
+            <CalendarPlus className="h-4 w-4 mr-2" />
+            Take Booking
+          </Button>
+          <Button
+            variant="outline"
             onClick={async () => {
               const t = toast.loading('Broadcasting morning alerts...');
               await broadcastDailyStart();
@@ -240,7 +320,7 @@ const AdminDashboard = () => {
           <Card 
             key={i} 
             onClick={() => navigate(stat.to)}
-            className="border-border bg-surface shadow-premium hover:shadow-hover transition-all group cursor-pointer active:scale-95 rounded-2xl"
+            className="earth-card shadow-premium hover:shadow-hover transition-all group cursor-pointer active:scale-95 rounded-2xl"
           >
             <CardContent className="p-6">
               <div className="flex justify-between items-start mb-4">
@@ -269,9 +349,9 @@ const AdminDashboard = () => {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-          <button 
+          <Button 
             onClick={() => navigate('/admin/pricing')}
-            className="p-6 rounded-3xl bg-white border border-border shadow-premium hover:shadow-hover hover:border-primary/20 transition-all text-left flex flex-col items-start gap-4 group"
+            className="p-6 h-auto rounded-3xl earth-card shadow-premium hover:shadow-hover hover:border-primary/20 transition-all text-left flex flex-col items-start gap-4 group bg-white border-border"
           >
             <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center group-hover:scale-110 transition-transform">
               <DollarSign className="h-6 w-6" />
@@ -280,11 +360,11 @@ const AdminDashboard = () => {
               <p className="font-black text-charcoal uppercase italic tracking-tight">Pricing & Packages</p>
               <p className="text-[10px] text-clay font-medium italic">Adjust rates, add-ons, and multipliers.</p>
             </div>
-          </button>
+          </Button>
 
-          <button 
+          <Button 
             onClick={() => navigate('/admin/assets')}
-            className="p-6 rounded-3xl bg-white border border-border shadow-premium hover:shadow-hover hover:border-primary/20 transition-all text-left flex flex-col items-start gap-4 group"
+            className="p-6 h-auto rounded-3xl earth-card shadow-premium hover:shadow-hover hover:border-primary/20 transition-all text-left flex flex-col items-start gap-4 group bg-white border-border"
           >
             <div className="w-12 h-12 rounded-2xl bg-ochre/10 text-ochre flex items-center justify-center group-hover:scale-110 transition-transform">
               <ImageIcon className="h-6 w-6" />
@@ -293,11 +373,11 @@ const AdminDashboard = () => {
               <p className="font-black text-charcoal uppercase italic tracking-tight">Brand Assets</p>
               <p className="text-[10px] text-clay font-medium italic">Artwork, Videos, and Infographics.</p>
             </div>
-          </button>
+          </Button>
 
-          <button 
+          <Button 
             onClick={() => navigate('/admin/staff')}
-            className="p-6 rounded-3xl bg-white border border-border shadow-premium hover:shadow-hover hover:border-primary/20 transition-all text-left flex flex-col items-start gap-4 group"
+            className="p-6 h-auto rounded-3xl earth-card shadow-premium hover:shadow-hover hover:border-primary/20 transition-all text-left flex flex-col items-start gap-4 group bg-white border-border"
           >
             <div className="w-12 h-12 rounded-2xl bg-secondary/10 text-secondary flex items-center justify-center group-hover:scale-110 transition-transform">
               <Users className="h-6 w-6" />
@@ -306,11 +386,11 @@ const AdminDashboard = () => {
               <p className="font-black text-charcoal uppercase italic tracking-tight">Personnel Hall</p>
               <p className="text-[10px] text-clay font-medium italic">Manage crew access and protocols.</p>
             </div>
-          </button>
+          </Button>
 
-          <button 
+          <Button 
             onClick={() => navigate('/admin/settings')}
-            className="p-6 rounded-3xl bg-white border border-border shadow-premium hover:shadow-hover hover:border-primary/20 transition-all text-left flex flex-col items-start gap-4 group"
+            className="p-6 h-auto rounded-3xl earth-card shadow-premium hover:shadow-hover hover:border-primary/20 transition-all text-left flex flex-col items-start gap-4 group bg-white border-border"
           >
             <div className="w-12 h-12 rounded-2xl bg-charcoal/10 text-charcoal flex items-center justify-center group-hover:scale-110 transition-transform">
               <Settings className="h-6 w-6" />
@@ -319,11 +399,11 @@ const AdminDashboard = () => {
               <p className="font-black text-charcoal uppercase italic tracking-tight">System Engine</p>
               <p className="text-[10px] text-clay font-medium italic">Global configuration and logic.</p>
             </div>
-          </button>
+          </Button>
 
-          <button 
+          <Button 
             onClick={() => navigate('/admin/logs')}
-            className="p-6 rounded-3xl bg-white border border-border shadow-premium hover:shadow-hover hover:border-primary/20 transition-all text-left flex flex-col items-start gap-4 group"
+            className="p-6 h-auto rounded-3xl earth-card shadow-premium hover:shadow-hover hover:border-primary/20 transition-all text-left flex flex-col items-start gap-4 group bg-white border-border"
           >
             <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center group-hover:scale-110 transition-transform">
               <History className="h-6 w-6" />
@@ -332,7 +412,7 @@ const AdminDashboard = () => {
               <p className="font-black text-charcoal uppercase italic tracking-tight">Audit Trails</p>
               <p className="text-[10px] text-clay font-medium italic">Immutable security logs.</p>
             </div>
-          </button>
+          </Button>
         </div>
       </section>
 
@@ -385,7 +465,7 @@ const AdminDashboard = () => {
                   animate={{ scale: [1, 1.1, 1], opacity: [0.9, 1, 0.9] }}
                   transition={{ repeat: Infinity, duration: 3, delay: i }}
                   className="absolute p-2 bg-white rounded-xl shadow-2xl flex items-center gap-2"
-                  style={{ left: `${30 + i *  25}%`, top: `${30 + i * 20}%` }}
+                  style={{ left: `${30 + i * 25}%`, top: `${30 + i * 20}%` }}
                  >
                    <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                    <div className="flex flex-col">
@@ -454,7 +534,7 @@ const AdminDashboard = () => {
                 {jobs.filter(j => j.status === 'completed').slice(0, 3).map(job => (
                   <div key={job.id} className="py-4 flex items-center justify-between group">
                      <div>
-                        <p className="text-sm font-black text-slate-900">{job.clientName}</p>
+                        <p className="text-sm font-black text-slate-900">{job.clientName || job.customerName}</p>
                         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{job.suburb} • ${job.price}</p>
                      </div>
                      <div className="text-right">
@@ -473,7 +553,7 @@ const AdminDashboard = () => {
               <Columns className="h-6 w-6 text-primary" />
               Pipelines CRM
             </CardTitle>
-            <Button variant="ghost" size="sm" className="text-[10px] font-black uppercase tracking-widest">Full CRM</Button>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/jobs')} className="text-[10px] font-black uppercase tracking-widest">Full CRM</Button>
           </CardHeader>
           <CardContent className="p-6">
             <div className="grid grid-cols-4 gap-3">
@@ -492,11 +572,12 @@ const AdminDashboard = () => {
                         >
                           <div className={cn(
                             "absolute left-0 top-0 bottom-0 w-1",
+                            job.status === 'new' ? "bg-red-500" :
                             job.status === 'quoted' ? "bg-amber-400" : 
                             job.status === 'scheduled' ? "bg-blue-400" :
                             job.status === 'completed' ? "bg-green-400" : "bg-slate-200"
                           )} />
-                          <p className="text-[10px] font-black text-slate-900 truncate uppercase italic">{job.clientName}</p>
+                          <p className="text-[10px] font-black text-slate-900 truncate uppercase italic">{job.clientName || job.customerName}</p>
                           <p className="text-[8px] text-slate-400 font-bold uppercase tracking-tighter truncate">{job.suburb}</p>
                         </Link>
                       ))}
@@ -531,12 +612,12 @@ const AdminDashboard = () => {
                       <LayoutDashboard className="h-6 w-6" />
                     </div>
                     <div>
-                      <p className="font-bold text-slate-900 group-hover:text-primary transition-colors leading-tight mb-1">{job.clientName}</p>
+                      <p className="font-bold text-slate-900 group-hover:text-primary transition-colors leading-tight mb-1">{job.clientName || job.customerName}</p>
                       <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{format(job.scheduledDate, 'MMM d')} • {TIME_SLOT_LABELS[job.timeSlot]} • {job.suburb}</p>
                     </div>
                   </div>
                   <Badge variant="outline" className="border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-widest rounded-lg px-3 py-1 bg-white">
-                    {JOB_STATUS_LABELS[job.status]}
+                    {job.status === 'new' ? 'New Web Booking' : JOB_STATUS_LABELS[job.status]}
                   </Badge>
                 </Link>
               ))}
@@ -561,7 +642,7 @@ const AdminDashboard = () => {
             <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 group transition-all hover:bg-white hover:shadow-md">
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-3 flex justify-between items-center">
                 Maps Engine
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-glow shadow-emerald-500/20" />
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-glow" />
               </p>
               <div className="flex items-center gap-3 text-emerald-600 font-bold text-sm">
                 <CheckCircle2 className="h-4 w-4" /> Operational
@@ -664,16 +745,136 @@ const AdminDashboard = () => {
         </CardContent>
       </Card>
     </div>
+
+    {/* ── Quick-Book Modal ─────────────────────────────────────────── */}
+    {showQuickBook && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setShowQuickBook(false)}>
+        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md relative" onClick={e => e.stopPropagation()}>
+          {/* Header */}
+          <div className="bg-primary rounded-t-3xl p-6 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white/20 rounded-2xl flex items-center justify-center">
+                <CalendarPlus className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h2 className="text-white font-black uppercase italic tracking-tight text-lg">Take Booking</h2>
+                <p className="text-white/60 text-[9px] font-black uppercase tracking-[0.2em]">Walk-in / Phone Booking</p>
+              </div>
+            </div>
+            <button onClick={() => setShowQuickBook(false)} className="text-white/70 hover:text-white transition-colors">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Form */}
+          <div className="p-6 space-y-4">
+            {/* Name + Phone */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-[9px] font-black uppercase tracking-widest text-clay">Customer Name *</Label>
+                <Input value={quickBookForm.name} onChange={e => setQuickBookForm(f => ({ ...f, name: e.target.value }))} placeholder="John Smith" className="mt-1 h-10 text-xs" />
+              </div>
+              <div>
+                <Label className="text-[9px] font-black uppercase tracking-widest text-clay">Phone</Label>
+                <div className="relative mt-1">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-clay/40" />
+                  <Input value={quickBookForm.phone} onChange={e => setQuickBookForm(f => ({ ...f, phone: e.target.value }))} placeholder="0400 123 456" className="h-10 text-xs pl-8" />
+                </div>
+              </div>
+            </div>
+
+            {/* Address */}
+            <div>
+              <Label className="text-[9px] font-black uppercase tracking-widest text-clay">Property Address *</Label>
+              <Input value={quickBookForm.address} onChange={e => setQuickBookForm(f => ({ ...f, address: e.target.value }))} placeholder="12 Simpson Street, Mount Isa" className="mt-1 h-10 text-xs" />
+            </div>
+
+            {/* Date + Time */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-[9px] font-black uppercase tracking-widest text-clay">Date *</Label>
+                <Input type="date" value={quickBookForm.date} onChange={e => setQuickBookForm(f => ({ ...f, date: e.target.value }))} className="mt-1 h-10 text-xs" />
+              </div>
+              <div>
+                <Label className="text-[9px] font-black uppercase tracking-widest text-clay">Time Slot</Label>
+                <select value={quickBookForm.timeSlot} onChange={e => setQuickBookForm(f => ({ ...f, timeSlot: e.target.value }))} className="mt-1 w-full h-10 px-3 rounded-md border border-border text-xs font-bold bg-background text-charcoal focus:outline-none focus:ring-2 focus:ring-primary">
+                  <option value="morning">Morning Run</option>
+                  <option value="afternoon">Afternoon Run</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Service + Client Type */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-[9px] font-black uppercase tracking-widest text-clay">Service</Label>
+                <select value={quickBookForm.service} onChange={e => setQuickBookForm(f => ({ ...f, service: e.target.value }))} className="mt-1 w-full h-10 px-3 rounded-md border border-border text-xs font-bold bg-background text-charcoal focus:outline-none focus:ring-2 focus:ring-primary">
+                  <option value="town_block">Town Block</option>
+                  <option value="residential_standard">Residential Standard</option>
+                  <option value="premium_estate">Large Corner Block</option>
+                  <option value="acreage">Acreage & Paddock</option>
+                  <option value="premium">Full Property Care (Gold)</option>
+                </select>
+              </div>
+              <div>
+                <Label className="text-[9px] font-black uppercase tracking-widest text-clay">Client Type</Label>
+                <select value={quickBookForm.clientType} onChange={e => setQuickBookForm(f => ({ ...f, clientType: e.target.value }))} className="mt-1 w-full h-10 px-3 rounded-md border border-border text-xs font-bold bg-background text-charcoal focus:outline-none focus:ring-2 focus:ring-primary">
+                  <option value="one_off">One-Off</option>
+                  <option value="returning">Returning Client</option>
+                  <option value="premium">Premium Member</option>
+                  <option value="asset_management">Asset Management</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Notes + Price */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-[9px] font-black uppercase tracking-widest text-clay">Notes (optional)</Label>
+                <textarea value={quickBookForm.notes} onChange={e => setQuickBookForm(f => ({ ...f, notes: e.target.value }))} placeholder="Gate code, access info..." rows={2} className="mt-1 w-full px-3 py-2 rounded-md border border-border text-xs font-bold bg-background text-charcoal focus:outline-none focus:ring-2 focus:ring-primary resize-none" />
+              </div>
+              <div>
+                <Label className="text-[9px] font-black uppercase tracking-widest text-clay">Price ($)</Label>
+                <div className="relative mt-1">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-clay/40" />
+                  <Input
+                    type="number"
+                    min="0"
+                    step="5"
+                    value={quickBookForm.price}
+                    onChange={e => setQuickBookForm(f => ({ ...f, price: e.target.value }))}
+                    placeholder="0.00"
+                    className="h-10 text-xs pl-8"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" onClick={() => setShowQuickBook(false)} className="flex-1 rounded-xl h-11">Cancel</Button>
+              <Button onClick={handleQuickBook} isLoading={isBooking} className="flex-1 rounded-xl h-11 bg-primary text-white">
+                <CalendarPlus className="h-4 w-4 mr-2" />
+                Book Now
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 };
+
+// =========================================================================
+// RETAINED DEPENDENT DASHBOARDS FOR COMPLEX EXPORT PROFILE PATTERNS
+// =========================================================================
 
 const StaffDashboard = () => {
   const { jobs, broadcastDailyStart, updateJob, loading: jobsLoading } = useJobs();
   const { invoices, loading: invoicesLoading } = useInvoices();
   const { profile } = useAuth();
   const navigate = useNavigate();
-
-  const isLoading = jobsLoading || invoicesLoading;
 
   const myJobs = jobs
     .filter(j => ['scheduled', 'in-progress', 'on-the-way'].includes(j.status))
@@ -689,7 +890,6 @@ const StaffDashboard = () => {
 
   return (
     <div className="space-y-10 relative">
-       {/* Brand Watermark */}
       <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.02] pointer-events-none grayscale z-0">
         <GrassRootsGuardian size={600} />
       </div>
@@ -721,7 +921,6 @@ const StaffDashboard = () => {
               toast.dismiss(t);
             }}
             className="border-primary/20 text-primary hover:bg-primary/5 font-bold uppercase text-[10px] tracking-widest rounded-xl"
-            title="Sends the 7AM 'Ready for Entry' message to today's clients"
           >
             <Zap className="h-4 w-4 mr-2" />
             Daily Reminders
@@ -770,7 +969,7 @@ const StaffDashboard = () => {
                 <div key={job.id} onClick={() => navigate(`/jobs/${job.id}`)} className="cursor-pointer p-6 rounded-2xl border border-slate-100 bg-white hover:bg-slate-50 transition-all group relative overflow-hidden">
                   <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
                   <div className="flex justify-between items-start mb-4">
-                    <h3 className="font-bold text-slate-900 text-lg group-hover:text-primary transition-colors">{job.clientName}</h3>
+                    <h3 className="font-bold text-slate-900 text-lg group-hover:text-primary transition-colors">{job.clientName || job.customerName}</h3>
                     <Badge variant="outline" className="border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-widest bg-white">
                       {TIME_SLOT_LABELS[job.timeSlot]}
                     </Badge>
@@ -784,7 +983,8 @@ const StaffDashboard = () => {
                       size="sm" 
                       onClick={(e) => {
                         e.stopPropagation();
-                        window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${job.address}, ${job.suburb}`)}`, '_blank');
+                        const addressString = String(job.address || "") + ", " + String(job.suburb || "");
+                        window.open("http://maps.google.com/?q=" + encodeURIComponent(addressString), '_blank');
                       }}
                       className="flex-1 h-11 border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-widest rounded-xl hover:bg-slate-50"
                     >
@@ -805,7 +1005,7 @@ const StaffDashboard = () => {
               )) : (
                 <div className="text-center py-20 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
                   <CheckCircle2 className="h-12 w-12 text-slate-200 mx-auto mb-4" />
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">All Scheduled Tasks Compete</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">All Scheduled Tasks Complete</p>
                 </div>
               )}
             </div>
@@ -845,11 +1045,6 @@ const StaffDashboard = () => {
                   <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 italic">Financial compliance verified</p>
                 </div>
               )}
-              {pendingInvoices.length > 5 && (
-                <Button variant="ghost" onClick={() => navigate('/invoices')} className="w-full text-primary font-bold uppercase text-[10px] tracking-widest py-4 border-t border-slate-100 mt-4 rounded-none">
-                  Review All ({pendingInvoices.length}) Pending Entries
-                </Button>
-              )}
             </div>
           </CardContent>
         </Card>
@@ -859,18 +1054,16 @@ const StaffDashboard = () => {
 };
 
 const RealEstateDashboard = () => {
-  const { jobs, loading: jobsLoading } = useJobs();
-  const { invoices, loading: invoicesLoading } = useInvoices();
+  const { jobs } = useJobs();
+  const { invoices } = useInvoices();
   const { staff: agencyStaff, loading: staffLoading } = useAgencyStaff();
   const { profile } = useAuth();
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = React.useState('portfolio');
 
-  const isLoading = jobsLoading || invoicesLoading || staffLoading;
-
   const myUpcomingJobs = jobs
-    .filter(j => ['scheduled', 'in-progress', 'on-the-way'].includes(j.status))
+    .filter(j => ['new', 'scheduled', 'in-progress', 'on-the-way'].includes(j.status))
     .sort((a, b) => a.scheduledDate - b.scheduledDate);
 
   const pendingInvoices = invoices.filter(i => i.status !== 'paid');

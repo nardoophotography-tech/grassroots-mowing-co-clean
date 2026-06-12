@@ -1,0 +1,666 @@
+import * as React from 'react';
+import {
+  Zap,
+  CreditCard,
+  Star,
+  Package,
+  ShieldCheck,
+  X,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  Clock,
+} from 'lucide-react';
+import { Switch } from '@/components/ui/Switch';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { db } from '@/firebase';
+import {
+  doc,
+  setDoc,
+  collection,
+  query,
+  where,
+  orderBy,
+  limit,
+  onSnapshot,
+  getDocs,
+} from 'firebase/firestore';
+
+// ─── Firestore paths ──────────────────────────────────────────────────────────
+const LOGS_COLLECTION = 'automationLogs';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+interface AutomationToggles {
+  auto_bill: boolean;
+  reviews: boolean;
+  rain_out: boolean;
+  upsell: boolean;
+  updatedAt?: number;
+}
+
+interface ServiceStatus {
+  stripeConnected: boolean;
+  resendConnected: boolean;
+  twilioConnected: boolean;
+  fromEmail: string;
+}
+
+interface LogEntry {
+  id: string;
+  automationId: string;
+  event: string;
+  jobId?: string;
+  clientName?: string;
+  amount?: number;
+  invoiceNumber?: string;
+  createdAt: number;
+}
+
+interface AutomationRequirements {
+  providers: string[];
+  settings: string[];
+  cannotRunBecause: string;
+}
+
+// ─── Static automation definitions ───────────────────────────────────────────
+const AUTOMATION_DEFS = [
+  {
+    id: 'auto_bill' as const,
+    name: 'Zero-Touch Invoicing',
+    description:
+      'Auto-generate invoice and Stripe payment session when a technician marks a job complete. Connected to /api/jobs/complete.',
+    icon: CreditCard,
+    color: 'blue',
+    implemented: true,
+    requirements: null as AutomationRequirements | null,
+  },
+  {
+    id: 'reviews' as const,
+    name: 'Review Multiplier',
+    description:
+      'Send a Google Review request via SMS 15 minutes after payment is processed.',
+    icon: Star,
+    color: 'orange',
+    implemented: false,
+    requirements: {
+      providers: ['Twilio SMS', 'Google Business Profile (review link)'],
+      settings: [
+        'Twilio Account SID + Auth Token',
+        'Twilio From Number',
+        'Google Review URL for your business',
+        'Delay minutes after payment (default: 15)',
+      ],
+      cannotRunBecause:
+        'No post-payment SMS trigger has been built. There is no Google Review link integration and no Twilio send-after-payment hook in server.ts.',
+    } as AutomationRequirements,
+  },
+  {
+    id: 'rain_out' as const,
+    name: 'Weather "Skip" Logic',
+    description:
+      'Auto-reschedule all routes if rainfall exceeds 5mm/hr in customer service zones.',
+    icon: Zap,
+    color: 'purple',
+    implemented: false,
+    requirements: {
+      providers: ['Weather API (Open-Meteo or Bureau of Meteorology)'],
+      settings: [
+        'Weather API key',
+        'Service zone postcodes',
+        'Rainfall threshold (mm/hr)',
+        'Scheduled checker interval (e.g. every 30 min)',
+        'Reschedule target day offset',
+      ],
+      cannotRunBecause:
+        'No weather data fetching exists. No scheduled background checker runs. No auto-reschedule logic has been built in server.ts or any worker.',
+    } as AutomationRequirements,
+  },
+  {
+    id: 'upsell' as const,
+    name: 'Seasonal Upsell Bot',
+    description:
+      'Target active standard clients with aeration and mulch offers based on local season.',
+    icon: Package,
+    color: 'green',
+    implemented: false,
+    requirements: {
+      providers: ['Twilio SMS or Resend email'],
+      settings: [
+        'Message template (aeration / mulch offer)',
+        'Target client filter (e.g. clientType = standard + active in last 60 days)',
+        'Send schedule (e.g. first week of March / September)',
+        'Opt-out list',
+      ],
+      cannotRunBecause:
+        'No campaign scheduler exists. No client targeting or segmentation logic has been built. No outreach system is wired up in server.ts.',
+    } as AutomationRequirements,
+  },
+] as const;
+
+type AutomationId = (typeof AUTOMATION_DEFS)[number]['id'];
+
+const DEFAULT_TOGGLES: AutomationToggles = {
+  auto_bill: false,
+  reviews: false,
+  rain_out: false,
+  upsell: false,
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function ConnectedIcon({ ok }: { ok: boolean }) {
+  return ok ? (
+    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+  ) : (
+    <XCircle className="w-4 h-4 text-red-400 shrink-0" />
+  );
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+export function AutomationsManager() {
+  const [toggles, setToggles] = React.useState<AutomationToggles>(DEFAULT_TOGGLES);
+  const [togglesLoading, setTogglesLoading] = React.useState(true);
+  const [serviceStatus, setServiceStatus] = React.useState<ServiceStatus | null>(null);
+  const [configOpen, setConfigOpen] = React.useState<AutomationId | null>(null);
+  const [logsOpen, setLogsOpen] = React.useState<AutomationId | null>(null);
+  const [logs, setLogs] = React.useState<LogEntry[]>([]);
+  const [logsLoading, setLogsLoading] = React.useState(false);
+  const [lastRun, setLastRun] = React.useState<LogEntry | null>(null);
+  const [lastError, setLastError] = React.useState<LogEntry | null>(null);
+  const [configStatusLoading, setConfigStatusLoading] = React.useState(false);
+
+  // ── Fetch service connection status on mount ───────────────────────────────
+  React.useEffect(() => {
+    fetch('/api/automations/status')
+      .then((r) => r.json())
+      .then((data: ServiceStatus) => setServiceStatus(data))
+      .catch(() => {});
+  }, []);
+
+  // ── Listen to toggle state from Firestore ──────────────────────────────────
+  React.useEffect(() => {
+    const ref = doc(db, 'settings', 'automations');
+    const unsub = onSnapshot(
+      ref,
+      (snap) => {
+        if (snap.exists()) setToggles(snap.data() as AutomationToggles);
+        setTogglesLoading(false);
+      },
+      (err) => {
+        console.warn('[AutomationsManager] Firestore unavailable:', err.message);
+        setTogglesLoading(false);
+      }
+    );
+    return unsub;
+  }, []);
+
+  // ── Fetch last run + last error when Zero-Touch Config opens ───────────────
+  React.useEffect(() => {
+    if (configOpen !== 'auto_bill') {
+      setLastRun(null);
+      setLastError(null);
+      return;
+    }
+    setConfigStatusLoading(true);
+    const base = collection(db, LOGS_COLLECTION);
+
+    Promise.all([
+      getDocs(
+        query(
+          base,
+          where('automationId', '==', 'auto_bill'),
+          orderBy('createdAt', 'desc'),
+          limit(1)
+        )
+      ),
+      getDocs(
+        query(
+          base,
+          where('automationId', '==', 'auto_bill'),
+          where('event', '==', 'invoice_error'),
+          orderBy('createdAt', 'desc'),
+          limit(1)
+        )
+      ),
+    ])
+      .then(([runSnap, errorSnap]) => {
+        setLastRun(
+          runSnap.empty ? null : ({ id: runSnap.docs[0].id, ...runSnap.docs[0].data() } as LogEntry)
+        );
+        setLastError(
+          errorSnap.empty
+            ? null
+            : ({ id: errorSnap.docs[0].id, ...errorSnap.docs[0].data() } as LogEntry)
+        );
+      })
+      .catch(() => {})
+      .finally(() => setConfigStatusLoading(false));
+  }, [configOpen]);
+
+  // ── Listen to logs when a Logs panel is opened ─────────────────────────────
+  React.useEffect(() => {
+    if (!logsOpen) {
+      setLogs([]);
+      return;
+    }
+    setLogsLoading(true);
+    const def = AUTOMATION_DEFS.find((a) => a.id === logsOpen);
+    if (!def?.implemented) {
+      // Not implemented -- no real logs will ever exist
+      setLogs([]);
+      setLogsLoading(false);
+      return;
+    }
+    const q = query(
+      collection(db, LOGS_COLLECTION),
+      where('automationId', '==', logsOpen),
+      orderBy('createdAt', 'desc'),
+      limit(20)
+    );
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        setLogs(snap.docs.map((d) => ({ id: d.id, ...(d.data() as object) })) as LogEntry[]);
+        setLogsLoading(false);
+      },
+      (err) => {
+        console.warn('[AutomationsManager] Logs unavailable:', err.message);
+        setLogsLoading(false);
+      }
+    );
+    return unsub;
+  }, [logsOpen]);
+
+  // ── Toggle handler -- persists to Firestore, reverts on error ─────────────
+  const toggleAutomation = async (id: AutomationId) => {
+    const def = AUTOMATION_DEFS.find((a) => a.id === id);
+    if (!def?.implemented) return;
+    const next: AutomationToggles = {
+      ...toggles,
+      [id]: !(toggles as Record<string, unknown>)[id],
+      updatedAt: Date.now(),
+    };
+    setToggles(next);
+    try {
+      await setDoc(doc(db, 'settings', 'automations'), next, { merge: true });
+    } catch (err) {
+      console.error('[AutomationsManager] Failed to save toggle:', err);
+      setToggles(toggles);
+    }
+  };
+
+  // ── Status badge helper ────────────────────────────────────────────────────
+  const getStatusBadge = (def: (typeof AUTOMATION_DEFS)[number]) => {
+    if (!def.implemented) {
+      return (
+        <Badge variant="outline" className="text-[9px] h-4 border-amber-400 text-amber-600 bg-amber-50">
+          NOT CONFIGURED
+        </Badge>
+      );
+    }
+    const isOn = !!(toggles as Record<string, unknown>)[def.id];
+    if (!isOn) {
+      return <Badge variant="secondary" className="text-[9px] h-4">PAUSED</Badge>;
+    }
+    // Only show LIVE when status endpoint confirms all services connected.
+    // null = fetch failed or pending; treat same as partially configured.
+    if (
+      !serviceStatus ||
+      !serviceStatus.stripeConnected ||
+      !serviceStatus.resendConnected
+    ) {
+      return (
+        <Badge variant="outline" className="text-[9px] h-4 border-amber-400 text-amber-600 bg-amber-50">
+          PARTIALLY CONFIGURED
+        </Badge>
+      );
+    }
+    return <Badge className="text-[9px] h-4 bg-emerald-500 border-none">LIVE</Badge>;
+  };
+
+  const configDef = AUTOMATION_DEFS.find((a) => a.id === configOpen);
+  const logsDef = AUTOMATION_DEFS.find((a) => a.id === logsOpen);
+
+  return (
+    <div className="p-6 space-y-8">
+      {/* Header */}
+      <div>
+        <div className="flex items-center gap-3">
+          <div className="bg-slate-900 p-2 rounded-xl">
+            <Zap className="w-6 h-6 text-orange-400" />
+          </div>
+          <h1 className="text-3xl font-black text-slate-900 uppercase italic">Automation Hub</h1>
+        </div>
+        <p className="text-sm text-slate-500 mt-2 font-medium">
+          The automated machinery running behind the scenes.
+        </p>
+      </div>
+
+      {/* Automation Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {AUTOMATION_DEFS.map((a, i) => {
+          const isOn = !!(toggles as Record<string, unknown>)[a.id];
+          const cardActive = a.implemented && isOn;
+          return (
+            <div key={a.id}>
+              <Card className={cardActive ? 'border-orange-200 bg-orange-50/10' : 'border-slate-100'}>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg bg-${a.color}-100 text-${a.color}-600`}>
+                      <a.icon className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-base font-black uppercase italic">{a.name}</CardTitle>
+                      {getStatusBadge(a)}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-center gap-1">
+                    <Switch
+                      checked={a.implemented ? isOn : false}
+                      onCheckedChange={() => toggleAutomation(a.id)}
+                      disabled={!a.implemented || togglesLoading}
+                    />
+                    {!a.implemented && (
+                      <span className="text-[8px] text-slate-400 uppercase font-bold">Coming soon</span>
+                    )}
+                  </div>
+                </CardHeader>
+
+                <CardContent className="space-y-4">
+                  <CardDescription className="text-xs font-medium leading-relaxed">
+                    {a.description}
+                  </CardDescription>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 rounded-full text-[10px] font-black uppercase"
+                      onClick={() => setConfigOpen(a.id)}
+                    >
+                      Config
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 rounded-full font-black text-[10px] uppercase"
+                      onClick={() => setLogsOpen(a.id)}
+                    >
+                      Logs
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Config Modal */}
+      {configOpen && configDef && (
+        <div
+          className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+          onClick={() => setConfigOpen(null)}
+        >
+          <div
+            className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl max-h-[80vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="font-black uppercase italic text-slate-900">{configDef.name}</h3>
+              <button onClick={() => setConfigOpen(null)} className="text-slate-400 hover:text-slate-700">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {configDef.implemented ? (
+              /* ── Zero-Touch Invoicing real config ── */
+              <div className="space-y-4">
+                {configStatusLoading ? (
+                  <div className="flex items-center gap-2 text-slate-400 text-sm py-4">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Loading status...</span>
+                  </div>
+                ) : (
+                  <>
+                    {/* Connection status table */}
+                    <div className="border border-slate-100 rounded-xl overflow-hidden">
+                      <div className="bg-slate-50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
+                        Connected Services
+                      </div>
+                      <div className="divide-y divide-slate-100">
+                        {[
+                          { label: 'Stripe', ok: serviceStatus?.stripeConnected ?? false, note: 'Payment sessions' },
+                          { label: 'Resend', ok: serviceStatus?.resendConnected ?? false, note: 'Invoice emails' },
+                          { label: 'Twilio', ok: serviceStatus?.twilioConnected ?? false, note: 'SMS notifications' },
+                        ].map(({ label, ok, note }) => (
+                          <div key={label} className="flex items-center justify-between px-3 py-2.5">
+                            <div className="flex items-center gap-2">
+                              <ConnectedIcon ok={ok} />
+                              <span className="text-sm font-bold text-slate-700">{label}</span>
+                              <span className="text-[10px] text-slate-400">{note}</span>
+                            </div>
+                            <span className={`text-[10px] font-black uppercase ${ok ? 'text-emerald-600' : 'text-red-400'}`}>
+                              {ok ? 'Connected' : 'Missing key'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Trigger + state */}
+                    <div className="border border-slate-100 rounded-xl overflow-hidden">
+                      <div className="bg-slate-50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
+                        Configuration
+                      </div>
+                      <div className="divide-y divide-slate-100">
+                        <div className="flex items-center justify-between px-3 py-2.5 text-xs">
+                          <span className="text-slate-500">Trigger endpoint</span>
+                          <code className="text-slate-700 font-mono bg-slate-100 px-2 py-0.5 rounded">
+                            POST /api/jobs/complete
+                          </code>
+                        </div>
+                        <div className="flex items-center justify-between px-3 py-2.5 text-xs">
+                          <span className="text-slate-500">From email</span>
+                          <code className="text-slate-700 font-mono bg-slate-100 px-2 py-0.5 rounded text-[10px]">
+                            {serviceStatus?.fromEmail ?? '--'}
+                          </code>
+                        </div>
+                        <div className="flex items-center justify-between px-3 py-2.5 text-xs">
+                          <span className="text-slate-500">Automation state</span>
+                          <span className={`font-black uppercase ${(toggles as Record<string,unknown>)['auto_bill'] ? 'text-emerald-600' : 'text-slate-400'}`}>
+                            {(toggles as Record<string,unknown>)['auto_bill'] ? 'Enabled' : 'Paused'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Last run / last error */}
+                    <div className="border border-slate-100 rounded-xl overflow-hidden">
+                      <div className="bg-slate-50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
+                        Activity
+                      </div>
+                      <div className="divide-y divide-slate-100">
+                        <div className="flex items-start gap-2 px-3 py-2.5 text-xs">
+                          <Clock className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" />
+                          <div>
+                            <div className="text-slate-500">Last run</div>
+                            <div className="text-slate-700 font-medium mt-0.5">
+                              {lastRun
+                                ? `${new Date(lastRun.createdAt).toLocaleString('en-AU')} -- ${lastRun.event.replace(/_/g, ' ')}${lastRun.clientName ? ' for ' + lastRun.clientName : ''}`
+                                : 'No runs recorded yet'}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-2 px-3 py-2.5 text-xs">
+                          <AlertCircle className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${lastError ? 'text-red-400' : 'text-slate-300'}`} />
+                          <div>
+                            <div className="text-slate-500">Last error</div>
+                            <div className={`font-medium mt-0.5 ${lastError ? 'text-red-600' : 'text-slate-400'}`}>
+                              {lastError
+                                ? `${new Date(lastError.createdAt).toLocaleString('en-AU')}`
+                                : 'No errors recorded'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <p className="text-[10px] text-slate-400">
+                      Use the toggle on the card to enable or pause this automation. When enabled, every job
+                      completion triggers the full invoicing flow automatically.
+                    </p>
+                  </>
+                )}
+              </div>
+            ) : (
+              /* ── NOT CONFIGURED setup checklist ── */
+              <div className="space-y-5">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="border-amber-400 text-amber-600 bg-amber-50 text-xs">
+                    Not Configured
+                  </Badge>
+                  <Badge variant="outline" className="border-slate-300 text-slate-500 text-xs">
+                    Coming Soon
+                  </Badge>
+                </div>
+
+                {/* Reason */}
+                <div className="bg-red-50 border border-red-100 rounded-xl p-3">
+                  <div className="text-[10px] font-black uppercase tracking-widest text-red-400 mb-1">
+                    Why this cannot run yet
+                  </div>
+                  <p className="text-xs text-red-700 leading-relaxed">{configDef.requirements!.cannotRunBecause}</p>
+                </div>
+
+                {/* Required providers */}
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+                    Required Providers / APIs
+                  </div>
+                  <ul className="space-y-1.5">
+                    {configDef.requirements!.providers.map((p, idx) => (
+                      <li key={idx} className="flex items-center gap-2 text-xs text-slate-600">
+                        <XCircle className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+                        {p}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Required settings */}
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+                    Required Settings
+                  </div>
+                  <ul className="space-y-1.5">
+                    {configDef.requirements!.settings.map((s, idx) => (
+                      <li key={idx} className="flex items-center gap-2 text-xs text-slate-600">
+                        <XCircle className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+                        {s}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <p className="text-[10px] text-slate-400 pt-1">
+                  This automation cannot be enabled until all of the above are built and connected.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Logs Panel */}
+      {logsOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+          onClick={() => setLogsOpen(null)}
+        >
+          <div
+            className="bg-white rounded-2xl p-6 max-w-lg w-full shadow-2xl max-h-[70vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-black uppercase italic text-slate-900">
+                {logsDef?.name ?? 'Automation'} -- Logs
+              </h3>
+              <button onClick={() => setLogsOpen(null)} className="text-slate-400 hover:text-slate-700">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto flex-1">
+              {/* NOT IMPLEMENTED automations never have logs */}
+              {logsDef && !logsDef.implemented ? (
+                <div className="flex flex-col items-center justify-center py-10 gap-3 text-center">
+                  <XCircle className="w-8 h-8 text-slate-200" />
+                  <p className="text-sm text-slate-500">
+                    No logs -- this automation is not yet implemented and has never run.
+                  </p>
+                </div>
+              ) : logsLoading ? (
+                <div className="flex items-center justify-center py-8 gap-2 text-slate-400">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="text-sm">Loading logs...</span>
+                </div>
+              ) : logs.length === 0 ? (
+                <div className="text-center py-8 text-slate-400 text-sm">
+                  No logs yet. Logs appear here when this automation fires.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {logs.map((log) => (
+                    <div key={log.id} className="border border-slate-100 rounded-xl p-3 text-xs space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-black uppercase text-slate-700">
+                          {log.event.replace(/_/g, ' ')}
+                        </span>
+                        <span className="text-slate-400">
+                          {new Date(log.createdAt).toLocaleString('en-AU')}
+                        </span>
+                      </div>
+                      {log.clientName && <div className="text-slate-500">Client: {log.clientName}</div>}
+                      {log.invoiceNumber && <div className="text-slate-500">Invoice: {log.invoiceNumber}</div>}
+                      {log.amount != null && (
+                        <div className="text-slate-500">Amount: ${Number(log.amount).toFixed(2)}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stats Ribbon -- DEMO PLACEHOLDER (not live data) */}
+      <div className="bg-slate-900 rounded-3xl p-6 text-white grid grid-cols-1 md:grid-cols-3 gap-6 shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-8 opacity-10">
+          <ShieldCheck className="w-32 h-32" />
+        </div>
+        <div className="absolute top-3 left-6 z-10">
+          <span className="text-[9px] font-black uppercase tracking-widest text-amber-400/80 italic">
+            Demo placeholder -- not live data
+          </span>
+        </div>
+        {[
+          { label: 'Profit Reclamation', sub: 'Not connected to live data' },
+          { label: 'Admin Hours Saved', sub: 'Not connected to live data' },
+          { label: 'Review Impact', sub: 'Not connected to live data' },
+        ].map(({ label, sub }) => (
+          <div key={label} className="space-y-1">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</p>
+            <span className="text-3xl font-black italic text-slate-500">--</span>
+            <p className="text-[10px] text-slate-500 font-bold uppercase italic">{sub}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export default AutomationsManager;
