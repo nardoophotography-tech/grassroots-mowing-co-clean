@@ -185,9 +185,10 @@ export const QuoteApproval = () => {
           </Button>
         </div>
         <div className="max-w-4xl mx-auto flex flex-col items-center text-center">
-          <GrassRootsLogo className="h-12 w-auto mb-6" />
+          <GrassRootsLogo className="h-12 w-auto mb-3" />
+          <p className="text-ochre uppercase tracking-widest text-[11px] font-black mb-2 italic">Project #156 — GrassRoots Mowing Co.</p>
           <h1 className="text-3xl font-bold font-serif mb-2">Service Quote</h1>
-          <p className="text-ochre uppercase tracking-widest text-xs font-bold">{settings?.serviceLocation || 'Mount Isa'}'s Premium Lawn Care</p>
+          <p className="text-ochre/80 uppercase tracking-widest text-xs font-bold">{settings?.serviceLocation || 'Mount Isa'} Region — Aboriginal-Led Community Service</p>
         </div>
       </div>
 
@@ -378,7 +379,8 @@ export const QuoteApproval = () => {
 
       {/* Footer Watermark */}
       <div className="max-w-4xl mx-auto px-4 mt-12 text-center text-charcoal/20">
-         <p className="text-xs uppercase tracking-[0.5em] font-black">GrassRoots Precision Mowing</p>
+         <p className="text-xs uppercase tracking-[0.5em] font-black">GrassRoots Mowing Co. — Project #156</p>
+         <p className="text-[10px] uppercase tracking-widest font-bold mt-1">admin@project156.com</p>
       </div>
     </div>
   );

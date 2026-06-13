@@ -356,7 +356,7 @@ GST (10%): $${(snapshot.gst || 0).toFixed(2)}
 Total: $${(snapshot.total || 0).toFixed(2)}
 ` : `Total: $${(job?.price || 0).toFixed(2)}`;
 
-        emailContent = `Hi ${clientName},\n\n${isConfirmed ? "You're all booked in!" : (isLead ? 'We have received your quote request.' : 'We have received your service request.')}\n\nDate: ${dateStr}\nTime: ${job?.timeSlot || 'TBD'}\nLocation: ${job?.address || 'TBD'}\n\n${breakdownText}${pdfUrl ? `\n\nYou can download your Job Details & Quote here: ${pdfUrl}` : ''}\n\nView Portal: ${paymentLink || 'N/A'}\n\n${isConfirmed ? 'Thanks for choosing GrassRoots!' : 'We will review your request and get back to you shortly.'}`;
+        emailContent = `Hi ${clientName},\n\n${isConfirmed ? "You're all booked in!" : (isLead ? 'We have received your quote request.' : 'We have received your service request.')}\n\nDate: ${dateStr}\nTime: ${job?.timeSlot || 'TBD'}\nLocation: ${job?.address || 'TBD'}\n\n${breakdownText}${pdfUrl ? `\n\nYou can download your Job Details & Quote here: ${pdfUrl}` : ''}\n\nView Portal: ${paymentLink || 'N/A'}\n\n${isConfirmed ? 'Thanks for choosing GrassRoots Mowing Co.' : 'We will review your request and get back to you shortly.'}\nProject #156 — GrassRoots Team\nadmin@project156.com`;
         smsContent = `GrassRoots Mowing: ${isConfirmed ? "You're all booked in!" : 'Request Received'}\nTotal: $${(job?.price || 0).toFixed(2)}\nDate: ${dateStr}\nDetails: ${paymentLink || ''}${pdfUrl ? `\nPDF: ${pdfUrl}` : ''}`;
         adminEmailSubject = `NEW ${isConfirmed ? 'CONFIRMED' : (isLead ? 'QUOTE REQUEST' : 'PENDING')} JOB: ${clientName}`;
         adminEmailContent = `A new ${isConfirmed ? 'paid' : 'pending'} job has been created.\n\nClient: ${clientName}\nService: ${job?.serviceType || job?.servicePackage || 'Service'}\nLocation: ${job?.address || 'TBD'}\nTotal: $${job?.price || 0}`;
@@ -377,7 +377,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
 ` : `Estimated Total: $${(job?.price || 0).toFixed(2)}`;
 
         emailSubject = `Your Service Quote: GrassRoots Mowing`;
-        emailContent = `Hi ${clientName},\n\nWe have prepared a quote for your service at ${job?.address || 'TBD'}.\n\n${quoteBreakdown}\n\nYou can view the full details and approve it here:\n${paymentLink}${pdfUrl ? `\n\nDownload PDF: ${pdfUrl}` : ''}\n\nThanks,\nGrassRoots Team`;
+        emailContent = `Hi ${clientName},\n\nWe have prepared a quote for your service at ${job?.address || 'TBD'}.\n\n${quoteBreakdown}\n\nYou can view the full details and approve it here:\n${paymentLink}${pdfUrl ? `\n\nDownload PDF: ${pdfUrl}` : ''}\n\nThanks,\nGrassRoots Mowing Co. — Project #156\nadmin@project156.com`;
         smsContent = `GrassRoots Mowing: Your quote of $${(job?.price || 0).toFixed(2)} is ready. Approve here: ${paymentLink}${pdfUrl ? `\nPDF: ${pdfUrl}` : ''}`;
         break;
 
@@ -385,7 +385,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
         emailSubject = `Payment Confirmed: Invoice ${invoiceNumber || job?.invoiceNumber || 'Receipt'} - GrassRoots Mowing Co.`;
         emailContent = settings.receiptTemplate 
           ? replacePlaceholders(settings.receiptTemplate, { clientName, amount, invoiceNumber: invoiceNumber || job?.invoiceNumber || job?.id, paymentLink, pdfUrl })
-          : `Hi ${clientName},\n\nPayment Successful!\n\nInvoice Number: ${invoiceNumber || job?.invoiceNumber || 'N/A'}\nAmount Paid: $${(amount || 0)}\nStatus: PAID\n\nYou can view your receipt here: ${paymentLink}${pdfUrl ? `\n\nDownload PDF Receipt: ${pdfUrl}` : ''}\n\nWe've received your payment and your booking is confirmed in our schedule.\n\nThanks for choosing GrassRoots!`;
+          : `Hi ${clientName},\n\nPayment Successful!\n\nInvoice Number: ${invoiceNumber || job?.invoiceNumber || 'N/A'}\nAmount Paid: $${(amount || 0)}\nStatus: PAID\n\nYou can view your receipt here: ${paymentLink}${pdfUrl ? `\n\nDownload PDF Receipt: ${pdfUrl}` : ''}\n\nWe've received your payment and your booking is confirmed in our schedule.\n\nThanks for choosing GrassRoots Mowing Co.\nProject #156 — GrassRoots Team\nadmin@project156.com`;
         smsContent = `GrassRoots Mowing: Payment of $${(amount || 0)} received. Thank you! Receipt: ${paymentLink}${pdfUrl ? `\nPDF: ${pdfUrl}` : ''}`;
         adminEmailSubject = `PAYMENT RECEIVED: $${(amount || 0)} from ${clientName}`;
         adminEmailContent = `Payment of $${(amount || 0)} has been received for job ${job?.id || 'N/A'}. Invoice: ${invoiceNumber || 'N/A'}`;
@@ -405,7 +405,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
 
       case 'completed':
         emailSubject = `Service Completed: GrassRoots Mowing Co.`;
-        emailContent = `Hi ${clientName},\n\nYour service at ${job?.address || 'TBD'} is complete. You can view your report and invoice here: ${paymentLink}${pdfUrl ? `\n\nDownload Service Report: ${pdfUrl}` : ''}`;
+        emailContent = `Hi ${clientName},\n\nYour service at ${job?.address || 'TBD'} is complete. You can view your report and invoice here: ${paymentLink}${pdfUrl ? `\n\nDownload Service Report: ${pdfUrl}` : ''}\n\nThanks for choosing GrassRoots Mowing Co.\nProject #156 — GrassRoots Team\nadmin@project156.com`;
         smsContent = settings.paymentLinkTemplate 
           ? replacePlaceholders(settings.paymentLinkTemplate, { clientName, invoiceLink: paymentLink, amount: job?.price || 0, pdfUrl })
           : `Service completed at ${job?.address || 'TBD'}. Download report: ${pdfUrl || paymentLink}`;
@@ -413,13 +413,13 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
 
       case 'invoice-sent':
         emailSubject = `Final Invoice: ${invoiceNumber || 'Your Service'} - GrassRoots Mowing Co.`;
-        emailContent = `Hi ${clientName},\n\nYour service at ${job?.address || 'TBD'} is complete. We've generated your final invoice.\n\nAmount Due: $${(amount || job?.price || 0)}\n\nPlease pay using this secure link:\n${paymentLink}${pdfUrl ? `\n\nDownload PDF Invoice: ${pdfUrl}` : ''}\n\nThanks for choosing GrassRoots!`;
+        emailContent = `Hi ${clientName},\n\nYour service at ${job?.address || 'TBD'} is complete. We've generated your final invoice.\n\nAmount Due: $${(amount || job?.price || 0)}\n\nPlease pay using this secure link:\n${paymentLink}${pdfUrl ? `\n\nDownload PDF Invoice: ${pdfUrl}` : ''}\n\nThanks for choosing GrassRoots Mowing Co.\nProject #156 — GrassRoots Team\nadmin@project156.com`;
         smsContent = `GrassRoots Mowing: Service complete! Final invoice of $${(amount || job?.price || 0)} is ready. Pay here: ${paymentLink}${pdfUrl ? `\nPDF: ${pdfUrl}` : ''}`;
         break;
 
       case 'payment-receipt':
         emailSubject = `Payment Receipt: ${invoiceNumber || 'Your Service'} - GrassRoots Mowing Co.`;
-        emailContent = `Hi ${clientName},\n\nThank you for your payment of $${(amount || 0)}\n\nYour service at ${job?.address || 'TBD'} is now fully paid and closed.\n\nYou can view your receipt here: ${paymentLink}${pdfUrl ? `\n\nDownload PDF Receipt: ${pdfUrl}` : ''}\n\nThanks for choosing GrassRoots!`;
+        emailContent = `Hi ${clientName},\n\nThank you for your payment of $${(amount || 0)}\n\nYour service at ${job?.address || 'TBD'} is now fully paid and closed.\n\nYou can view your receipt here: ${paymentLink}${pdfUrl ? `\n\nDownload PDF Receipt: ${pdfUrl}` : ''}\n\nThanks for choosing GrassRoots Mowing Co.\nProject #156 — GrassRoots Team\nadmin@project156.com`;
         smsContent = `GrassRoots Mowing: Payment received! Thank you for the $${(amount || 0)}. Receipt: ${paymentLink}${pdfUrl ? `\nPDF: ${pdfUrl}` : ''}`;
         break;
 

@@ -9,14 +9,18 @@ export async function generateInvoicePDF(invoice: Invoice, job: Job, settings: B
   const bizName = settings.businessName || "GrassRoots Mowing Co.";
   const location = settings.serviceLocation || "Mount Isa";
 
-  // Header
-  doc.setFontSize(22);
-  doc.setTextColor(139, 0, 0); // Deep Red
-  doc.text(bizName, 105, 20, { align: "center" });
-  
-  doc.setFontSize(10);
+  // ── Header: GrassRoots Mowing Co. — Project #156 (mandatory branding) ──
+  doc.setFontSize(20);
+  doc.setTextColor(31, 77, 58); // Primary green
+  doc.text(bizName, 105, 17, { align: "center" });
+
+  doc.setFontSize(9);
+  doc.setTextColor(107, 74, 45); // Secondary brown
+  doc.text("PROJECT #156", 105, 24, { align: "center" });
+
+  doc.setFontSize(7.5);
   doc.setTextColor(184, 134, 11); // Ochre
-  doc.text(`${location.toUpperCase()} REGION'S LOCAL LAWN CARE`, 105, 27, { align: "center" });
+  doc.text(`${location.toUpperCase()} REGION — ABORIGINAL-LED COMMUNITY SERVICE`, 105, 30, { align: "center" });
 
   // Invoice Details
   doc.setFontSize(12);
@@ -92,7 +96,7 @@ export async function generateInvoicePDF(invoice: Invoice, job: Job, settings: B
   // Footer
   doc.setFontSize(8);
   doc.setTextColor(150, 150, 150);
-  doc.text(`Thank you for your business! ${bizName} - ${location}`, 105, 285, { align: "center" });
+  doc.text(`Thank you for choosing ${bizName} — Project #156 | ${location}`, 105, 285, { align: "center" });
 
   return new Uint8Array(doc.output('arraybuffer'));
 }
@@ -103,14 +107,18 @@ export async function generateQuotePDF(job: Job, settings: BusinessSettings): Pr
   const bizName = settings.businessName || "GrassRoots Mowing Co.";
   const location = settings.serviceLocation || "Mount Isa";
 
-  // Header
-  doc.setFontSize(22);
-  doc.setTextColor(139, 0, 0); 
-  doc.text(bizName, 105, 20, { align: "center" });
-  
+  // ── Header: GrassRoots Mowing Co. — Project #156 (mandatory branding) ──
+  doc.setFontSize(20);
+  doc.setTextColor(31, 77, 58); // Primary green
+  doc.text(bizName, 105, 17, { align: "center" });
+
+  doc.setFontSize(9);
+  doc.setTextColor(107, 74, 45); // Secondary brown
+  doc.text("PROJECT #156", 105, 24, { align: "center" });
+
   doc.setFontSize(10);
-  doc.setTextColor(184, 134, 11);
-  doc.text("SERVICE QUOTE", 105, 27, { align: "center" });
+  doc.setTextColor(184, 134, 11); // Ochre
+  doc.text("SERVICE QUOTE", 105, 31, { align: "center" });
 
   // Quote Details
   doc.setFontSize(12);
@@ -163,9 +171,18 @@ export async function generateBookingPDF(job: Job, settings: BusinessSettings): 
   const doc = new jsPDF();
   const bizName = settings.businessName || "GrassRoots Mowing Co.";
 
-  doc.setFontSize(22);
+  // ── Header: GrassRoots Mowing Co. — Project #156 (mandatory branding) ──
+  doc.setFontSize(20);
+  doc.setTextColor(31, 77, 58); // Primary green
+  doc.text(bizName, 105, 15, { align: "center" });
+
+  doc.setFontSize(9);
+  doc.setTextColor(107, 74, 45); // Secondary brown
+  doc.text("PROJECT #156", 105, 22, { align: "center" });
+
+  doc.setFontSize(14);
   doc.setTextColor(139, 0, 0);
-  doc.text("BOOKING CONFIRMED", 105, 20, { align: "center" });
+  doc.text("BOOKING CONFIRMED", 105, 30, { align: "center" });
 
   doc.setFontSize(14);
   doc.setTextColor(0, 0, 0);
@@ -203,9 +220,18 @@ export async function generateServiceReportPDF(job: Job, settings: BusinessSetti
   const doc = new jsPDF();
   const bizName = settings.businessName || "GrassRoots Mowing Co.";
 
+  // ── Header: GrassRoots Mowing Co. — Project #156 (mandatory branding) ──
+  doc.setFontSize(20);
+  doc.setTextColor(31, 77, 58); // Primary green
+  doc.text(bizName, 105, 15, { align: "center" });
+
+  doc.setFontSize(9);
+  doc.setTextColor(107, 74, 45); // Secondary brown
+  doc.text("PROJECT #156", 105, 22, { align: "center" });
+
+  doc.setFontSize(14);
   doc.setTextColor(0, 100, 0); // Dark Green for completion
-  doc.setFontSize(22);
-  doc.text("SERVICE REPORT", 105, 20, { align: "center" });
+  doc.text("SERVICE REPORT", 105, 30, { align: "center" });
 
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(12);
@@ -230,9 +256,18 @@ export async function generateReceiptPDF(invoice: Invoice, job: Job, settings: B
   const doc = new jsPDF();
   const bizName = settings.businessName || "GrassRoots Mowing Co.";
 
-  doc.setFontSize(22);
+  // ── Header: GrassRoots Mowing Co. — Project #156 (mandatory branding) ──
+  doc.setFontSize(20);
+  doc.setTextColor(31, 77, 58); // Primary green
+  doc.text(bizName, 105, 15, { align: "center" });
+
+  doc.setFontSize(9);
+  doc.setTextColor(107, 74, 45); // Secondary brown
+  doc.text("PROJECT #156", 105, 22, { align: "center" });
+
+  doc.setFontSize(14);
   doc.setTextColor(0, 128, 0);
-  doc.text("PAYMENT RECEIPT", 105, 20, { align: "center" });
+  doc.text("PAYMENT RECEIPT", 105, 30, { align: "center" });
 
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(12);
