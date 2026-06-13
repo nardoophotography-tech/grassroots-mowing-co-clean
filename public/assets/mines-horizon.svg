@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 220" preserveAspectRatio="xMidYMax slice">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2C1208"/>
+      <stop offset="100%" stop-color="#0D0401"/>
+    </linearGradient>
+  </defs>
+  <!-- Selwyn Range ridge line -->
+  <path d="M0,90 L55,74 L110,84 L165,62 L225,76 L285,52 L345,68 L405,55 L465,70 L525,46 L585,60 L645,40 L705,56 L765,39 L825,54 L885,44 L945,58 L1005,48 L1065,63 L1125,50 L1200,68 L1200,220 L0,220 Z" fill="url(#g)" opacity="0.85"/>
+  <!-- Industrial left cluster -->
+  <rect x="148" y="108" width="68" height="80" fill="#0D0401"/>
+  <rect x="168" y="88" width="24" height="24" fill="#080200"/>
+  <rect x="198" y="98" width="14" height="90" fill="#080200"/>
+  <!-- Conveyor arm -->
+  <line x1="218" y1="118" x2="298" y2="98" stroke="#0D0401" stroke-width="6"/>
+  <!-- Central processing plant -->
+  <rect x="318" y="78" width="88" height="110" fill="#080200"/>
+  <rect x="338" y="58" width="34" height="24" fill="#050100"/>
+  <!-- Ore tower — stepped -->
+  <rect x="448" y="42" width="26" height="142" fill="#050100"/>
+  <rect x="436" y="82" width="50" height="28" fill="#080200"/>
+  <rect x="440" y="112" width="44" height="18" fill="#0D0401"/>
+  <!-- Horizontal pipes -->
+  <rect x="474" y="72" width="78" height="8" fill="#050100"/>
+  <!-- THE MAIN CHIMNEY STACK (dominant feature — thin and very tall) -->
+  <rect x="588" y="-20" width="15" height="208" fill="#030100"/>
+  <rect x="580" y="168" width="31" height="22" fill="#080200"/>
+  <!-- Banding -->
+  <rect x="588" y="8" width="15" height="11" fill="#3D0A06" opacity="0.7"/>
+  <rect x="588" y="32" width="15" height="7" fill="#3D0A06" opacity="0.5"/>
+  <!-- Second stack -->
+  <rect x="628" y="18" width="10" height="162" fill="#050100"/>
+  <rect x="621" y="170" width="24" height="18" fill="#080200"/>
+  <!-- Third short stack -->
+  <rect x="653" y="52" width="8" height="128" fill="#0D0401"/>
+  <!-- HEADFRAME (A-frame) -->
+  <polygon points="728,188 750,2 772,188" fill="none" stroke="#030100" stroke-width="5"/>
+  <line x1="734" y1="150" x2="767" y2="150" stroke="#080200" stroke-width="3"/>
+  <line x1="737" y1="110" x2="764" y2="110" stroke="#080200" stroke-width="2.5"/>
+  <line x1="740" y1="73" x2="761" y2="73" stroke="#080200" stroke-width="2"/>
+  <rect x="734" y="178" width="32" height="22" fill="#050100"/>
+  <!-- Right cluster -->
+  <rect x="818" y="92" width="64" height="92" fill="#080200"/>
+  <rect x="838" y="75" width="26" height="22" fill="#050100"/>
+  <rect x="856" y="82" width="16" height="102" fill="#0D0401"/>
+  <!-- Far right -->
+  <rect x="938" y="103" width="48" height="82" fill="#0D0401"/>
+  <rect x="953" y="86" width="20" height="22" fill="#080200"/>
+  <!-- Scrub -->
+  <ellipse cx="118" cy="107" rx="17" ry="9" fill="#1A2E08" opacity="0.7"/>
+  <ellipse cx="268" cy="97" rx="13" ry="7" fill="#1A2E08" opacity="0.7"/>
+  <ellipse cx="888" cy="105" rx="19" ry="10" fill="#1A2E08" opacity="0.7"/>
+  <ellipse cx="1058" cy="101" rx="15" ry="8" fill="#1A2E08" opacity="0.7"/>
+  <!-- Red earth -->
+  <rect x="0" y="178" width="1200" height="42" fill="#3D1A06" opacity="0.9"/>
+</svg>

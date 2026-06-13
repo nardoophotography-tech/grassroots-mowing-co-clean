@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <defs>
+    <pattern id="tile" x="0" y="0" width="120" height="120" patternUnits="userSpaceOnUse">
+      <!-- Outer ring with dots -->
+      <circle cx="60" cy="60" r="52" fill="none" stroke="#C8691B" stroke-width="1.5" opacity="0.9"/>
+      <!-- Dot markers on outer ring (12 positions) -->
+      <circle cx="60" cy="8" r="2.5" fill="#C8691B"/>
+      <circle cx="112" cy="60" r="2.5" fill="#C8691B"/>
+      <circle cx="60" cy="112" r="2.5" fill="#C8691B"/>
+      <circle cx="8" cy="60" r="2.5" fill="#C8691B"/>
+      <circle cx="97" cy="23" r="2" fill="#C8691B"/>
+      <circle cx="97" cy="97" r="2" fill="#C8691B"/>
+      <circle cx="23" cy="97" r="2" fill="#C8691B"/>
+      <circle cx="23" cy="23" r="2" fill="#C8691B"/>
+      <!-- Middle ring -->
+      <circle cx="60" cy="60" r="36" fill="none" stroke="#8B4513" stroke-width="1" stroke-dasharray="3,4" opacity="0.8"/>
+      <!-- Dot markers on middle ring (8 positions) -->
+      <circle cx="60" cy="24" r="2" fill="#8B4513"/>
+      <circle cx="96" cy="60" r="2" fill="#8B4513"/>
+      <circle cx="60" cy="96" r="2" fill="#8B4513"/>
+      <circle cx="24" cy="60" r="2" fill="#8B4513"/>
+      <circle cx="85.5" cy="34.5" r="1.8" fill="#8B4513"/>
+      <circle cx="85.5" cy="85.5" r="1.8" fill="#8B4513"/>
+      <circle cx="34.5" cy="85.5" r="1.8" fill="#8B4513"/>
+      <circle cx="34.5" cy="34.5" r="1.8" fill="#8B4513"/>
+      <!-- Inner ring -->
+      <circle cx="60" cy="60" r="20" fill="none" stroke="#D4A85A" stroke-width="1.2" opacity="0.85"/>
+      <!-- Dot markers on inner ring (6) -->
+      <circle cx="60" cy="40" r="1.8" fill="#D4A85A"/>
+      <circle cx="77.3" cy="49" r="1.8" fill="#D4A85A"/>
+      <circle cx="77.3" cy="71" r="1.8" fill="#D4A85A"/>
+      <circle cx="60" cy="80" r="1.8" fill="#D4A85A"/>
+      <circle cx="42.7" cy="71" r="1.8" fill="#D4A85A"/>
+      <circle cx="42.7" cy="49" r="1.8" fill="#D4A85A"/>
+      <!-- Center circle -->
+      <circle cx="60" cy="60" r="5" fill="#C8691B" opacity="0.9"/>
+      <circle cx="60" cy="60" r="2.5" fill="#F7F4EB" opacity="0.7"/>
+      <!-- Connecting dotted lines (journeys) — horizontal -->
+      <line x1="0" y1="60" x2="8" y2="60" stroke="#C8691B" stroke-width="1" stroke-dasharray="2,3" opacity="0.6"/>
+      <line x1="112" y1="60" x2="120" y2="60" stroke="#C8691B" stroke-width="1" stroke-dasharray="2,3" opacity="0.6"/>
+      <!-- Connecting dotted lines — vertical -->
+      <line x1="60" y1="0" x2="60" y2="8" stroke="#C8691B" stroke-width="1" stroke-dasharray="2,3" opacity="0.6"/>
+      <line x1="60" y1="112" x2="60" y2="120" stroke="#C8691B" stroke-width="1" stroke-dasharray="2,3" opacity="0.6"/>
+    </pattern>
+  </defs>
+  <rect width="120" height="120" fill="url(#tile)"/>
+</svg>

@@ -73,6 +73,7 @@ import { SystemSettings } from '@/pages/admin/SystemSettings';
 import { AuditLogs } from '@/pages/admin/AuditLogs';
 
 import { NavItem, GlobalHeader, Sidebar } from '@/components/Navigation';
+import { SplashGate } from '@/components/SplashGate';
 
 import { useSyncEngine } from '@/hooks/useSyncEngine';
 import { APIProvider } from '@vis.gl/react-google-maps';
@@ -110,11 +111,23 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         <main className="flex-1 overflow-y-auto bg-background/30 relative">
           {/* Decorative outback gradient overlay */}
           <div className="absolute inset-0 pointer-events-none opacity-20 bg-[radial-gradient(circle_at_top_right,var(--color-ochre),transparent_40%),radial-gradient(circle_at_bottom_left,var(--color-primary),transparent_40%)]" />
-          
+
+          {/* Indigenous dot-art pattern — very subtle repeat tile */}
+          <div
+            className="absolute inset-0 pointer-events-none opacity-[0.045]"
+            style={{ backgroundImage: "url('/assets/dot-art-pattern.svg')", backgroundRepeat: 'repeat', backgroundSize: '100px 100px' }}
+          />
+
           {/* Brand Overlay Texture */}
           <div className="absolute inset-0 cultural-pattern opacity-[0.03] pointer-events-none mix-blend-multiply" />
           <div className="absolute inset-0 bg-noise opacity-[0.05] pointer-events-none contrast-150 brightness-100" />
-          
+
+          {/* Mount Isa Mines silhouette — anchored at bottom of main area */}
+          <div
+            className="absolute bottom-0 left-0 right-0 h-40 pointer-events-none opacity-[0.10]"
+            style={{ backgroundImage: "url('/assets/mines-horizon.svg')", backgroundPosition: 'bottom center', backgroundRepeat: 'no-repeat', backgroundSize: 'cover' }}
+          />
+
           <div className="relative p-6 lg:p-12 max-w-7xl mx-auto z-10">
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -176,8 +189,27 @@ const AppContent = () => {
   // On localhost the lock screen is fully disabled
   const isLocalDev = ['localhost', '127.0.0.1'].includes(window.location.hostname);
   if (isLocalDev) { sessionStorage.setItem('app_unlocked', 'true'); }
-  const [isOffline, setIsOffline] = React.useState(!navigator.onLine);
+
+  // ── SplashGate: entry gate for the landing page only ──────────────────
+  // Shows on first visit to "/" or "/welcome". Skipped on localhost and all
+  // other routes (booking, pay, dashboard, etc.) so direct URL access works.
   const location = useLocation();
+  const isGatePage = ['/', '/welcome'].includes(location.pathname);
+  const alreadyEntered = sessionStorage.getItem('has_entered') === 'true';
+  const [hasEntered, setHasEntered] = React.useState(isLocalDev || alreadyEntered || !isGatePage);
+
+  const handleSplashEnter = React.useCallback(() => {
+    sessionStorage.setItem('has_entered', 'true');
+    setHasEntered(true);
+  }, []);
+
+  // When navigating away from gate pages, ensure gate is bypassed
+  React.useEffect(() => {
+    if (!isGatePage) setHasEntered(true);
+  }, [isGatePage]);
+  // ─────────────────────────────────────────────────────────────────────
+
+  const [isOffline, setIsOffline] = React.useState(!navigator.onLine);
 
   // Initialize background sync engine
   useSyncEngine();
@@ -205,6 +237,8 @@ const AppContent = () => {
 
   return (
     <>
+      {/* SplashGate — full-screen entry gate, only on "/" and "/welcome", once per session */}
+      {!hasEntered && <SplashGate onEnter={handleSplashEnter} />}
       <ScrollToTop />
       <AnimatePresence>
         {isOffline && (
