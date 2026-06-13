@@ -71,6 +71,7 @@ import { AutomationsManager } from '@/pages/admin/AutomationsManager';
 import { AssetManager } from '@/pages/admin/AssetManager';
 import { SystemSettings } from '@/pages/admin/SystemSettings';
 import { AuditLogs } from '@/pages/admin/AuditLogs';
+import { MediaCentre } from '@/pages/admin/MediaCentre';
 
 import { NavItem, GlobalHeader, Sidebar } from '@/components/Navigation';
 
@@ -266,6 +267,7 @@ const AppContent = () => {
         <Route path="/admin/settings" element={<RoleGuard roles={['admin']}><Layout><SystemSettings /></Layout></RoleGuard>} />
         <Route path="/admin/logs" element={<RoleGuard roles={['admin']}><Layout><AuditLogs /></Layout></RoleGuard>} />
         <Route path="/admin/access" element={<RoleGuard roles={['admin']}><Layout><AdminAccess /></Layout></RoleGuard>} />
+        <Route path="/admin/media" element={<RoleGuard roles={['admin']}><Layout><MediaCentre /></Layout></RoleGuard>} />
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -25,7 +25,8 @@ import {
   CreditCard,
   Target,
   Truck,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Film
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from '@/components/ui/Button';
@@ -353,6 +354,7 @@ export const Sidebar = ({ isOpen, onClose, variant = 'sidebar' }: { isOpen: bool
                 <NavItem to="/admin/staff" icon={Users} label="Team Roster" active={location.pathname === '/admin/staff'} onClick={onClose} />
                 <NavItem to="/admin/pricing" icon={DollarSign} label="Pricing" active={location.pathname === '/admin/pricing'} onClick={onClose} />
                 <NavItem to="/admin/assets" icon={ImageIcon} label="Photos" active={location.pathname === '/admin/assets'} onClick={onClose} />
+                <NavItem to="/admin/media" icon={Film} label="Media Centre" active={location.pathname === '/admin/media'} onClick={onClose} />
                 <NavItem to="/admin/automations" icon={Zap} label="Notifications" active={location.pathname === '/admin/automations'} onClick={onClose} />
                 <NavItem to="/admin/settings" icon={Settings} label="System Settings" active={location.pathname === '/admin/settings'} onClick={onClose} />
                 <NavItem to="/admin/access" icon={PlusCircle} label="Admin Access" active={location.pathname === '/admin/access'} onClick={onClose} />
