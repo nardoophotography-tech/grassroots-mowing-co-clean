@@ -49,7 +49,7 @@ export const DailyCalendar: React.FC<DailyCalendarProps> = ({
 
   const JobItem: React.FC<{ job: any }> = ({ job }) => {
     const [isExpanded, setIsExpanded] = React.useState(false);
-    const hasPendingAddOns = job.addOns.some((a: any) => a.selected && !a.approvedBy);
+    const hasPendingAddOns = (job.addOns ?? []).some((a: any) => a.selected && !a.approvedBy);
 
     return (
       <motion.div

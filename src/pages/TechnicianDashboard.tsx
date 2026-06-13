@@ -291,7 +291,7 @@ export function TechnicianDashboard() {
                       <Badge variant="outline" className="text-[8px] font-black uppercase border-slate-200">
                         {(job.servicePackage || 'Service').split('_').pop()?.replace(/-/g, ' ')}
                       </Badge>
-                      <span className="text-[10px] text-orange-600 font-black">+{job.addOns.filter(a => a.selected).length} Addons</span>
+                      <span className="text-[10px] text-orange-600 font-black">+{(job.addOns ?? []).filter(a => a.selected).length} Addons</span>
                     </div>
                   </div>
                   <Button 

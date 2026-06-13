@@ -200,7 +200,7 @@ export async function generateBookingPDF(job: Job, settings: BusinessSettings): 
   const inclusions = [
     [`Package: ${job.servicePackage?.toUpperCase() || 'STANDARD'}`],
     [`Condition: ${job.serviceGrade?.toUpperCase() || 'MEDIUM'}`],
-    [`Extras: ${job.addOns.map(a => a.name).join(', ') || 'None'}`]
+    [`Extras: ${(job.addOns ?? []).map(a => a.name).join(', ') || 'None'}`]
   ];
 
   autoTable(doc, {

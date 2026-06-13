@@ -597,10 +597,10 @@ export const JobDetail = () => {
                     </div>
                   )}
                   
-                  {job.pricingSnapshot.addOns.length > 0 && (
+                  {(job.pricingSnapshot.addOns?.length ?? 0) > 0 && (
                     <div className="pt-2 space-y-1">
                       <p className="text-[9px] font-bold text-ochre/60 uppercase">Add-ons Breakdown</p>
-                      {job.pricingSnapshot.addOns.map((addon) => (
+                      {job.pricingSnapshot.addOns?.map((addon) => (
                         <div key={addon.id} className="flex justify-between text-xs text-charcoal/70 pl-2">
                           <span>â€¢ {addon.name}</span>
                           <span>+${(addon.price || 0).toFixed(2)}</span>
@@ -781,12 +781,12 @@ export const JobDetail = () => {
             </CardContent>
           </Card>
 
-          {job.addOns.some(a => a.selected) && (
+          {(job.addOns ?? []).some(a => a.selected) && (
             <Card className="border-ochre/10 shadow-lg rounded-xl overflow-hidden">
               <CardHeader className="bg-ochre/5 border-b border-ochre/10"><CardTitle className="text-lg font-serif text-deep-red">Selected Add-Ons</CardTitle></CardHeader>
               <CardContent className="pt-6">
                 <ul className="space-y-3">
-                  {job.addOns.filter(a => a.selected).map(addon => (
+                  {(job.addOns ?? []).filter(a => a.selected).map(addon => (
                     <li key={addon.id} className="text-sm flex justify-between items-center">
                       <span className="text-charcoal font-medium">{addon.name}</span>
                       <span className="font-black text-deep-red">${(addon.price || 0).toFixed(2)}</span>

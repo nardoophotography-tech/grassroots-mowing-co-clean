@@ -242,11 +242,11 @@ export const QuoteApproval = () => {
                   </div>
                 </div>
 
-                {job.addOns.filter(a => a.selected).length > 0 && (
+                {(job.addOns ?? []).filter(a => a.selected).length > 0 && (
                   <div className="pt-6 border-t border-ochre/10">
                     <p className="text-[10px] font-black text-ochre uppercase tracking-widest mb-3">Selected Add-ons</p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                       {job.addOns.filter(a => a.selected).map(addon => (
+                       {(job.addOns ?? []).filter(a => a.selected).map(addon => (
                         <div key={addon.id} className="flex items-center gap-2 p-2 bg-ochre/5 rounded-lg border border-ochre/10">
                           <CheckCircle2 className="h-3 w-3 text-ochre" />
                           <span className="text-xs font-bold text-charcoal capitalize">{addon.name}</span>

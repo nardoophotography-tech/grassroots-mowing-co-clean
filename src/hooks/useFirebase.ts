@@ -286,7 +286,7 @@ export function useJobs() {
           amount: job.pricingSnapshot.urgencySurcharge 
         });
       }
-      job.pricingSnapshot.addOns.forEach(addon => {
+      (job.pricingSnapshot.addOns ?? []).forEach(addon => {
         items.push({ description: `Add-on: ${addon.name}`, amount: addon.price });
       });
     } else {
@@ -298,7 +298,7 @@ export function useJobs() {
       if (job.urgencySurcharge > 0) {
         items.push({ description: 'Urgency Surcharge', amount: job.urgencySurcharge });
       }
-      job.addOns.filter(a => a.selected).forEach(addon => {
+      (job.addOns ?? []).filter(a => a.selected).forEach(addon => {
         items.push({ description: `Add-on: ${addon.name}`, amount: addon.price });
       });
     }
