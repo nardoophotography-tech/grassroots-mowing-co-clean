@@ -178,7 +178,7 @@ export const InvoicePayment = () => {
             </div>
           </CardHeader>
           <CardContent className="pt-8 space-y-8">
-            <div className="grid grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8">
               <div>
                 <p className="text-[9px] font-black text-ochre uppercase tracking-widest mb-3">Service At</p>
                 <p className="text-sm font-bold text-charcoal leading-relaxed">{invoice.clientAddress}</p>

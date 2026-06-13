@@ -370,7 +370,7 @@ export const JobDetail = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6 pt-6">
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 <div className="space-y-1">
                   <p className="text-[10px] text-ochre font-bold uppercase tracking-widest">Client Type</p>
                   <p className="text-sm font-black text-charcoal capitalize">{job.clientType}</p>

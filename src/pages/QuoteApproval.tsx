@@ -204,7 +204,7 @@ export const QuoteApproval = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-6 space-y-6">
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <div className="space-y-1">
                     <p className="text-[10px] font-black text-ochre uppercase tracking-widest">Property</p>
                     <p className="font-bold text-charcoal">{job.location?.address || job.address}</p>

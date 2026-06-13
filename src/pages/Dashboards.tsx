@@ -315,7 +315,7 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         {stats.map((stat, i) => (
           <Card 
             key={i} 
@@ -556,7 +556,7 @@ const AdminDashboard = () => {
             <Button variant="ghost" size="sm" onClick={() => navigate('/jobs')} className="text-[10px] font-black uppercase tracking-widest">Full CRM</Button>
           </CardHeader>
           <CardContent className="p-6">
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                {Object.entries(pipelineData).map(([stage, items]) => (
                  <div key={stage} className="space-y-3">
                    <div className="bg-slate-100 p-2 rounded-xl text-center border border-slate-200">
@@ -1138,7 +1138,7 @@ const RealEstateDashboard = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         {stats.map((stat, i) => (
           <Card 
             key={i} 

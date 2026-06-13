@@ -116,7 +116,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
           <div className="absolute inset-0 cultural-pattern opacity-[0.03] pointer-events-none mix-blend-multiply" />
           <div className="absolute inset-0 bg-noise opacity-[0.05] pointer-events-none contrast-150 brightness-100" />
           
-          <div className="relative p-6 lg:p-12 max-w-7xl mx-auto z-10">
+          <div className="relative p-4 sm:p-6 lg:p-12 max-w-7xl mx-auto z-10">
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
