@@ -411,8 +411,8 @@ export const LandingPage = () => {
       <section className="py-12 sm:py-24 px-4 sm:px-6 bg-slate-50 relative overflow-hidden">
         <div className="absolute inset-0 subtle-grid opacity-5 pointer-events-none" />
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
-          <div className="order-2 lg:order-1 flex justify-center lg:justify-start">
-            <div className="w-full max-w-md">
+          <div className="order-2 lg:order-1 flex justify-center lg:justify-start min-w-0 overflow-hidden">
+            <div className="w-full max-w-sm sm:max-w-md overflow-hidden pb-10">
               <BrandCharacter />
             </div>
           </div>
@@ -421,10 +421,10 @@ export const LandingPage = () => {
               <Badge className="bg-primary/20 text-primary border-none font-black px-4 py-1 text-[10px] uppercase tracking-widest">
                 Our Cultural Mark
               </Badge>
-              <h2 className="text-4xl lg:text-5xl font-black text-slate-900 leading-tight italic uppercase">
+              <h2 className="text-2xl sm:text-3xl lg:text-5xl font-black text-slate-900 leading-tight italic uppercase">
                 Rooted in <span className="text-primary italic">Country</span>, Built on Care
               </h2>
-              <p className="text-base text-slate-600 font-medium leading-relaxed max-w-xl">
+              <p className="text-base text-slate-600 font-medium leading-relaxed max-w-full">
                 The GrassRoots Mowing Co artwork represents a Kalkutungu yuru — a Kalkadoon man — standing with strength, respect for Country, and responsibility to community. The brand is Aboriginal-led and built around reliable service, practical support, and pride in caring for people’s places properly.
               </p>
             </div>

@@ -82,7 +82,7 @@ export function AIBookingAssistant() {
             initial={{ opacity: 0, y: 50, scale: 0.9, filter: 'blur(10px)' }}
             animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
             exit={{ opacity: 0, y: 50, scale: 0.9, filter: 'blur(10px)' }}
-            className="mb-4 w-[380px] h-[550px] shadow-2xl rounded-2xl overflow-hidden border border-orange-200/50 bg-white/95 backdrop-blur-xl flex flex-col"
+            className="mb-4 w-[calc(100vw-24px)] sm:w-[380px] h-[550px] shadow-2xl rounded-2xl overflow-hidden border border-orange-200/50 bg-white/95 backdrop-blur-xl flex flex-col"
           >
             {/* Header */}
             <div className="bg-primary p-4 flex items-center justify-between shadow-lg relative overflow-hidden">
