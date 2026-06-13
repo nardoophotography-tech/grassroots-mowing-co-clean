@@ -232,14 +232,27 @@ export const GlobalHeader = ({ onMenuClick, profile }: { onMenuClick: () => void
 export const Sidebar = ({ isOpen, onClose, variant = 'sidebar' }: { isOpen: boolean, onClose: () => void, variant?: 'sidebar' | 'drawer' }) => {
   const location = useLocation();
   const { logout, profile } = useAuth();
-  const [isMobile, setIsMobile] = React.useState(false);
+  const [isMobile, setIsMobile] = React.useState(() => window.innerWidth < 1024);
 
   React.useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 1024);
-    checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Prevent touch bleed-through: on mobile, a tap on the hamburger button causes
+  // the browser to fire a synthetic click at the same coordinates AFTER React
+  // renders the overlay. The overlay sits at z-40 (above the header's z-20),
+  // so that click lands on the overlay and immediately calls onClose().
+  // Guard: overlay is non-closeable for 350ms after the sidebar opens.
+  const closeable = React.useRef(false);
+  React.useEffect(() => {
+    if (isOpen) {
+      closeable.current = false;
+      const t = setTimeout(() => { closeable.current = true; }, 350);
+      return () => clearTimeout(t);
+    }
+  }, [isOpen]);
 
   const isActuallyMobile = isMobile || variant === 'drawer';
   
@@ -254,7 +267,7 @@ export const Sidebar = ({ isOpen, onClose, variant = 'sidebar' }: { isOpen: bool
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={onClose}
+            onClick={() => { if (closeable.current) onClose(); }}
             className="fixed inset-0 z-40 bg-charcoal/60 backdrop-blur-sm lg:z-[60]"
           />
         )}
