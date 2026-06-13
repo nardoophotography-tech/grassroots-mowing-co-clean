@@ -223,14 +223,14 @@ export const LandingPage = () => {
             <Button
                 variant="ghost"
                 onClick={() => navigate('/booking?type=one_off')}
-                className="px-5 py-2 rounded-full ochre-button text-[10px] sm:text-xs tracking-widest italic h-10 sm:h-11"
+                className="px-5 py-2 rounded-full ochre-button text-[10px] sm:text-xs tracking-widest italic h-11"
             >
               quick book
             </Button>
             <Button
                 variant="ghost"
                 onClick={() => navigate('/login')}
-                className="h-10 sm:h-11 px-5 rounded-full bg-white/10 text-white border border-white/30 hover:bg-white/20 text-[10px] sm:text-xs font-black uppercase tracking-widest"
+                className="h-11 px-5 rounded-full bg-white/10 text-white border border-white/30 hover:bg-white/20 text-[10px] sm:text-xs font-black uppercase tracking-widest"
             >
               Portal
             </Button>
