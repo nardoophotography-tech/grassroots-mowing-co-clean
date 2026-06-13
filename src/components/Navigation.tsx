@@ -88,7 +88,7 @@ export const GlobalHeader = ({ onMenuClick, profile }: { onMenuClick: () => void
     (profile.role !== 'admin' && profile.role !== 'staff' && profile.clientType === 'one_off');
 
   return (
-    <header className="h-16 shadow-premium border-b flex items-center justify-between px-6 lg:px-10 flex-shrink-0 relative z-20 overflow-hidden" style={{ background: 'linear-gradient(90deg, #111111 0%, #1c3a25 60%, #234F2E 100%)', borderColor: 'rgba(255,255,255,0.10)' }}>
+    <header className="h-20 shadow-premium border-b flex items-center justify-between px-4 sm:px-6 lg:px-10 flex-shrink-0 relative z-20 overflow-hidden" style={{ background: 'linear-gradient(90deg, #111111 0%, #1c3a25 60%, #234F2E 100%)', borderColor: 'rgba(255,255,255,0.10)' }}>
       {/* Thin red / ochre / green cultural strip along the header's base */}
       <div className="cultural-values-strip absolute bottom-0 left-0 z-20" />
       {/* Brand accent line */}
@@ -98,24 +98,24 @@ export const GlobalHeader = ({ onMenuClick, profile }: { onMenuClick: () => void
         {!isOneOff && (
           <button
             onClick={onMenuClick}
-            className="p-2 text-white/80 hover:bg-white/10 rounded-xl lg:hidden transition-colors border border-transparent hover:border-white/20"
+            className="p-3 text-white/80 hover:bg-white/10 rounded-xl lg:hidden transition-colors border border-transparent hover:border-white/20"
           >
             <Menu className="h-6 w-6" />
           </button>
         )}
         
         <Link to="/" className="flex items-center gap-2 group mr-2">
-          <AppLogo className="h-14 w-auto group-hover:rotate-3 transition-transform" showText={false} />
+          <AppLogo className="h-16 w-auto group-hover:rotate-3 transition-transform" showText={false} />
         </Link>
         
-        <div className="flex items-center space-x-1 sm:space-x-1.5 p-1 bg-white/10 rounded-full border border-white/15 shadow-inner max-w-[50vw] sm:max-w-none overflow-x-auto no-scrollbar backdrop-blur-sm">
+        <div className="flex items-center space-x-1.5 sm:space-x-2 p-1.5 bg-white/10 rounded-full border border-white/15 shadow-inner max-w-[55vw] sm:max-w-none overflow-x-auto no-scrollbar backdrop-blur-sm">
           {isOneOff ? (
             <>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => navigate('/booking?type=one_off')}
-                className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest px-2 sm:px-4 h-7 sm:h-8 bg-secondary text-white rounded-full italic hover:scale-105 transition-transform whitespace-nowrap"
+                className="text-[10px] sm:text-xs font-black uppercase tracking-widest px-3 sm:px-5 h-9 sm:h-10 bg-secondary text-white rounded-full italic hover:scale-105 transition-transform whitespace-nowrap"
               >
                 one off clients
               </Button>
@@ -123,7 +123,7 @@ export const GlobalHeader = ({ onMenuClick, profile }: { onMenuClick: () => void
                 variant="ghost"
                 size="sm"
                 onClick={() => navigate('/login?intendedRole=returning')}
-                className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest px-2 sm:px-4 h-7 sm:h-8 text-white/80 rounded-full italic hover:bg-white/10 whitespace-nowrap"
+                className="text-[10px] sm:text-xs font-black uppercase tracking-widest px-3 sm:px-5 h-9 sm:h-10 text-white/80 rounded-full italic hover:bg-white/10 whitespace-nowrap"
               >
                 returning clients
               </Button>
@@ -131,7 +131,7 @@ export const GlobalHeader = ({ onMenuClick, profile }: { onMenuClick: () => void
                 variant="ghost"
                 size="sm"
                 onClick={() => navigate('/login?intendedRole=asset_management')}
-                className="hidden xs:block text-[9px] sm:text-[10px] font-black uppercase tracking-widest px-2 sm:px-4 h-7 sm:h-8 text-white/60 rounded-full italic hover:bg-white/10 whitespace-nowrap"
+                className="hidden xs:block text-[10px] sm:text-xs font-black uppercase tracking-widest px-3 sm:px-5 h-9 sm:h-10 text-white/60 rounded-full italic hover:bg-white/10 whitespace-nowrap"
               >
                 asset managment
               </Button>
@@ -142,10 +142,10 @@ export const GlobalHeader = ({ onMenuClick, profile }: { onMenuClick: () => void
                 variant="ghost"
                 size="icon"
                 onClick={handleBack}
-                className="h-8 w-8 text-white/70 hover:text-white transition-colors rounded-full"
+                className="h-10 w-10 text-white/70 hover:text-white transition-colors rounded-full"
                 title="Go Back"
               >
-                <ArrowLeft className="h-4 w-4" />
+                <ArrowLeft className="h-5 w-5" />
               </Button>
 
               <div className="w-px h-4 bg-white/20 mx-0.5" />
@@ -155,27 +155,27 @@ export const GlobalHeader = ({ onMenuClick, profile }: { onMenuClick: () => void
                 size="icon"
                 onClick={() => navigate('/')}
                 className={cn(
-                  "h-8 w-8 transition-colors rounded-full",
+                  "h-10 w-10 transition-colors rounded-full",
                   location.pathname === '/' ? "bg-primary text-white shadow-premium" : "text-clay hover:text-primary"
                 )}
                 title="Public Website"
               >
-                <Home className="h-4 w-4" />
+                <Home className="h-5 w-5" />
               </Button>
-              
+
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => navigate('/dashboard')}
                 className={cn(
-                  "h-8 w-8 transition-all rounded-full",
-                  location.pathname === '/dashboard' 
-                    ? "bg-primary text-white shadow-premium" 
+                  "h-10 w-10 transition-all rounded-full",
+                  location.pathname === '/dashboard'
+                    ? "bg-primary text-white shadow-premium"
                     : "text-white/70 hover:text-white"
                 )}
                 title="Operations Hub"
               >
-                <LayoutDashboard className="h-4 w-4" />
+                <LayoutDashboard className="h-5 w-5" />
               </Button>
 
               {role === 'admin' && (
@@ -184,14 +184,14 @@ export const GlobalHeader = ({ onMenuClick, profile }: { onMenuClick: () => void
                   size="icon"
                   onClick={() => navigate('/admin')}
                   className={cn(
-                    "h-8 w-8 transition-all rounded-full border border-white/20",
+                    "h-10 w-10 transition-all rounded-full border border-white/20",
                     location.pathname === '/admin'
                       ? "bg-primary text-white shadow-premium"
                       : "text-white hover:bg-white/10"
                   )}
                   title="Admin Portal"
                 >
-                  <ShieldCheck className="h-4 w-4" />
+                  <ShieldCheck className="h-5 w-5" />
                 </Button>
               )}
             </>
@@ -210,15 +210,15 @@ export const GlobalHeader = ({ onMenuClick, profile }: { onMenuClick: () => void
               </p>
               <p className="text-xs font-black text-white uppercase tracking-tight italic">{profile?.displayName || 'Client'}</p>
             </div>
-            <div className="h-10 w-10 rounded-xl bg-primary border-2 border-white/20 shadow-premium flex items-center justify-center text-white font-black text-sm group relative overflow-hidden">
+            <div className="h-11 w-11 rounded-xl bg-primary border-2 border-white/20 shadow-premium flex items-center justify-center text-white font-black text-sm group relative overflow-hidden">
               <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity" />
               {profile?.displayName?.split(' ').map((n: string) => n[0]).join('') || 'U'}
             </div>
           </>
         ) : (
-          <Button 
+          <Button
             onClick={() => navigate('/login')}
-            className="bg-slate-900 hover:bg-black text-[10px] font-black uppercase tracking-widest px-4 h-9 rounded-xl italic"
+            className="bg-slate-900 hover:bg-black text-[10px] sm:text-xs font-black uppercase tracking-widest px-4 sm:px-5 h-10 sm:h-11 rounded-xl italic"
           >
             Sign In
           </Button>
