@@ -10,7 +10,7 @@ const MinesHorizon = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     viewBox="0 0 1200 220"
-    className="w-full"
+    style={{ width: '100%', maxHeight: '180px', display: 'block' }}
     preserveAspectRatio="xMidYMax slice"
     aria-hidden="true"
   >
@@ -218,7 +218,13 @@ const DotArtCircles = ({ cx = 50, cy = 50, maxR = 48 }: { cx?: number; cy?: numb
 
 // ── Dot art border strip ───────────────────────────────────────────────
 const DotArtBorder = ({ height = 60 }: { height?: number }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox={`0 0 400 ${height}`} className="w-full" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox={`0 0 400 ${height}`}
+    style={{ width: '100%', height: `${height}px`, display: 'block' }}
+    preserveAspectRatio="none"
+    aria-hidden="true"
+  >
     {/* Background strip */}
     <rect width="400" height={height} fill="#3D1A06" />
     {/* Clusters of concentric arcs */}
