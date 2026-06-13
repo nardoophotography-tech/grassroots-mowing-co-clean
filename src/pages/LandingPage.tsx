@@ -206,10 +206,10 @@ export const LandingPage = () => {
 
   return (
     <div className="min-h-screen bg-[#FDFCFB] selection:bg-primary/20 selection:text-primary">
-      <nav className="sticky top-0 z-50 backdrop-blur-md border-b px-4 sm:px-6 py-3 shadow-sm" style={{ backgroundColor: 'rgba(17,17,17,0.92)', borderColor: 'rgba(255,255,255,0.1)' }}>
+      <nav className="sticky top-0 z-50 backdrop-blur-md border-b px-4 sm:px-6 py-4 shadow-sm" style={{ backgroundColor: 'rgba(17,17,17,0.92)', borderColor: 'rgba(255,255,255,0.1)' }}>
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-3 cursor-pointer group" onClick={() => navigate('/')}>
-            <AppLogo className="h-10 w-auto group-hover:scale-105 transition-transform" />
+            <AppLogo className="h-12 w-auto group-hover:scale-105 transition-transform" />
             <div className="hidden lg:block ml-2 border-l pl-4" style={{ borderColor: 'rgba(255,255,255,0.18)' }}>
               <p className="text-[8px] font-black uppercase tracking-[0.2em] leading-none text-white/70">Aboriginal-led</p>
               <p className="text-[7px] font-bold uppercase tracking-widest leading-none mt-1" style={{ color: 'var(--color-yellow-ochre)' }}>Community Service</p>
@@ -223,14 +223,14 @@ export const LandingPage = () => {
             <Button
                 variant="ghost"
                 onClick={() => navigate('/booking?type=one_off')}
-                className="px-4 py-2 rounded-full ochre-button text-[10px] tracking-widest italic h-9"
+                className="px-5 py-2 rounded-full ochre-button text-[10px] sm:text-xs tracking-widest italic h-10 sm:h-11"
             >
               quick book
             </Button>
             <Button
                 variant="ghost"
                 onClick={() => navigate('/login')}
-                className="h-9 px-4 rounded-full bg-white/10 text-white border border-white/30 hover:bg-white/20 text-[10px] font-black uppercase tracking-widest"
+                className="h-10 sm:h-11 px-5 rounded-full bg-white/10 text-white border border-white/30 hover:bg-white/20 text-[10px] sm:text-xs font-black uppercase tracking-widest"
             >
               Portal
             </Button>
@@ -238,7 +238,7 @@ export const LandingPage = () => {
         </div>
       </nav>
       {/* Thin red / ochre / green cultural strip under the header */}
-      <div className="cultural-values-strip sticky top-[60px] z-40" />
+      <div className="cultural-values-strip sticky top-[68px] z-40" />
 
       {/* Cultural hero — original rock art background with a dark overlay */}
       <section className="relative pt-16 sm:pt-24 pb-16 sm:pb-20 px-4 sm:px-6 overflow-hidden sunrock-hero rock-overlay text-white border-b-4" style={{ borderColor: 'var(--color-rock-red)' }}>
