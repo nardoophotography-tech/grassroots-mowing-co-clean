@@ -204,10 +204,21 @@ service cloud.firestore {
     match /notifications/{id} {
       allow get: if isOwner(resource.data.userId);
       allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if true; 
-      allow update: if isOwner(existing().userId) && 
+      allow create: if true;
+      allow update: if isOwner(existing().userId) &&
                     incoming().diff(existing()).affectedKeys().hasOnly(['read']);
       allow delete: if isOwner(existing().userId);
+    }
+
+    // ── Calendar block-outs ─────────────────────────────────────────────
+    // Public read: public booking calendar needs block-outs without auth.
+    // Only publicLabel is shown to clients; private reason is filtered client-side.
+    // Write: admin/staff only.
+    match /calendar_blocks/{blockId} {
+      allow read: if true;
+      allow create: if isWorkforce();
+      allow update: if isWorkforce();
+      allow delete: if isAdmin();
     }
   }
 }
