@@ -26,6 +26,7 @@ import {
   AlertCircle,
   ExternalLink,
   Loader2,
+  Ban,
 } from 'lucide-react';
 import {
   scheduleStore,
@@ -38,6 +39,15 @@ import {
   RUN_TYPES,
   RUN_ORDER,
 } from '@/data/scheduleStore';
+import {
+  blockoutStore,
+  useBlockouts,
+  CalendarBlock,
+  BlockSlot,
+  checkBlockConflict,
+  formatBlockLabel,
+  getActiveBlocksForDate,
+} from '@/data/blockoutStore';
 import { useJobs } from '@/hooks/useFirebase';
 import { Job } from '@/types';
 
@@ -112,6 +122,16 @@ function jobToEntry(job: Job): ScheduleEntry {
 type ViewMode = 'daily' | 'weekly' | 'monthly';
 type FormState = Omit<ScheduleEntry, 'id' | 'createdAt' | 'updatedAt' | 'isJob' | 'jobId'>;
 
+type BlockoutFormState = {
+  slot: BlockSlot;
+  date: string;
+  reason: string;
+  publicLabel: string;
+  showPublic: boolean;
+  startTime: string;
+  endTime: string;
+};
+
 const todayKey = () => format(new Date(), 'yyyy-MM-dd');
 
 const EMPTY: FormState = {
@@ -129,19 +149,38 @@ const EMPTY: FormState = {
   notes: '',
 };
 
+const EMPTY_BLOCKOUT: BlockoutFormState = {
+  slot: 'full_day',
+  date: todayKey(),
+  reason: '',
+  publicLabel: 'Unavailable',
+  showPublic: true,
+  startTime: '09:00',
+  endTime: '17:00',
+};
+
 const inputCls =
   'w-full h-11 rounded-xl border border-stone-300 px-3 text-sm focus:ring-2 focus:ring-deep-red outline-none';
 
 export const ScheduleCalendar = () => {
   const { jobs, loading: jobsLoading, firestoreError } = useJobs();
   const localEntries = useSchedule();
+  const activeBlocks = useBlockouts();
 
   const [view, setView] = React.useState<ViewMode>('weekly');
   const [anchor, setAnchor] = React.useState<Date>(new Date());
+
+  // ── Schedule entry form state ──────────────────────────────────────────
   const [formOpen, setFormOpen] = React.useState(false);
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [form, setForm] = React.useState<FormState>(EMPTY);
   const [saving, setSaving] = React.useState(false);
+
+  // ── Block-out form state ───────────────────────────────────────────────
+  const [blockoutFormOpen, setBlockoutFormOpen] = React.useState(false);
+  const [editingBlockId, setEditingBlockId] = React.useState<string | null>(null);
+  const [blockoutForm, setBlockoutForm] = React.useState<BlockoutFormState>(EMPTY_BLOCKOUT);
+  const [savingBlockout, setSavingBlockout] = React.useState(false);
 
   const jobEntries: ScheduleEntry[] = React.useMemo(
     () =>
@@ -177,6 +216,8 @@ export const ScheduleCalendar = () => {
           a.scheduledTime.localeCompare(b.scheduledTime)
       );
 
+  const blocksForDay = (d: Date) => getActiveBlocksForDate(activeBlocks, keyOf(d));
+
   const runCounts = (list: ScheduleEntry[]) => ({
     'Morning Run': list.filter((e) => e.runType === 'Morning Run').length,
     'Afternoon Run': list.filter((e) => e.runType === 'Afternoon Run').length,
@@ -192,6 +233,8 @@ export const ScheduleCalendar = () => {
     setAnchor((a) =>
       view === 'daily' ? addDays(a, 1) : view === 'weekly' ? addWeeks(a, 1) : addMonths(a, 1)
     );
+
+  // ── Schedule entry handlers ────────────────────────────────────────────
 
   const openAdd = (date?: Date) => {
     setForm({ ...EMPTY, scheduledDate: keyOf(date ?? anchor) });
@@ -218,6 +261,19 @@ export const ScheduleCalendar = () => {
     if (!form.clientName.trim()) {
       toast.error('Client name is required.');
       return;
+    }
+    // ── Block-out conflict check ────────────────────────────────────────
+    const conflict = checkBlockConflict(
+      activeBlocks,
+      form.scheduledDate,
+      form.runType,
+      form.scheduledTime
+    );
+    if (conflict) {
+      const proceed = window.confirm(
+        `⚠️ This time is blocked out.\n\nReason: ${conflict.reason || formatBlockLabel(conflict)}\n\nContinue anyway?`
+      );
+      if (!proceed) return;
     }
     setSaving(true);
     try {
@@ -249,6 +305,97 @@ export const ScheduleCalendar = () => {
     }
   };
 
+  // ── Block-out handlers ─────────────────────────────────────────────────
+
+  const openBlockout = (date?: Date) => {
+    setBlockoutForm({ ...EMPTY_BLOCKOUT, date: keyOf(date ?? anchor) });
+    setEditingBlockId(null);
+    setBlockoutFormOpen(true);
+  };
+
+  const openEditBlockout = (b: CalendarBlock) => {
+    setBlockoutForm({
+      slot: b.slot,
+      date: b.date,
+      reason: b.reason,
+      publicLabel: b.publicLabel,
+      showPublic: b.showPublic,
+      startTime: b.startTime || '09:00',
+      endTime: b.endTime || '17:00',
+    });
+    setEditingBlockId(b.id);
+    setBlockoutFormOpen(true);
+  };
+
+  const delBlockout = async (b: Pick<CalendarBlock, 'id'>) => {
+    if (window.confirm('Remove this block-out?')) {
+      try {
+        await blockoutStore.remove(b.id);
+        toast.success('Block-out removed.');
+        if (editingBlockId === b.id) setBlockoutFormOpen(false);
+      } catch {
+        toast.error('Failed to remove block-out.');
+      }
+    }
+  };
+
+  const saveBlockout = async (ev: React.FormEvent) => {
+    ev.preventDefault();
+
+    // ── Check for overlap with existing bookings ───────────────────────
+    const overlapping = entries.filter((e) => {
+      if (e.scheduledDate !== blockoutForm.date) return false;
+      if (blockoutForm.slot === 'full_day') return true;
+      if (blockoutForm.slot === 'morning' && e.runType === 'Morning Run') return true;
+      if (blockoutForm.slot === 'afternoon' && e.runType === 'Afternoon Run') return true;
+      if (blockoutForm.slot === 'flexible' && e.runType === 'Flexible') return true;
+      if (blockoutForm.slot === 'custom' && blockoutForm.startTime && blockoutForm.endTime) {
+        return (
+          e.scheduledTime >= blockoutForm.startTime && e.scheduledTime <= blockoutForm.endTime
+        );
+      }
+      return false;
+    });
+
+    if (overlapping.length > 0) {
+      const proceed = window.confirm(
+        `⚠️ This block-out overlaps ${overlapping.length} existing booking(s).\n\nThe existing bookings will NOT be moved or changed.\n\nContinue anyway?`
+      );
+      if (!proceed) return;
+    }
+
+    setSavingBlockout(true);
+    try {
+      const payload: Omit<CalendarBlock, 'id' | 'createdAt' | 'updatedAt'> = {
+        type: 'blockout',
+        title: blockoutForm.reason || formatBlockLabel({ slot: blockoutForm.slot }),
+        reason: blockoutForm.reason,
+        publicLabel: blockoutForm.publicLabel || 'Unavailable',
+        showPublic: blockoutForm.showPublic,
+        date: blockoutForm.date,
+        slot: blockoutForm.slot,
+        startTime: blockoutForm.slot === 'custom' ? blockoutForm.startTime : undefined,
+        endTime: blockoutForm.slot === 'custom' ? blockoutForm.endTime : undefined,
+        status: 'active',
+      };
+
+      if (editingBlockId) {
+        await blockoutStore.update(editingBlockId, payload);
+        toast.success('Block-out updated.');
+      } else {
+        await blockoutStore.add(payload);
+        toast.success('Time blocked out.');
+      }
+      setBlockoutFormOpen(false);
+    } catch {
+      toast.error('Failed to save block-out.');
+    } finally {
+      setSavingBlockout(false);
+    }
+  };
+
+  // ── Rendering helpers ──────────────────────────────────────────────────
+
   const headerLabel = () => {
     if (view === 'daily') return format(anchor, 'EEEE, d MMMM yyyy');
     if (view === 'weekly') {
@@ -271,6 +418,7 @@ export const ScheduleCalendar = () => {
     </button>
   );
 
+  /** Compact chip for Weekly view — schedule entry */
   const renderChip = (e: ScheduleEntry) => (
     <button
       key={e.id}
@@ -286,6 +434,23 @@ export const ScheduleCalendar = () => {
     </button>
   );
 
+  /** Compact chip for Weekly view — block-out */
+  const renderBlockChip = (b: CalendarBlock) => (
+    <div
+      key={b.id}
+      onClick={() => openEditBlockout(b)}
+      className="w-full text-left rounded-lg border px-2 py-1.5 bg-red-50 border-red-200 text-red-700 cursor-pointer hover:bg-red-100 transition-all"
+      title={b.reason || formatBlockLabel(b)}
+    >
+      <p className="text-[10px] font-black truncate flex items-center gap-1">
+        <Ban className="h-2.5 w-2.5 flex-shrink-0" />
+        {formatBlockLabel(b)}
+      </p>
+      {b.reason && <p className="text-[9px] opacity-70 truncate">{b.reason}</p>}
+    </div>
+  );
+
+  /** Expanded card for Daily view — schedule entry */
   function dayCard(e: ScheduleEntry) {
     return (
       <div
@@ -355,8 +520,64 @@ export const ScheduleCalendar = () => {
     );
   }
 
+  /** Expanded card for Daily view — block-out */
+  function blockCard(b: CalendarBlock) {
+    return (
+      <div
+        key={b.id}
+        className="border rounded-2xl p-4 flex flex-col md:flex-row md:items-start gap-3 border-red-200 bg-red-50/50"
+      >
+        <div className="md:w-24 flex-shrink-0">
+          <p className="text-sm font-black text-red-700 flex items-center gap-1">
+            <Ban className="h-4 w-4" />
+            BLOCKED
+          </p>
+          {b.slot === 'custom' && b.startTime && b.endTime && (
+            <p className="text-[10px] text-red-500 mt-0.5">{b.startTime} – {b.endTime}</p>
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-black text-red-800 text-sm">{formatBlockLabel(b)}</p>
+          {b.reason && (
+            <p className="text-xs text-red-600 mt-1">{b.reason}</p>
+          )}
+          {b.publicLabel && (
+            <p className="text-[10px] text-stone-400 uppercase tracking-widest mt-1">
+              Public label: {b.publicLabel}
+            </p>
+          )}
+          <p className="text-[10px] text-stone-400 uppercase tracking-widest mt-0.5">
+            {b.showPublic ? 'Visible on public calendar' : 'Admin only — hidden from public'}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => openEditBlockout(b)}
+            className="p-2 rounded-lg bg-stone-100 hover:bg-stone-200"
+            title="Edit block-out"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => delBlockout(b)}
+            className="p-2 rounded-lg bg-red-50 hover:bg-red-100 text-deep-red"
+            title="Remove block-out"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Views ──────────────────────────────────────────────────────────────
+
   function DailyView() {
     const dayEntries = entriesForDay(anchor);
+    const dayBlocks = blocksForDay(anchor);
+    const fullDayBlocks = dayBlocks.filter((b) => b.slot === 'full_day');
+    const customBlocks = dayBlocks.filter((b) => b.slot === 'custom');
+
     return (
       <div aria-label="Daily View" data-view="Daily View" className="earth-card p-6">
         <div className="flex items-center justify-between mb-4">
@@ -368,23 +589,42 @@ export const ScheduleCalendar = () => {
             <Plus className="h-3.5 w-3.5" /> Add Entry
           </button>
         </div>
-        {dayEntries.length === 0 && (
+
+        {/* Full-day and custom blocks shown at the top */}
+        {(fullDayBlocks.length > 0 || customBlocks.length > 0) && (
+          <div className="space-y-2 mb-4">
+            {[...fullDayBlocks, ...customBlocks].map((b) => blockCard(b))}
+          </div>
+        )}
+
+        {dayEntries.length === 0 && dayBlocks.length === 0 && (
           <p className="text-sm text-stone-500 italic mb-4">No schedule entries for this day.</p>
         )}
+
         <div className="space-y-6">
           {RUN_TYPES.map((run) => {
             const group = dayEntries.filter((e) => e.runType === run);
+            const runSlot =
+              run === 'Morning Run' ? 'morning' : run === 'Afternoon Run' ? 'afternoon' : 'flexible';
+            const slotBlocks = dayBlocks.filter((b) => b.slot === runSlot);
+
             return (
               <div key={run}>
                 <div className="flex items-center gap-2 mb-2">
                   <span className={'text-[11px] font-black uppercase tracking-widest px-3 py-1 rounded-full border ' + RUN_STYLE[run]}>{run}</span>
                   <span className="text-[11px] font-bold text-stone-400">{group.length} job{group.length === 1 ? '' : 's'}</span>
                 </div>
-                {group.length === 0 ? (
-                  <p className="text-xs text-stone-400 italic pl-1">{RUN_EMPTY[run]}</p>
-                ) : (
-                  <div className="space-y-3">{group.map((e) => dayCard(e))}</div>
+                {/* Per-slot block-outs */}
+                {slotBlocks.length > 0 && (
+                  <div className="space-y-2 mb-2">
+                    {slotBlocks.map((b) => blockCard(b))}
+                  </div>
                 )}
+                {group.length === 0 && slotBlocks.length === 0 ? (
+                  <p className="text-xs text-stone-400 italic pl-1">{RUN_EMPTY[run]}</p>
+                ) : group.length > 0 ? (
+                  <div className="space-y-3">{group.map((e) => dayCard(e))}</div>
+                ) : null}
               </div>
             );
           })}
@@ -407,6 +647,9 @@ export const ScheduleCalendar = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3">
           {days.map((d) => {
             const list = entriesForDay(d);
+            const dayBlocks = blocksForDay(d);
+            const fullDayBlocks = dayBlocks.filter((b) => b.slot === 'full_day');
+            const customBlocks = dayBlocks.filter((b) => b.slot === 'custom');
             const isToday = isSameDay(d, new Date());
             return (
               <div
@@ -422,17 +665,34 @@ export const ScheduleCalendar = () => {
                     <Plus className="h-3.5 w-3.5" />
                   </button>
                 </div>
+
+                {/* Full-day / custom block chips at top of card */}
+                {(fullDayBlocks.length > 0 || customBlocks.length > 0) && (
+                  <div className="space-y-1 mb-1">
+                    {[...fullDayBlocks, ...customBlocks].map((b) => renderBlockChip(b))}
+                  </div>
+                )}
+
                 <div className="space-y-2 flex-1">
                   {RUN_TYPES.map((run) => {
                     const g = list.filter((e) => e.runType === run);
+                    const runSlot =
+                      run === 'Morning Run' ? 'morning' : run === 'Afternoon Run' ? 'afternoon' : 'flexible';
+                    const slotBlocks = dayBlocks.filter((b) => b.slot === runSlot);
                     return (
                       <div key={run}>
                         <p className={'text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded inline-block border ' + RUN_STYLE[run]}>{run}</p>
-                        {g.length === 0 ? (
-                          <p className="text-[8px] text-stone-400 italic mt-1">{RUN_EMPTY[run]}</p>
-                        ) : (
-                          <div className="space-y-1 mt-1">{g.map((e) => renderChip(e))}</div>
+                        {/* Per-slot block chips */}
+                        {slotBlocks.length > 0 && (
+                          <div className="space-y-1 mt-1">
+                            {slotBlocks.map((b) => renderBlockChip(b))}
+                          </div>
                         )}
+                        {g.length === 0 && slotBlocks.length === 0 ? (
+                          <p className="text-[8px] text-stone-400 italic mt-1">{RUN_EMPTY[run]}</p>
+                        ) : g.length > 0 ? (
+                          <div className="space-y-1 mt-1">{g.map((e) => renderChip(e))}</div>
+                        ) : null}
                       </div>
                     );
                   })}
@@ -472,9 +732,12 @@ export const ScheduleCalendar = () => {
           <div className="grid grid-cols-7 gap-2">
             {days.map((d) => {
               const list = entriesForDay(d);
+              const dayBlocks = blocksForDay(d);
               const inMonth = isSameMonth(d, anchor);
               const isToday = isSameDay(d, new Date());
               const c = runCounts(list);
+              const hasFullDayBlock = dayBlocks.some((b) => b.slot === 'full_day');
+              const hasAnyBlock = dayBlocks.length > 0;
               return (
                 <button
                   key={d.toISOString()}
@@ -482,7 +745,8 @@ export const ScheduleCalendar = () => {
                   className={
                     'text-left rounded-xl border p-2 min-h-[92px] transition-all hover:shadow-sm ' +
                     (inMonth ? 'bg-white border-stone-200' : 'bg-stone-50 border-stone-100 opacity-60') +
-                    (isToday ? ' ring-2 ring-deep-red' : '')
+                    (isToday ? ' ring-2 ring-deep-red' : '') +
+                    (hasFullDayBlock ? ' bg-red-50/60' : '')
                   }
                 >
                   <div className="flex items-center justify-between">
@@ -495,6 +759,12 @@ export const ScheduleCalendar = () => {
                     <p className="text-[9px] font-black text-amber-700 leading-tight">Morning Run: {c['Morning Run']}</p>
                     <p className="text-[9px] font-black text-indigo-700 leading-tight">Afternoon Run: {c['Afternoon Run']}</p>
                     <p className="text-[9px] font-black text-stone-500 leading-tight">Flexible: {c['Flexible']}</p>
+                    {hasAnyBlock && (
+                      <p className="text-[9px] font-black text-red-600 leading-tight flex items-center gap-0.5">
+                        <Ban className="h-2.5 w-2.5" />
+                        {hasFullDayBlock ? 'Day blocked' : `${dayBlocks.length} block${dayBlocks.length > 1 ? 's' : ''}`}
+                      </p>
+                    )}
                   </div>
                 </button>
               );
@@ -552,6 +822,8 @@ export const ScheduleCalendar = () => {
     );
   }
 
+  // ── Render ─────────────────────────────────────────────────────────────
+
   return (
     <div className="p-4 lg:p-8 max-w-7xl mx-auto">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
@@ -566,6 +838,12 @@ export const ScheduleCalendar = () => {
             {tabBtn('weekly', 'Weekly')}
             {tabBtn('monthly', 'Monthly')}
           </div>
+          <button
+            onClick={() => openBlockout()}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-stone-700 text-white font-black uppercase text-xs tracking-widest hover:bg-stone-800 transition-colors"
+          >
+            <Ban className="h-4 w-4" /> Block Out Time
+          </button>
           <button
             onClick={() => openAdd()}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-deep-red text-white font-black uppercase text-xs tracking-widest hover:bg-deep-red/90"
@@ -613,6 +891,7 @@ export const ScheduleCalendar = () => {
 
       {UnscheduledSection()}
 
+      {/* ── Existing Schedule Entry Modal ──────────────────────────────── */}
       {formOpen && (
         <div className="fixed inset-0 z-[80] bg-black/40 flex items-start justify-center overflow-y-auto p-4">
           <form onSubmit={save} className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl mt-10 mb-10">
@@ -690,6 +969,148 @@ export const ScheduleCalendar = () => {
                 >
                   {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                   {editingId ? 'Save Changes' : 'Save Entry'}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* ── Block-Out Modal ────────────────────────────────────────────── */}
+      {blockoutFormOpen && (
+        <div className="fixed inset-0 z-[90] bg-black/40 flex items-start justify-center overflow-y-auto p-4">
+          <form onSubmit={saveBlockout} className="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl mt-10 mb-10">
+            <div className="flex items-center justify-between p-6 border-b border-stone-100">
+              <h2 className="text-xl font-black italic uppercase text-charcoal flex items-center gap-2">
+                <Ban className="h-5 w-5 text-stone-600" />
+                {editingBlockId ? 'Edit Block-Out' : 'Block Out Time'}
+              </h2>
+              <button type="button" onClick={() => setBlockoutFormOpen(false)} className="p-2 rounded-lg hover:bg-stone-100">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {/* Block type */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-clay">Block Type</label>
+                <select
+                  value={blockoutForm.slot}
+                  onChange={(e) => setBlockoutForm((f) => ({ ...f, slot: e.target.value as BlockSlot }))}
+                  className={inputCls}
+                >
+                  <option value="full_day">Full Day</option>
+                  <option value="morning">Morning Run Only</option>
+                  <option value="afternoon">Afternoon Run Only</option>
+                  <option value="flexible">Flexible Only</option>
+                  <option value="custom">Custom Time Range</option>
+                </select>
+              </div>
+
+              {/* Date */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-clay">Date</label>
+                <input
+                  type="date"
+                  value={blockoutForm.date}
+                  onChange={(e) => setBlockoutForm((f) => ({ ...f, date: e.target.value }))}
+                  className={inputCls}
+                  required
+                />
+              </div>
+
+              {/* Custom time range — only visible when slot === 'custom' */}
+              {blockoutForm.slot === 'custom' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-clay">Start Time</label>
+                    <input
+                      type="time"
+                      value={blockoutForm.startTime}
+                      onChange={(e) => setBlockoutForm((f) => ({ ...f, startTime: e.target.value }))}
+                      className={inputCls}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-clay">End Time</label>
+                    <input
+                      type="time"
+                      value={blockoutForm.endTime}
+                      onChange={(e) => setBlockoutForm((f) => ({ ...f, endTime: e.target.value }))}
+                      className={inputCls}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Private reason — admin only */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-clay">
+                  Private Reason <span className="text-stone-400 normal-case font-normal">(admin only — never shown to customers)</span>
+                </label>
+                <input
+                  value={blockoutForm.reason}
+                  onChange={(e) => setBlockoutForm((f) => ({ ...f, reason: e.target.value }))}
+                  placeholder="e.g. Family event, Equipment maintenance, Public holiday, Weather delay"
+                  className={inputCls}
+                />
+              </div>
+
+              {/* Public label */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-clay">
+                  Public Label <span className="text-stone-400 normal-case font-normal">(shown to customers if visible)</span>
+                </label>
+                <input
+                  value={blockoutForm.publicLabel}
+                  onChange={(e) => setBlockoutForm((f) => ({ ...f, publicLabel: e.target.value }))}
+                  placeholder="e.g. Unavailable, Fully booked, Limited availability"
+                  className={inputCls}
+                />
+              </div>
+
+              {/* Show publicly toggle */}
+              <label className="flex items-center gap-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={blockoutForm.showPublic}
+                  onChange={(e) => setBlockoutForm((f) => ({ ...f, showPublic: e.target.checked }))}
+                  className="w-4 h-4 rounded accent-deep-red"
+                />
+                <span className="text-[10px] font-black uppercase tracking-widest text-clay">
+                  Show on public booking calendar
+                </span>
+              </label>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 p-6 border-t border-stone-100">
+              <div>
+                {editingBlockId && (
+                  <button
+                    type="button"
+                    onClick={() => delBlockout({ id: editingBlockId })}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-50 text-deep-red font-black uppercase text-xs tracking-widest hover:bg-red-100"
+                  >
+                    <Trash2 className="h-4 w-4" /> Remove Block
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setBlockoutFormOpen(false)}
+                  disabled={savingBlockout}
+                  className="px-5 py-2.5 rounded-xl border border-stone-300 font-black uppercase text-xs tracking-widest hover:bg-stone-100 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingBlockout}
+                  className="px-5 py-2.5 rounded-xl bg-stone-700 text-white font-black uppercase text-xs tracking-widest hover:bg-stone-800 disabled:opacity-50 inline-flex items-center gap-2"
+                >
+                  {savingBlockout && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  {editingBlockId ? 'Save Changes' : 'Block Time'}
                 </button>
               </div>
             </div>

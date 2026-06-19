@@ -16,6 +16,7 @@ import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, CheckCircle
 import { Job, BusinessSettings } from '@/types';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
+import { CalendarBlock } from '@/data/blockoutStore';
 
 interface ClientCalendarProps {
   suburb: string;
@@ -24,6 +25,8 @@ interface ClientCalendarProps {
   onSelect: (date: string, slot: 'morning' | 'afternoon') => void;
   selectedDate?: string;
   selectedSlot?: 'morning' | 'afternoon';
+  /** Active calendar_blocks from Firestore — used to honour admin block-outs */
+  blocks?: CalendarBlock[];
 }
 
 export const ClientCalendar: React.FC<ClientCalendarProps> = ({
@@ -32,7 +35,8 @@ export const ClientCalendar: React.FC<ClientCalendarProps> = ({
   settings,
   onSelect,
   selectedDate,
-  selectedSlot
+  selectedSlot,
+  blocks = [],
 }) => {
   const [currentMonth, setCurrentMonth] = React.useState(new Date());
   const timeSelectionRef = React.useRef<HTMLDivElement>(null);
@@ -49,10 +53,10 @@ export const ClientCalendar: React.FC<ClientCalendarProps> = ({
 
   const getAvailability = (date: Date) => {
     if (!settings || !suburb) return { morning: false, afternoon: false, isAvailable: false };
-    
+
     const dateStr = format(date, 'yyyy-MM-dd');
     const schedule = settings.suburbSchedules.find(s => s.suburb === suburb);
-    
+
     // Fallback to Mon-Fri with capacity 2 if no schedule found
     const availableDays = schedule?.availableDays || [1, 2, 3, 4, 5];
     const morningCapacity = schedule?.morningCapacity ?? 2;
@@ -62,7 +66,7 @@ export const ClientCalendar: React.FC<ClientCalendarProps> = ({
     const dayOfWeek = getDay(date);
     if (!availableDays.includes(dayOfWeek)) return { morning: false, afternoon: false, isAvailable: false };
 
-    // Check if date is blocked
+    // Check if date is blocked by suburb schedule
     if (schedule?.blockedDates && schedule.blockedDates.includes(dateStr)) return { morning: false, afternoon: false, isAvailable: false };
 
     // Check capacity
@@ -70,8 +74,22 @@ export const ClientCalendar: React.FC<ClientCalendarProps> = ({
     const morningJobs = dayJobs.filter(j => j.timeSlot === 'morning');
     const afternoonJobs = dayJobs.filter(j => j.timeSlot === 'afternoon');
 
-    const morningAvailable = morningJobs.length < morningCapacity;
-    const afternoonAvailable = afternoonJobs.length < afternoonCapacity;
+    let morningAvailable = morningJobs.length < morningCapacity;
+    let afternoonAvailable = afternoonJobs.length < afternoonCapacity;
+
+    // ── Check admin calendar block-outs (showPublic only) ──────────────
+    if (blocks.length > 0) {
+      const publicDayBlocks = blocks.filter(
+        (b) => b.status === 'active' && b.date === dateStr && b.showPublic
+      );
+      for (const block of publicDayBlocks) {
+        if (block.slot === 'full_day') {
+          return { morning: false, afternoon: false, isAvailable: false };
+        }
+        if (block.slot === 'morning') morningAvailable = false;
+        if (block.slot === 'afternoon') afternoonAvailable = false;
+      }
+    }
 
     return {
       morning: morningAvailable,

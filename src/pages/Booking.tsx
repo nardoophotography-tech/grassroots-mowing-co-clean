@@ -22,6 +22,7 @@ import { AboriginalFlagBadge } from '@/components/AboriginalFlagBadge';
 import { cn } from '@/lib/utils';
 import { Mythos } from '@/lib/mythos';
 import { ClientCalendar } from '@/components/Calendar/ClientCalendar';
+import { useBlockouts } from '@/data/blockoutStore';
 import { ImagePlaceholder } from '@/components/ImagePlaceholder';
 import { calculateServicePrice } from '@/services/pricingEngine';
 import { notificationService } from '@/services/notificationService';
@@ -66,6 +67,7 @@ export const Booking = () => {
   const { jobs, addJob } = useJobs();
   const { addClient } = useClients();
   const { settings, loading: settingsLoading } = useSettings();
+  const blocks = useBlockouts();
 
   const [step, setStep] = React.useState((searchParams.get('type') === 'one_off' || searchParams.get('type') === 'asset_management') ? 2 : 1);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -479,6 +481,7 @@ export const Booking = () => {
                   settings={settings!}
                   selectedDate={watchedValues.date}
                   selectedSlot={watchedValues.timeSlot}
+                  blocks={blocks}
                   onSelect={(date, slot) => {
                     setValue('date', date);
                     setValue('timeSlot', slot);
