@@ -44,6 +44,9 @@ import {
   useBlockouts,
   CalendarBlock,
   BlockSlot,
+  BlockRepeat,
+  WeekDay,
+  WEEKDAYS,
   checkBlockConflict,
   formatBlockLabel,
   getActiveBlocksForDate,
@@ -124,12 +127,16 @@ type FormState = Omit<ScheduleEntry, 'id' | 'createdAt' | 'updatedAt' | 'isJob' 
 
 type BlockoutFormState = {
   slot: BlockSlot;
-  date: string;
+  date: string;        // for one-off: the date; for weekly: the start date
   reason: string;
   publicLabel: string;
   showPublic: boolean;
   startTime: string;
   endTime: string;
+  // ── Recurring fields ──────────────────────────────────────────────────
+  repeat: BlockRepeat;
+  repeatDays: WeekDay[];
+  repeatEndDate: string;
 };
 
 const todayKey = () => format(new Date(), 'yyyy-MM-dd');
@@ -157,6 +164,9 @@ const EMPTY_BLOCKOUT: BlockoutFormState = {
   showPublic: true,
   startTime: '09:00',
   endTime: '17:00',
+  repeat: 'none',
+  repeatDays: [],
+  repeatEndDate: '',
 };
 
 const inputCls =
@@ -322,6 +332,9 @@ export const ScheduleCalendar = () => {
       showPublic: b.showPublic,
       startTime: b.startTime || '09:00',
       endTime: b.endTime || '17:00',
+      repeat: b.repeat ?? 'none',
+      repeatDays: (b.repeatDays ?? []) as WeekDay[],
+      repeatEndDate: b.repeatEndDate ?? '',
     });
     setEditingBlockId(b.id);
     setBlockoutFormOpen(true);
@@ -342,9 +355,16 @@ export const ScheduleCalendar = () => {
   const saveBlockout = async (ev: React.FormEvent) => {
     ev.preventDefault();
 
+    const isWeekly = blockoutForm.repeat === 'weekly';
+
+    // ── Validate weekly block has at least one day selected ────────────
+    if (isWeekly && blockoutForm.repeatDays.length === 0) {
+      toast.error('Please select at least one day of the week for the recurring block.');
+      return;
+    }
+
     // ── Check for overlap with existing bookings ───────────────────────
-    const overlapping = entries.filter((e) => {
-      if (e.scheduledDate !== blockoutForm.date) return false;
+    const slotMatchesEntry = (e: typeof entries[0]) => {
       if (blockoutForm.slot === 'full_day') return true;
       if (blockoutForm.slot === 'morning' && e.runType === 'Morning Run') return true;
       if (blockoutForm.slot === 'afternoon' && e.runType === 'Afternoon Run') return true;
@@ -355,12 +375,34 @@ export const ScheduleCalendar = () => {
         );
       }
       return false;
-    });
+    };
+
+    let overlapping: typeof entries;
+    if (!isWeekly) {
+      // One-off: check entries on the exact date
+      overlapping = entries.filter(
+        (e) => e.scheduledDate === blockoutForm.date && slotMatchesEntry(e)
+      );
+    } else {
+      // Weekly: check all entries whose weekday is in repeatDays and within range
+      const dayNameMap: Record<number, string> = {
+        0: 'sunday', 1: 'monday', 2: 'tuesday', 3: 'wednesday',
+        4: 'thursday', 5: 'friday', 6: 'saturday',
+      };
+      overlapping = entries.filter((e) => {
+        if (e.scheduledDate < blockoutForm.date) return false;
+        if (blockoutForm.repeatEndDate && e.scheduledDate > blockoutForm.repeatEndDate) return false;
+        const dayName = dayNameMap[new Date(e.scheduledDate + 'T00:00:00').getDay()];
+        if (!blockoutForm.repeatDays.includes(dayName as WeekDay)) return false;
+        return slotMatchesEntry(e);
+      });
+    }
 
     if (overlapping.length > 0) {
-      const proceed = window.confirm(
-        `⚠️ This block-out overlaps ${overlapping.length} existing booking(s).\n\nThe existing bookings will NOT be moved or changed.\n\nContinue anyway?`
-      );
+      const msg = isWeekly
+        ? `⚠️ This recurring block-out overlaps ${overlapping.length} existing booking(s).\n\nThe existing bookings will NOT be moved or changed.\n\nContinue anyway?`
+        : `⚠️ This block-out overlaps ${overlapping.length} existing booking(s).\n\nThe existing bookings will NOT be moved or changed.\n\nContinue anyway?`;
+      const proceed = window.confirm(msg);
       if (!proceed) return;
     }
 
@@ -368,7 +410,7 @@ export const ScheduleCalendar = () => {
     try {
       const payload: Omit<CalendarBlock, 'id' | 'createdAt' | 'updatedAt'> = {
         type: 'blockout',
-        title: blockoutForm.reason || formatBlockLabel({ slot: blockoutForm.slot }),
+        title: blockoutForm.reason || formatBlockLabel({ slot: blockoutForm.slot, repeat: blockoutForm.repeat }),
         reason: blockoutForm.reason,
         publicLabel: blockoutForm.publicLabel || 'Unavailable',
         showPublic: blockoutForm.showPublic,
@@ -377,6 +419,11 @@ export const ScheduleCalendar = () => {
         startTime: blockoutForm.slot === 'custom' ? blockoutForm.startTime : undefined,
         endTime: blockoutForm.slot === 'custom' ? blockoutForm.endTime : undefined,
         status: 'active',
+        // ── Recurring fields ─────────────────────────────────────────────
+        repeat: blockoutForm.repeat,
+        repeatDays: isWeekly ? blockoutForm.repeatDays : [],
+        repeatStartDate: isWeekly ? blockoutForm.date : undefined,
+        repeatEndDate: isWeekly && blockoutForm.repeatEndDate ? blockoutForm.repeatEndDate : undefined,
       };
 
       if (editingBlockId) {
@@ -384,7 +431,7 @@ export const ScheduleCalendar = () => {
         toast.success('Block-out updated.');
       } else {
         await blockoutStore.add(payload);
-        toast.success('Time blocked out.');
+        toast.success(isWeekly ? 'Recurring block-out saved.' : 'Time blocked out.');
       }
       setBlockoutFormOpen(false);
     } catch {
@@ -439,7 +486,12 @@ export const ScheduleCalendar = () => {
     <div
       key={b.id}
       onClick={() => openEditBlockout(b)}
-      className="w-full text-left rounded-lg border px-2 py-1.5 bg-red-50 border-red-200 text-red-700 cursor-pointer hover:bg-red-100 transition-all"
+      className={
+        'w-full text-left rounded-lg border px-2 py-1.5 cursor-pointer hover:bg-red-100 transition-all ' +
+        (b.repeat === 'weekly'
+          ? 'bg-orange-50 border-orange-300 text-orange-800'
+          : 'bg-red-50 border-red-200 text-red-700')
+      }
       title={b.reason || formatBlockLabel(b)}
     >
       <p className="text-[10px] font-black truncate flex items-center gap-1">
@@ -522,22 +574,38 @@ export const ScheduleCalendar = () => {
 
   /** Expanded card for Daily view — block-out */
   function blockCard(b: CalendarBlock) {
+    const isRecurring = b.repeat === 'weekly';
     return (
       <div
         key={b.id}
-        className="border rounded-2xl p-4 flex flex-col md:flex-row md:items-start gap-3 border-red-200 bg-red-50/50"
+        className={
+          'border rounded-2xl p-4 flex flex-col md:flex-row md:items-start gap-3 ' +
+          (isRecurring ? 'border-orange-300 bg-orange-50/60' : 'border-red-200 bg-red-50/50')
+        }
       >
-        <div className="md:w-24 flex-shrink-0">
-          <p className="text-sm font-black text-red-700 flex items-center gap-1">
+        <div className="md:w-28 flex-shrink-0">
+          <p className={'text-sm font-black flex items-center gap-1 ' + (isRecurring ? 'text-orange-700' : 'text-red-700')}>
             <Ban className="h-4 w-4" />
-            BLOCKED
+            {isRecurring ? 'RECURRING' : 'BLOCKED'}
           </p>
+          {isRecurring && (
+            <p className="text-[10px] text-orange-600 font-bold mt-0.5 uppercase tracking-wide">
+              Weekly
+            </p>
+          )}
           {b.slot === 'custom' && b.startTime && b.endTime && (
             <p className="text-[10px] text-red-500 mt-0.5">{b.startTime} – {b.endTime}</p>
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-black text-red-800 text-sm">{formatBlockLabel(b)}</p>
+          <p className={'font-black text-sm ' + (isRecurring ? 'text-orange-800' : 'text-red-800')}>
+            {formatBlockLabel(b)}
+          </p>
+          {isRecurring && b.repeatDays && b.repeatDays.length > 0 && (
+            <p className="text-[10px] text-orange-600 mt-0.5 capitalize">
+              Every {b.repeatDays.join(', ')}{b.repeatEndDate ? ` until ${b.repeatEndDate}` : ' (no end date)'}
+            </p>
+          )}
           {b.reason && (
             <p className="text-xs text-red-600 mt-1">{b.reason}</p>
           )}
@@ -1007,9 +1075,11 @@ export const ScheduleCalendar = () => {
                 </select>
               </div>
 
-              {/* Date */}
+              {/* Date / Start Date */}
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase tracking-widest text-clay">Date</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-clay">
+                  {blockoutForm.repeat === 'weekly' ? 'Start Date' : 'Date'}
+                </label>
                 <input
                   type="date"
                   value={blockoutForm.date}
@@ -1018,6 +1088,83 @@ export const ScheduleCalendar = () => {
                   required
                 />
               </div>
+
+              {/* Repeat */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-clay">Repeat</label>
+                <select
+                  value={blockoutForm.repeat}
+                  onChange={(e) =>
+                    setBlockoutForm((f) => ({
+                      ...f,
+                      repeat: e.target.value as BlockRepeat,
+                      repeatDays: [],
+                      repeatEndDate: '',
+                    }))
+                  }
+                  className={inputCls}
+                >
+                  <option value="none">Does not repeat</option>
+                  <option value="weekly">Weekly (every week)</option>
+                </select>
+              </div>
+
+              {/* Weekly options — only visible when repeat === 'weekly' */}
+              {blockoutForm.repeat === 'weekly' && (
+                <>
+                  {/* Day picker */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-clay">
+                      Repeat on
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {WEEKDAYS.map(({ key, short }) => {
+                        const selected = blockoutForm.repeatDays.includes(key);
+                                                return (
+                          <button
+                            key={key}
+                            type="button"
+                            onClick={() =>
+                              setBlockoutForm((f) => ({
+                                ...f,
+                                repeatDays: selected
+                                  ? f.repeatDays.filter((d) => d !== key)
+                                  : [...f.repeatDays, key],
+                              }))
+                            }
+                            className={
+                              'px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-widest border transition-all ' +
+                              (selected
+                                ? 'bg-stone-700 text-white border-stone-700'
+                                : 'bg-white text-stone-500 border-stone-300 hover:border-stone-500')
+                            }
+                          >
+                            {short}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {blockoutForm.repeatDays.length === 0 && (
+                      <p className="text-[10px] text-red-500">Select at least one day.</p>
+                    )}
+                  </div>
+
+                  {/* Optional end date */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-clay">
+                      End Date{' '}
+                      <span className="text-stone-400 normal-case font-normal">(optional — leave blank to repeat forever)</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={blockoutForm.repeatEndDate}
+                      min={blockoutForm.date}
+                      onChange={(e) => setBlockoutForm((f) => ({ ...f, repeatEndDate: e.target.value }))}
+                      className={inputCls}
+                    />
+                  </div>
+                </>
+              )}
 
               {/* Custom time range — only visible when slot === 'custom' */}
               {blockoutForm.slot === 'custom' && (

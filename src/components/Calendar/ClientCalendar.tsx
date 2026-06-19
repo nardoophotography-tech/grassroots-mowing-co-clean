@@ -16,7 +16,7 @@ import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, CheckCircle
 import { Job, BusinessSettings } from '@/types';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
-import { CalendarBlock } from '@/data/blockoutStore';
+import { CalendarBlock, isBlockActiveOnDate } from '@/data/blockoutStore';
 
 interface ClientCalendarProps {
   suburb: string;
@@ -78,9 +78,10 @@ export const ClientCalendar: React.FC<ClientCalendarProps> = ({
     let afternoonAvailable = afternoonJobs.length < afternoonCapacity;
 
     // ── Check admin calendar block-outs (showPublic only) ──────────────
+    // Uses isBlockActiveOnDate to handle both one-off and weekly recurring blocks.
     if (blocks.length > 0) {
       const publicDayBlocks = blocks.filter(
-        (b) => b.status === 'active' && b.date === dateStr && b.showPublic
+        (b) => b.status === 'active' && isBlockActiveOnDate(b, dateStr) && b.showPublic
       );
       for (const block of publicDayBlocks) {
         if (block.slot === 'full_day') {
@@ -213,7 +214,7 @@ export const ClientCalendar: React.FC<ClientCalendarProps> = ({
                     </button>
                   );
                 })}
-              </div>
+                      </div>
             </motion.div>
           )}
         </AnimatePresence>

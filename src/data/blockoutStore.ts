@@ -12,42 +12,81 @@ import {
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export type BlockSlot = 'morning' | 'afternoon' | 'flexible' | 'full_day' | 'custom';
+export type BlockRepeat = 'none' | 'weekly';
+export type WeekDay =
+  | 'monday'
+  | 'tuesday'
+  | 'wednesday'
+  | 'thursday'
+  | 'friday'
+  | 'saturday'
+  | 'sunday';
+
+/** Ordered list of weekdays for rendering pickers */
+export const WEEKDAYS: { key: WeekDay; label: string; short: string }[] = [
+  { key: 'monday',    label: 'Monday',    short: 'Mon' },
+  { key: 'tuesday',   label: 'Tuesday',   short: 'Tue' },
+  { key: 'wednesday', label: 'Wednesday', short: 'Wed' },
+  { key: 'thursday',  label: 'Thursday',  short: 'Thu' },
+  { key: 'friday',    label: 'Friday',    short: 'Fri' },
+  { key: 'saturday',  label: 'Saturday',  short: 'Sat' },
+  { key: 'sunday',    label: 'Sunday',    short: 'Sun' },
+];
+
+/** Internal mapping: getDay() index -> WeekDay name */
+const DAY_INDEX_TO_NAME: WeekDay[] = [
+  'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday',
+];
 
 export interface CalendarBlock {
   id: string;
   type: 'blockout';
   title: string;
-  reason: string;       // admin-only private note
-  publicLabel: string;  // customer-safe text
-  showPublic: boolean;  // whether public booking calendar sees this
-  date: string;         // YYYY-MM-DD
+  reason: string;
+  publicLabel: string;
+  showPublic: boolean;
+  date: string;
   slot: BlockSlot;
-  startTime?: string;   // HH:mm — only for custom slot
-  endTime?: string;     // HH:mm — only for custom slot
+  startTime?: string;
+  endTime?: string;
+  repeat?: BlockRepeat;
+  repeatDays?: WeekDay[];
+  repeatStartDate?: string;
+  repeatEndDate?: string;
   createdAt: number;
   updatedAt: number;
   createdBy?: string;
   status: 'active' | 'deleted';
 }
 
-// ─── Firestore collection ───────────────────────────────────────────────────
-
 const COLLECTION = 'calendar_blocks';
 
-// ─── Helper functions ───────────────────────────────────────────────────────
+export function isBlockActiveOnDate(block: CalendarBlock, date: string): boolean {
+  if (block.status !== 'active') return false;
+  const repeat = block.repeat ?? 'none';
+  if (repeat === 'none') {
+    return block.date === date;
+  }
+  if (repeat === 'weekly') {
+    const repeatDays = block.repeatDays ?? [];
+    if (repeatDays.length === 0) return false;
+    const startDate = block.repeatStartDate ?? block.date;
+    if (date < startDate) return false;
+    if (block.repeatEndDate && date > block.repeatEndDate) return false;
+    const d = new Date(date + 'T00:00:00');
+    const dayName = DAY_INDEX_TO_NAME[d.getDay()];
+    return repeatDays.includes(dayName);
+  }
+  return false;
+}
 
-/** All active blocks for a given YYYY-MM-DD date string */
 export function getActiveBlocksForDate(
   blocks: CalendarBlock[],
   date: string
 ): CalendarBlock[] {
-  return blocks.filter((b) => b.status === 'active' && b.date === date);
+  return blocks.filter((b) => isBlockActiveOnDate(b, date));
 }
 
-/**
- * Returns the first block that conflicts with the given run slot / time.
- * Pass `activeBlocks` (already-filtered to status=active) for efficiency.
- */
 export function checkBlockConflict(
   blocks: CalendarBlock[],
   date: string,
@@ -67,7 +106,6 @@ export function checkBlockConflict(
   return null;
 }
 
-/** True if the given date+slot is blocked (for public calendar use) */
 export function isSlotBlocked(
   blocks: CalendarBlock[],
   date: string,
@@ -83,22 +121,21 @@ export function isSlotBlocked(
   );
 }
 
-/** True if the entire day is blocked */
 export function isDayFullyBlocked(blocks: CalendarBlock[], date: string): boolean {
   return getActiveBlocksForDate(blocks, date).some((b) => b.slot === 'full_day');
 }
 
-/** Short admin-facing label for display in day cards / chips */
-export function formatBlockLabel(b: Pick<CalendarBlock, 'slot' | 'startTime' | 'endTime'>): string {
-  if (b.slot === 'full_day') return 'FULL DAY BLOCKED';
-  if (b.slot === 'morning') return 'MORNING BLOCKED';
-  if (b.slot === 'afternoon') return 'AFTERNOON BLOCKED';
-  if (b.slot === 'flexible') return 'FLEXIBLE BLOCKED';
-  if (b.slot === 'custom') return `BLOCKED ${b.startTime ?? ''}–${b.endTime ?? ''}`;
-  return 'BLOCKED';
+export function formatBlockLabel(
+  b: Pick<CalendarBlock, 'slot' | 'startTime' | 'endTime'> & { repeat?: BlockRepeat }
+): string {
+  const suffix = b.repeat === 'weekly' ? ' — WEEKLY' : '';
+  if (b.slot === 'full_day') return 'FULL DAY BLOCKED' + suffix;
+  if (b.slot === 'morning') return 'MORNING BLOCKED' + suffix;
+  if (b.slot === 'afternoon') return 'AFTERNOON BLOCKED' + suffix;
+  if (b.slot === 'flexible') return 'FLEXIBLE BLOCKED' + suffix;
+  if (b.slot === 'custom') return 'BLOCKED ' + (b.startTime ?? '') + '–' + (b.endTime ?? '') + suffix;
+  return 'BLOCKED' + suffix;
 }
-
-// ─── Store ──────────────────────────────────────────────────────────────────
 
 export const blockoutStore = {
   async add(
@@ -114,7 +151,6 @@ export const blockoutStore = {
     await updateDoc(doc(db, COLLECTION, id), { ...data, updatedAt: Date.now() });
   },
 
-  /** Soft-delete: sets status to "deleted" so it falls out of the live query */
   async remove(id: string): Promise<void> {
     await updateDoc(doc(db, COLLECTION, id), {
       status: 'deleted',
@@ -123,12 +159,6 @@ export const blockoutStore = {
   },
 };
 
-// ─── React hook ─────────────────────────────────────────────────────────────
-
-/**
- * Live-synced list of ACTIVE calendar blocks from Firestore.
- * Filters `status === 'active'` in memory to avoid needing a composite index.
- */
 export function useBlockouts(): CalendarBlock[] {
   const [items, setItems] = React.useState<CalendarBlock[]>([]);
 
@@ -144,7 +174,7 @@ export function useBlockouts(): CalendarBlock[] {
         setItems(all.filter((b) => b.status === 'active'));
       },
       (_err: any) => {
-        console.warn('[useBlockouts] Firestore unavailable — block-outs hidden');
+        console.warn('[useBlockouts] Firestore unavailable');
         setItems([]);
       }
     );
