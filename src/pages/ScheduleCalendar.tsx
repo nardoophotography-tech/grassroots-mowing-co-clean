@@ -192,6 +192,13 @@ export const ScheduleCalendar = () => {
   const [blockoutForm, setBlockoutForm] = React.useState<BlockoutFormState>(EMPTY_BLOCKOUT);
   const [savingBlockout, setSavingBlockout] = React.useState(false);
 
+  // ── Overlap confirmation modal (replaces window.confirm) ──────────────
+  const [confirmOverlap, setConfirmOverlap] = React.useState<{
+    message: string;
+    payload: Omit<CalendarBlock, 'id' | 'createdAt' | 'updatedAt'>;
+    isEdit: boolean;
+  } | null>(null);
+
   const jobEntries: ScheduleEntry[] = React.useMemo(
     () =>
       jobs
@@ -352,6 +359,29 @@ export const ScheduleCalendar = () => {
     }
   };
 
+  // ── Execute a blockout save (called directly or after overlap confirm) ─
+  const commitBlockout = async (
+    payload: Omit<CalendarBlock, 'id' | 'createdAt' | 'updatedAt'>,
+    isEdit: boolean,
+    isWeekly: boolean
+  ) => {
+    setSavingBlockout(true);
+    try {
+      if (isEdit && editingBlockId) {
+        await blockoutStore.update(editingBlockId, payload);
+        toast.success('Block-out updated.');
+      } else {
+        await blockoutStore.add(payload);
+        toast.success(isWeekly ? 'Recurring block-out saved.' : 'Time blocked out.');
+      }
+      setBlockoutFormOpen(false);
+    } catch {
+      toast.error('Failed to save block-out.');
+    } finally {
+      setSavingBlockout(false);
+    }
+  };
+
   const saveBlockout = async (ev: React.FormEvent) => {
     ev.preventDefault();
 
@@ -362,6 +392,25 @@ export const ScheduleCalendar = () => {
       toast.error('Please select at least one day of the week for the recurring block.');
       return;
     }
+
+    // ── Build payload early so it can be passed to confirm modal ──────
+    const payload: Omit<CalendarBlock, 'id' | 'createdAt' | 'updatedAt'> = {
+      type: 'blockout',
+      title: blockoutForm.reason || formatBlockLabel({ slot: blockoutForm.slot, repeat: blockoutForm.repeat }),
+      reason: blockoutForm.reason,
+      publicLabel: blockoutForm.publicLabel || 'Unavailable',
+      showPublic: blockoutForm.showPublic,
+      date: blockoutForm.date,
+      slot: blockoutForm.slot,
+      startTime: blockoutForm.slot === 'custom' ? blockoutForm.startTime : undefined,
+      endTime: blockoutForm.slot === 'custom' ? blockoutForm.endTime : undefined,
+      status: 'active',
+      // ── Recurring fields ─────────────────────────────────────────────
+      repeat: blockoutForm.repeat,
+      repeatDays: isWeekly ? blockoutForm.repeatDays : [],
+      repeatStartDate: isWeekly ? blockoutForm.date : undefined,
+      repeatEndDate: isWeekly && blockoutForm.repeatEndDate ? blockoutForm.repeatEndDate : undefined,
+    };
 
     // ── Check for overlap with existing bookings ───────────────────────
     const slotMatchesEntry = (e: typeof entries[0]) => {
@@ -399,46 +448,15 @@ export const ScheduleCalendar = () => {
     }
 
     if (overlapping.length > 0) {
+      // ── Show non-blocking React confirm instead of window.confirm() ──
       const msg = isWeekly
-        ? `⚠️ This recurring block-out overlaps ${overlapping.length} existing booking(s).\n\nThe existing bookings will NOT be moved or changed.\n\nContinue anyway?`
-        : `⚠️ This block-out overlaps ${overlapping.length} existing booking(s).\n\nThe existing bookings will NOT be moved or changed.\n\nContinue anyway?`;
-      const proceed = window.confirm(msg);
-      if (!proceed) return;
+        ? `This recurring block-out overlaps ${overlapping.length} existing booking(s). The existing bookings will NOT be moved or changed. Continue anyway?`
+        : `This block-out overlaps ${overlapping.length} existing booking(s). The existing bookings will NOT be moved or changed. Continue anyway?`;
+      setConfirmOverlap({ message: msg, payload, isEdit: !!editingBlockId });
+      return;
     }
 
-    setSavingBlockout(true);
-    try {
-      const payload: Omit<CalendarBlock, 'id' | 'createdAt' | 'updatedAt'> = {
-        type: 'blockout',
-        title: blockoutForm.reason || formatBlockLabel({ slot: blockoutForm.slot, repeat: blockoutForm.repeat }),
-        reason: blockoutForm.reason,
-        publicLabel: blockoutForm.publicLabel || 'Unavailable',
-        showPublic: blockoutForm.showPublic,
-        date: blockoutForm.date,
-        slot: blockoutForm.slot,
-        startTime: blockoutForm.slot === 'custom' ? blockoutForm.startTime : undefined,
-        endTime: blockoutForm.slot === 'custom' ? blockoutForm.endTime : undefined,
-        status: 'active',
-        // ── Recurring fields ─────────────────────────────────────────────
-        repeat: blockoutForm.repeat,
-        repeatDays: isWeekly ? blockoutForm.repeatDays : [],
-        repeatStartDate: isWeekly ? blockoutForm.date : undefined,
-        repeatEndDate: isWeekly && blockoutForm.repeatEndDate ? blockoutForm.repeatEndDate : undefined,
-      };
-
-      if (editingBlockId) {
-        await blockoutStore.update(editingBlockId, payload);
-        toast.success('Block-out updated.');
-      } else {
-        await blockoutStore.add(payload);
-        toast.success(isWeekly ? 'Recurring block-out saved.' : 'Time blocked out.');
-      }
-      setBlockoutFormOpen(false);
-    } catch {
-      toast.error('Failed to save block-out.');
-    } finally {
-      setSavingBlockout(false);
-    }
+    await commitBlockout(payload, !!editingBlockId, isWeekly);
   };
 
   // ── Rendering helpers ──────────────────────────────────────────────────
@@ -1045,6 +1063,37 @@ export const ScheduleCalendar = () => {
       )}
 
       {/* ── Block-Out Modal ────────────────────────────────────────────── */}
+      {/* ── Overlap confirmation modal (non-blocking, replaces window.confirm) ── */}
+      {confirmOverlap && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 space-y-4">
+            <p className="text-sm font-semibold text-stone-800 leading-relaxed">
+              ⚠️ {confirmOverlap.message}
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => setConfirmOverlap(null)}
+                className="px-5 py-2.5 rounded-xl border border-stone-300 font-black uppercase text-xs tracking-widest hover:bg-stone-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const { payload, isEdit } = confirmOverlap;
+                  setConfirmOverlap(null);
+                  commitBlockout(payload, isEdit, payload.repeat === 'weekly');
+                }}
+                className="px-5 py-2.5 rounded-xl bg-stone-700 text-white font-black uppercase text-xs tracking-widest hover:bg-stone-800"
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {blockoutFormOpen && (
         <div className="fixed inset-0 z-[90] bg-black/40 flex items-start justify-center overflow-y-auto p-4">
           <form onSubmit={saveBlockout} className="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl mt-10 mb-10">
