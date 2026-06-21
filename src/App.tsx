@@ -89,14 +89,14 @@ if (import.meta.env.DEV) {
 
 const Layout = ({ children }: { children: React.ReactNode }) => {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
-  const { profile } = useAuth();
+  const { profile, loading } = useAuth();
 
   return (
     <div className="flex h-screen bg-background overflow-hidden relative">
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
-      
+
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-        <GlobalHeader profile={profile} onMenuClick={() => setIsSidebarOpen(true)} />
+        <GlobalHeader profile={profile} loading={loading} onMenuClick={() => setIsSidebarOpen(true)} />
 
         {/* ── TEST VERSION BANNER ─────────────────────────────────────────────
              Hidden by default (no env var needed for production).

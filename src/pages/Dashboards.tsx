@@ -6,6 +6,7 @@ import { db } from '../firebase';
 import { collection, query, orderBy, onSnapshot, setDoc, doc, deleteDoc } from 'firebase/firestore';
 import { useJobs, useClients, useInvoices, useSettings, useAgencyStaff, usePayments } from '@/hooks/useFirebase';
 import { useAuth } from '@/contexts/AuthContext';
+import { ADMIN_EMAILS } from '@/constants';
 import { cn } from '@/lib/utils';
 import { 
   PlusCircle, 
@@ -1794,14 +1795,26 @@ const ClientDashboard = () => {
 };
 
 export const Dashboard = () => {
-  const { profile, loading } = useAuth();
+  const { profile, user, loading } = useAuth();
   const navigate = useNavigate();
 
   if (loading) return <div className="p-8 text-center uppercase tracking-widest text-[10px] font-black animate-pulse">Loading Platform...</div>;
 
-  // Access Control: One-Off clients don't get a dashboard by default.
-  // Admin and staff are operational users — exempt even if their profile carries a stale clientType.
-  if (profile?.clientType === 'one_off' && profile?.role !== 'admin' && profile?.role !== 'staff') {
+  // Belt-and-suspenders: if the signed-in user's email is a known admin address,
+  // always route to AdminDashboard regardless of what Firestore says.
+  // This prevents a stale/corrupted profile from blocking owner access on mobile.
+  const isAdminEmail = user?.email && ADMIN_EMAILS.includes(user.email);
+  if (isAdminEmail) return <AdminDashboard />;
+
+  // Admin and staff roles also go straight through — role is the primary check.
+  if (profile?.role === 'admin') return <AdminDashboard />;
+  if (profile?.role === 'staff') return <StaffDashboard />;
+  if (profile?.role === 'client' && profile?.clientType === 'asset_management') return <RealEstateDashboard />;
+  if (profile?.role === 'client') return <ClientDashboard />;
+
+  // Access Control: One-Off clients who don't have a recurring account see this.
+  // This must only appear AFTER we've confirmed they are not admin/staff/returning/asset_management.
+  if (profile?.clientType === 'one_off') {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center text-center p-8 bg-white/50 backdrop-blur-sm rounded-[40px] border border-ochre/10 shadow-xl">
         <div className="w-20 h-20 bg-ochre/10 rounded-full flex items-center justify-center mb-6">
@@ -1812,13 +1825,13 @@ export const Dashboard = () => {
           One-Off clients use Guest Protocol for fastest checkout. To access the Dashboard, Job History, and saved properties, please upgrade your account.
         </p>
         <div className="flex gap-4">
-          <Button 
+          <Button
             onClick={() => navigate('/packages')}
             className="bg-deep-red text-white hover:bg-deep-red/90 px-8 py-6 rounded-2xl font-bold uppercase tracking-widest text-xs"
           >
             Upgrade to Recurring
           </Button>
-          <Button 
+          <Button
             variant="outline"
             onClick={() => navigate('/')}
             className="border-ochre/20 text-ochre px-8 py-6 rounded-2xl font-bold uppercase tracking-widest text-xs"
@@ -1829,11 +1842,6 @@ export const Dashboard = () => {
       </div>
     );
   }
-
-  if (profile?.role === 'admin') return <AdminDashboard />;
-  if (profile?.role === 'staff') return <StaffDashboard />;
-  if (profile?.role === 'client' && profile?.clientType === 'asset_management') return <RealEstateDashboard />;
-  if (profile?.role === 'client') return <ClientDashboard />;
 
   return (
     <div className="min-h-[60vh] flex flex-col items-center justify-center text-center p-8 bg-white/50 backdrop-blur-sm rounded-[40px] border border-ochre/10 shadow-xl">

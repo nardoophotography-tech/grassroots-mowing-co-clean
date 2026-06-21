@@ -69,7 +69,7 @@ export const NavItem = ({ to, icon: Icon, label, active, onClick }: { to: string
   </Link>
 );
 
-export const GlobalHeader = ({ onMenuClick, profile }: { onMenuClick: () => void, profile: any }) => {
+export const GlobalHeader = ({ onMenuClick, profile, loading = false }: { onMenuClick: () => void, profile: any, loading?: boolean }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const role = profile?.role;
@@ -82,11 +82,14 @@ export const GlobalHeader = ({ onMenuClick, profile }: { onMenuClick: () => void
     }
   };
 
-  // Admin and staff are operational users — never treat them as one-off clients,
-  // even if their profile carries a stale clientType.
+  // isOneOff: true only when profile is fully loaded AND the user is a one_off client.
+  // Do NOT treat loading state (profile=null, loading=true) as one_off — that causes
+  // the guest buttons to flash for admin users on slow connections.
+  // Admin and staff are ALWAYS exempt, even if their profile carries a stale clientType.
   const isOneOff =
-    !profile ||
-    (profile.role !== 'admin' && profile.role !== 'staff' && profile.clientType === 'one_off');
+    !loading &&
+    (!profile ||
+      (profile.role !== 'admin' && profile.role !== 'staff' && profile.clientType === 'one_off'));
 
   return (
     <header className="h-20 shadow-premium border-b flex items-center justify-between px-4 sm:px-6 lg:px-10 flex-shrink-0 relative z-20 overflow-hidden" style={{ background: 'linear-gradient(90deg, #111111 0%, #1c3a25 60%, #234F2E 100%)', borderColor: 'rgba(255,255,255,0.10)' }}>
@@ -94,7 +97,7 @@ export const GlobalHeader = ({ onMenuClick, profile }: { onMenuClick: () => void
       <div className="cultural-values-strip absolute bottom-0 left-0 z-20" />
       {/* Brand accent line */}
       <div className="absolute top-0 left-0 w-full h-0.5" style={{ backgroundColor: 'rgba(198,134,45,0.5)' }} />
-      
+
       <div className="flex items-center space-x-4 relative z-10">
         {!isOneOff && (
           <button
@@ -104,18 +107,19 @@ export const GlobalHeader = ({ onMenuClick, profile }: { onMenuClick: () => void
             <Menu className="h-6 w-6" />
           </button>
         )}
-        
+
         <Link to="/" className="flex items-center gap-2 group mr-2">
           <AppLogo className="h-16 w-auto group-hover:rotate-3 transition-transform" showText={false} />
         </Link>
-        
+
         <div className="flex items-center space-x-1.5 sm:space-x-2 p-1.5 bg-white/10 rounded-full border border-white/15 shadow-inner max-w-[55vw] sm:max-w-none overflow-x-auto no-scrollbar backdrop-blur-sm">
           {isOneOff ? (
             <>
+              {/* ONE OFF CLIENTS → Portal/Login (not booking form — users must be able to sign in) */}
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate('/booking?type=one_off')}
+                onClick={() => navigate('/login')}
                 className="text-[10px] sm:text-xs font-black uppercase tracking-widest px-3 sm:px-5 h-9 sm:h-10 bg-secondary text-white rounded-full italic hover:scale-105 transition-transform whitespace-nowrap"
               >
                 one off clients
@@ -134,11 +138,11 @@ export const GlobalHeader = ({ onMenuClick, profile }: { onMenuClick: () => void
                 onClick={() => navigate('/login?intendedRole=asset_management')}
                 className="hidden xs:block text-[10px] sm:text-xs font-black uppercase tracking-widest px-3 sm:px-5 h-9 sm:h-10 text-white/60 rounded-full italic hover:bg-white/10 whitespace-nowrap"
               >
-                asset managment
+                asset management
               </Button>
             </>
           ) : (
-            <>
+<>
               <Button
                 variant="ghost"
                 size="icon"
