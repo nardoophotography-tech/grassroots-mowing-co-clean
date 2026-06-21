@@ -29,7 +29,15 @@ export const Login = () => {
       if (user) {
         // If they have a profile, go to dashboard
         if (profile) {
-          if (intendedRole && profile.role !== intendedRole) {
+          // Never downgrade admin or staff roles via intendedRole — they are
+          // operational users and their role must not be overwritten by a
+          // client-facing URL parameter (e.g. ?intendedRole=returning).
+          const canOverrideRole =
+            intendedRole &&
+            profile.role !== intendedRole &&
+            profile.role !== 'admin' &&
+            profile.role !== 'staff';
+          if (canOverrideRole) {
             try {
               await updateProfile({ role: intendedRole });
               toast.success(`Accessing ${intendedRole} portal...`);
