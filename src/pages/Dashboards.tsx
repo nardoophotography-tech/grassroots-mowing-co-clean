@@ -1799,8 +1799,9 @@ export const Dashboard = () => {
 
   if (loading) return <div className="p-8 text-center uppercase tracking-widest text-[10px] font-black animate-pulse">Loading Platform...</div>;
 
-  // Access Control: One-Off clients don't get a dashboard by default
-  if (profile?.clientType === 'one_off') {
+  // Access Control: One-Off clients don't get a dashboard by default.
+  // Admin and staff are operational users — exempt even if their profile carries a stale clientType.
+  if (profile?.clientType === 'one_off' && profile?.role !== 'admin' && profile?.role !== 'staff') {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center text-center p-8 bg-white/50 backdrop-blur-sm rounded-[40px] border border-ochre/10 shadow-xl">
         <div className="w-20 h-20 bg-ochre/10 rounded-full flex items-center justify-center mb-6">

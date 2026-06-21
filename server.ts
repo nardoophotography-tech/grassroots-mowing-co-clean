@@ -383,12 +383,13 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
 
       case 'payment-successful':
         emailSubject = `Payment Confirmed: Invoice ${invoiceNumber || job?.invoiceNumber || 'Receipt'} - GrassRoots Mowing Co.`;
-        emailContent = settings.receiptTemplate 
+        emailContent = settings.receiptTemplate
           ? replacePlaceholders(settings.receiptTemplate, { clientName, amount, invoiceNumber: invoiceNumber || job?.invoiceNumber || job?.id, paymentLink, pdfUrl })
           : `Hi ${clientName},\n\nPayment Successful!\n\nInvoice Number: ${invoiceNumber || job?.invoiceNumber || 'N/A'}\nAmount Paid: $${(amount || 0)}\nStatus: PAID\n\nYou can view your receipt here: ${paymentLink}${pdfUrl ? `\n\nDownload PDF Receipt: ${pdfUrl}` : ''}\n\nWe've received your payment and your booking is confirmed in our schedule.\n\nThanks for choosing GrassRoots Mowing Co.\nProject #156 — GrassRoots Team\nadmin@project156.com`;
         smsContent = `GrassRoots Mowing: Payment of $${(amount || 0)} received. Thank you! Receipt: ${paymentLink}${pdfUrl ? `\nPDF: ${pdfUrl}` : ''}`;
         adminEmailSubject = `PAYMENT RECEIVED: $${(amount || 0)} from ${clientName}`;
         adminEmailContent = `Payment of $${(amount || 0)} has been received for job ${job?.id || 'N/A'}. Invoice: ${invoiceNumber || 'N/A'}`;
+        adminSmsContent = `✅ Payment received: $${(amount || 0)} from ${clientName}. Job: ${job?.id || invoiceNumber || 'N/A'}`;
         break;
 
       case 'job-scheduled':
@@ -421,6 +422,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
         emailSubject = `Payment Receipt: ${invoiceNumber || 'Your Service'} - GrassRoots Mowing Co.`;
         emailContent = `Hi ${clientName},\n\nThank you for your payment of $${(amount || 0)}\n\nYour service at ${job?.address || 'TBD'} is now fully paid and closed.\n\nYou can view your receipt here: ${paymentLink}${pdfUrl ? `\n\nDownload PDF Receipt: ${pdfUrl}` : ''}\n\nThanks for choosing GrassRoots Mowing Co.\nProject #156 — GrassRoots Team\nadmin@project156.com`;
         smsContent = `GrassRoots Mowing: Payment received! Thank you for the $${(amount || 0)}. Receipt: ${paymentLink}${pdfUrl ? `\nPDF: ${pdfUrl}` : ''}`;
+        adminSmsContent = `✅ Payment receipt: $${(amount || 0)} from ${clientName}. Job: ${job?.id || invoiceNumber || 'N/A'}`;
         break;
 
       case 'payment-reminder':
@@ -466,6 +468,51 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
       }
       return { status: 'simulated' };
     };
+
+    // ── GOOGLE REVIEW MULTIPLIER ─────────────────────────────────────────────
+    // Fires an SMS 15 min after any confirmed payment (Stripe or manual).
+    // Requires GOOGLE_PLACE_ID env var in Render environment settings.
+    // Duplicate-safe: cancels any existing timer for the same ref before setting a new one.
+    // Note: timers live in memory — lost on server restart (acceptable for this use case).
+    const pendingReviewTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+    const scheduleReviewSms = (
+      clientPhone: string,
+      clientName: string,
+      refId: string,
+      delayMs = 15 * 60 * 1000
+    ) => {
+      const phone = toE164(clientPhone);
+      const placeId = process.env.GOOGLE_PLACE_ID;
+      if (!phone || !placeId) {
+        console.warn(`[ReviewSMS]: Skipped — phone=${!!phone}, GOOGLE_PLACE_ID set=${!!placeId}`);
+        return;
+      }
+      // Cancel duplicate timer for same job/invoice
+      if (pendingReviewTimers.has(refId)) {
+        clearTimeout(pendingReviewTimers.get(refId)!);
+        console.log(`[ReviewSMS]: Replaced existing timer for ref ${refId}`);
+      }
+      const timer = setTimeout(async () => {
+        pendingReviewTimers.delete(refId);
+        const firstName = (clientName || 'there').split(' ')[0];
+        const reviewUrl = `https://search.google.com/local/writereview?placeid=${placeId}`;
+        const body =
+          `Hi ${firstName} 👋 Thanks for choosing GrassRoots Mowing Co!\n\n` +
+          `If you're happy with the service, a quick Google review means a lot to a small local business 🌿\n\n` +
+          `${reviewUrl}\n\n` +
+          `— David & the GrassRoots Team`;
+        try {
+          await sendSms(phone, body);
+          console.log(`[ReviewSMS]: Sent to ${phone} (ref: ${refId})`);
+        } catch (err: any) {
+          console.error(`[ReviewSMS]: Failed for ref ${refId}: ${err.message}`);
+        }
+      }, delayMs);
+      pendingReviewTimers.set(refId, timer);
+      console.log(`[ReviewSMS]: Scheduled for ${phone} in ${Math.round(delayMs / 60000)}min (ref: ${refId})`);
+    };
+    // ─────────────────────────────────────────────────────────────────────────
 
     const sendEmail = async (to: string, subject: string, text: string) => {
       const keyPresent = !!process.env.RESEND_API_KEY;
@@ -691,6 +738,11 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
 
         await batch.commit();
         console.log(`[Stripe Webhook]: Firestore updates committed successfully for session ${session.id}`);
+
+        // Schedule Google Review SMS 15 minutes after Stripe payment
+        if (jobData?.clientPhone) {
+          scheduleReviewSms(jobData.clientPhone, clientName, jobId || session.id);
+        }
 
         // Trigger PDF generation if invoiceId exists
         if (invoiceId) {
@@ -1181,28 +1233,64 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
       const baseUrl = process.env.APP_URL || process.env.VITE_APP_URL || `http://localhost:${PORT}`;
       const link = invoiceId ? `${baseUrl}/pay/${invoiceId}` : (jobId ? `${baseUrl}/quote/${jobId}` : baseUrl);
       
-      // Notify client
+      // Notify client + admin of cash payment selection
       try {
         const jobSnap = jobId ? await db.collection('jobs').doc(jobId).get() : null;
         const jobData = jobSnap?.exists ? jobSnap.data() : null;
+        const resolvedTotal = total || jobData?.price || 0;
 
         await handleNotification({
-           stage: "booking-created",
-           job: { ...jobData, id: jobId || invoiceId },
-           clientName: clientName || jobData?.clientName,
-           clientEmail: clientEmail || jobData?.clientEmail,
-           clientPhone: jobData?.clientPhone,
-           invoiceLink: link
+          stage: "payment-successful",
+          job: { ...jobData, id: jobId || invoiceId },
+          clientName: clientName || jobData?.clientName,
+          clientEmail: clientEmail || jobData?.clientEmail,
+          clientPhone: jobData?.clientPhone,
+          amount: resolvedTotal,
+          invoiceNumber: invoiceId || jobData?.invoiceId,
+          invoiceLink: link
         });
       } catch (e) {
-        console.error("Failed to trigger notify for cash booking", e);
+        console.error("Failed to trigger notify for cash payment", e);
       }
-      
+
+      // Schedule Google Review SMS 15 minutes after cash/manual payment confirmed
+      try {
+        const reviewJobSnap = jobId ? await db.collection('jobs').doc(jobId).get() : null;
+        const reviewJobData = reviewJobSnap?.exists ? reviewJobSnap.data() : null;
+        const reviewPhone = reviewJobData?.clientPhone || '';
+        const reviewName = clientName || reviewJobData?.clientName || '';
+        if (reviewPhone) {
+          scheduleReviewSms(reviewPhone, reviewName, jobId || invoiceId || `cash-${Date.now()}`);
+        }
+      } catch (e) {
+        console.error('[ReviewSMS]: Failed to schedule after cash payment', e);
+      }
+
       res.json({ success: true, url: link });
     } catch (err: any) {
       console.error("Cash Enrollment Error:", err.message);
       res.status(500).json({ error: err.message });
     }
+  });
+
+  // ── Manual Review SMS Trigger (admin dashboard use) ─────────────────────
+  // POST /api/trigger-review-sms
+  // Body: { clientPhone, clientName, jobId?, delayMs? }
+  // delayMs defaults to 15min. Pass 0 to send immediately (useful for testing).
+  app.post("/api/trigger-review-sms", async (req, res) => {
+    const { clientPhone, clientName, jobId, delayMs } = req.body;
+    if (!clientPhone) return res.status(400).json({ error: 'clientPhone is required' });
+    const delay = typeof delayMs === 'number' ? delayMs : 15 * 60 * 1000;
+    scheduleReviewSms(
+      clientPhone,
+      clientName || 'there',
+      jobId || `manual-${Date.now()}`,
+      delay
+    );
+    res.json({
+      success: true,
+      message: `Review SMS scheduled for ${clientPhone} in ${Math.round(delay / 60000)} min`
+    });
   });
 
   // Secure Stripe Checkout Session Route

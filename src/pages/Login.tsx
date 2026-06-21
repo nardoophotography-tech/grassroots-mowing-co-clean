@@ -29,7 +29,15 @@ export const Login = () => {
       if (user) {
         // If they have a profile, go to dashboard
         if (profile) {
-          if (intendedRole && profile.role !== intendedRole) {
+          // Never downgrade admin or staff roles via intendedRole — they are
+          // operational users and their role must not be overwritten by a
+          // client-facing URL parameter (e.g. ?intendedRole=returning).
+          const canOverrideRole =
+            intendedRole &&
+            profile.role !== intendedRole &&
+            profile.role !== 'admin' &&
+            profile.role !== 'staff';
+          if (canOverrideRole) {
             try {
               await updateProfile({ role: intendedRole });
               toast.success(`Accessing ${intendedRole} portal...`);
@@ -190,7 +198,7 @@ export const Login = () => {
   };
 
   return (
-    <div className={`min-h-screen flex flex-col items-center justify-center ${currentTheme.bg} p-4 relative overflow-hidden transition-colors duration-500`}>
+    <div className={`min-h-screen flex flex-col items-center justify-center ${currentTheme.bg} p-4 relative overflow-x-hidden overflow-y-auto transition-colors duration-500`}>
       <div className="absolute top-4 left-4 flex gap-2 z-20">
         <Button
           variant="ghost"
@@ -219,13 +227,13 @@ export const Login = () => {
       </div>
       <div className="absolute inset-0 cultural-pattern opacity-10 pointer-events-none" />
       
-      {/* Background Artwork */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.03] pointer-events-none grayscale z-0 overflow-hidden w-full flex justify-center">
-        <GrassRootsGuardian size={800} />
+      {/* Background Artwork — hidden on mobile to prevent blank-page on phones */}
+      <div className="hidden sm:flex absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.03] pointer-events-none grayscale z-0 overflow-hidden w-full justify-center">
+        <GrassRootsGuardian size={600} />
       </div>
-      
-      {/* Top Header Image Placeholder */}
-      <div className="w-full max-w-md mb-8 relative z-10 scale-95 opacity-80">
+
+      {/* Top Header Image Placeholder — tablet/desktop only */}
+      <div className="hidden sm:block w-full max-w-md mb-8 relative z-10 scale-95 opacity-80">
         <ImagePlaceholder id={8} seed={`grassroots-login-${intendedRole || 'default'}`} height={120} label={currentTheme.heading} className={`shadow-lg rounded-2xl border-2 ${currentTheme.border}`} />
       </div>
       
@@ -240,7 +248,7 @@ export const Login = () => {
         <div className="cultural-values-strip mx-auto mt-4 max-w-[160px] rounded-full" />
       </div>
 
-      <Card className={`w-full max-w-md shadow-2xl border-t-8 ${currentTheme.border} relative z-10 ${intendedRole === 'client' ? currentTheme.cardBg : 'bg-white/90 backdrop-blur-sm'} rounded-[40px] overflow-hidden transition-all border-x border-b border-white/10`}>
+      <Card className={`w-full max-w-md shadow-2xl border-t-8 ${currentTheme.border} relative z-10 ${intendedRole === 'client' ? currentTheme.cardBg : 'bg-white'} rounded-[40px] overflow-hidden transition-all border-x border-b border-white/10`}>
         <CardHeader className="text-center pt-8">
           <CardTitle className={`text-xl font-serif ${currentTheme.text} flex items-center justify-center gap-2 italic`}>
             Secure Gateway
@@ -367,10 +375,12 @@ export const Login = () => {
           )}
         </CardContent>
       </Card>
-      <div className="w-full max-w-md mt-10 relative z-10 grid grid-cols-2 gap-4 pb-12">
+      {/* Footer image tiles — tablet/desktop only */}
+      <div className="hidden sm:grid w-full max-w-md mt-10 relative z-10 grid-cols-2 gap-4 pb-12">
         <ImagePlaceholder id={9} seed={`login-footer-1-${intendedRole}`} height={80} label="Encrypted Access" className="grayscale opacity-50 contrast-125" />
         <ImagePlaceholder id={10} seed={`login-footer-2-${intendedRole}`} height={80} label="Regional Network" className="grayscale opacity-50 contrast-125" />
       </div>
+      <div className="pb-8 sm:hidden" />
     </div>
   );
 };
