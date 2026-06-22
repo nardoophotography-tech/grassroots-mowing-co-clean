@@ -443,13 +443,14 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
         break;
     }
 
-    const sendSms = async (to: string, body: string) => {
+    const sendSms = async (to: string, body: string, recipientType: 'admin' | 'client', eventStage: string) => {
       // Use Messaging Service SID if available, otherwise Fallback to Phone Number
       const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
       const fromNumber = process.env.TWILIO_PHONE_NUMBER;
 
       if (twilioClient && (messagingServiceSid || fromNumber) && to) {
         const finalTo = toE164(to);
+        const maskedPhone = finalTo.length > 5 ? finalTo.substring(0, 5) + '***' + finalTo.substring(finalTo.length - 3) : '***';
 
         try {
           const params: any = { body, to: finalTo };
@@ -460,11 +461,14 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
           }
 
           const message = await retry(() => twilioClient.messages.create(params));
+          console.log(`[SMS Success] Event: ${eventStage} | Recipient: ${recipientType} | Phone: ${maskedPhone} | SID: ${message.sid}`);
           return message;
         } catch (err: any) {
-          console.error(`[Twilio Failure]: ${err.message}`);
+          console.error(`[SMS Failure] Event: ${eventStage} | Recipient: ${recipientType} | Phone: ${maskedPhone} | Code: ${err.code || 'N/A'} | Msg: ${err.message}`);
           throw err;
         }
+      } else {
+        console.log(`[SMS Skipped] Missing Twilio credentials or missing 'to' number. Event: ${eventStage} | Recipient: ${recipientType}`);
       }
       return { status: 'simulated' };
     };
@@ -503,10 +507,9 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
           `${reviewUrl}\n\n` +
           `— David & the GrassRoots Team`;
         try {
-          await sendSms(phone, body);
-          console.log(`[ReviewSMS]: Sent to ${phone} (ref: ${refId})`);
+          await sendSms(phone, body, 'client', 'review-reminder');
         } catch (err: any) {
-          console.error(`[ReviewSMS]: Failed for ref ${refId}: ${err.message}`);
+          console.error(`[ReviewSMS]: Failed for ref ${refId}`);
         }
       }, delayMs);
       pendingReviewTimers.set(refId, timer);
@@ -580,12 +583,10 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
       // Step 5. SMS notification (Client)
       if (smsContent && clientPhone) {
         try { 
-          await sendSms(clientPhone, smsContent); 
+          await sendSms(clientPhone, smsContent, 'client', stage); 
           results.sms = 'sent'; 
-          console.log(`[handleNotification]: Step 5 - SMS sent to ${clientPhone}`);
         } catch (err) { 
           results.sms = 'failed'; 
-          console.error("[SMS Failure] Client:", clientPhone, err);
         }
       }
 
@@ -597,9 +598,9 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
       }
       
       if (adminSmsContent) {
-        const adminPhone = process.env.ADMIN_PHONE_NUMBER;
+        const adminPhone = process.env.ADMIN_PHONE_NUMBER || process.env.ADMIN_PHONE;
         if (adminPhone) {
-          try { await sendSms(adminPhone, adminSmsContent); results.adminSms = 'sent'; } catch (err) { results.adminSms = 'failed'; }
+          try { await sendSms(adminPhone, adminSmsContent, 'admin', stage); results.adminSms = 'sent'; } catch (err) { results.adminSms = 'failed'; }
         }
       }
 
