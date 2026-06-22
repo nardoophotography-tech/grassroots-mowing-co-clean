@@ -447,10 +447,18 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
       // Use Messaging Service SID if available, otherwise Fallback to Phone Number
       const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
       const fromNumber = process.env.TWILIO_PHONE_NUMBER;
+      const hasTwilioSid = !!process.env.TWILIO_ACCOUNT_SID;
+      const hasTwilioToken = !!process.env.TWILIO_AUTH_TOKEN;
+      const hasTwilioFrom = !!fromNumber;
+      const hasMessagingServiceSid = !!messagingServiceSid;
+
+      const maskedTo = to ? (to.length > 5 ? to.substring(0, 5) + '***' + to.substring(to.length - 3) : '***') : 'N/A';
+
+      console.log(`[SMS] attempt\neventStage: ${eventStage}\nrecipientType: ${recipientType}\nmaskedTo: ${maskedTo}\nhasTwilioSid: ${hasTwilioSid}\nhasTwilioToken: ${hasTwilioToken}\nhasTwilioFrom: ${hasTwilioFrom}\nhasMessagingServiceSid: ${hasMessagingServiceSid}`);
 
       if (twilioClient && (messagingServiceSid || fromNumber) && to) {
         const finalTo = toE164(to);
-        const maskedPhone = finalTo.length > 5 ? finalTo.substring(0, 5) + '***' + finalTo.substring(finalTo.length - 3) : '***';
+        const finalMasked = finalTo.length > 5 ? finalTo.substring(0, 5) + '***' + finalTo.substring(finalTo.length - 3) : '***';
 
         try {
           const params: any = { body, to: finalTo };
@@ -461,10 +469,10 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
           }
 
           const message = await retry(() => twilioClient.messages.create(params));
-          console.log(`[SMS Success] Event: ${eventStage} | Recipient: ${recipientType} | Phone: ${maskedPhone} | SID: ${message.sid}`);
+          console.log(`[SMS] success\nrecipientType: ${recipientType}\nmaskedTo: ${finalMasked}\nmessageSid: ${message.sid}`);
           return message;
         } catch (err: any) {
-          console.error(`[SMS Failure] Event: ${eventStage} | Recipient: ${recipientType} | Phone: ${maskedPhone} | Code: ${err.code || 'N/A'} | Msg: ${err.message}`);
+          console.error(`[SMS] failed\nrecipientType: ${recipientType}\nmaskedTo: ${finalMasked}\nerrorCode: ${err.code || 'N/A'}\nerrorMessage: ${err.message}`);
           throw err;
         }
       } else {
@@ -791,6 +799,30 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
     }
 
     res.json({ received: true });
+  });
+
+  // Diagnostic Test Endpoint for SMS
+  app.post("/api/admin/test-sms", async (req, res) => {
+    try {
+      const adminPhone = process.env.ADMIN_PHONE_NUMBER || process.env.ADMIN_PHONE;
+      if (!adminPhone) {
+        return res.status(400).json({ success: false, error: 'ADMIN_PHONE_NUMBER is not set in environment.' });
+      }
+
+      console.log(`[Diagnostic] Attempting test SMS to: ${adminPhone}`);
+      const results = await handleNotification({
+        stage: 'payment-successful',
+        job: { id: "test-sms-001" },
+        clientName: "Test Diagnostic",
+        clientPhone: adminPhone,
+        amount: 1,
+        invoiceNumber: "TEST-001"
+      });
+      res.json({ success: true, results });
+    } catch (err: any) {
+      console.error(`[Diagnostic Error]: ${err.message}`);
+      res.status(500).json({ success: false, error: err.message });
+    }
   });
 
   // Notification Route
