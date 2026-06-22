@@ -198,7 +198,7 @@ export const DEFAULT_SETTINGS: BusinessSettings = {
   receiptTemplate: "Hi [Client Name], thanks for your payment via [Method]. Your receipt is attached.",
   suburbSchedules: SUBURBS.map(suburb => ({
     suburb,
-    availableDays: [1, 2, 3, 4, 5], // Mon-Fri
+    availableDays: [0, 1, 2, 3, 4, 5, 6], // Sun-Sat
     morningCapacity: 2,
     afternoonCapacity: 2,
     blockedDates: []

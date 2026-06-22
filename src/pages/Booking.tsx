@@ -1,4 +1,4 @@
-﻿import * as React from 'react';
+import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -73,6 +73,23 @@ export const Booking = () => {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [paymentMethod, setPaymentMethod] = React.useState<'card' | 'cash'>('card');
   const [createdJobId, setCreatedJobId] = React.useState<string | null>(null);
+
+  const [publicJobs, setPublicJobs] = React.useState<any[]>([]);
+
+  React.useEffect(() => {
+    if (!user) {
+      fetch('/api/public/job-counts')
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            setPublicJobs(data);
+          }
+        })
+        .catch(err => console.error('[Booking] Failed to fetch public job counts:', err));
+    }
+  }, [user]);
+
+  const effectiveJobs = user ? jobs : publicJobs;
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<BookingFormValues>({
     resolver: zodResolver(bookingSchema) as any,
@@ -477,7 +494,7 @@ export const Booking = () => {
               <CardContent className="space-y-4 pt-4 px-4 pb-6">
                 <ClientCalendar
                   suburb={watchedValues.suburb}
-                  jobs={jobs}
+                  jobs={effectiveJobs}
                   settings={settings!}
                   selectedDate={watchedValues.date}
                   selectedSlot={watchedValues.timeSlot}

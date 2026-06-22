@@ -1,4 +1,4 @@
-﻿import * as React from 'react';
+import * as React from 'react';
 import { 
   format, 
   addDays, 
@@ -59,8 +59,8 @@ export const ClientCalendar: React.FC<ClientCalendarProps> = ({
     const dateStr = format(date, 'yyyy-MM-dd');
     const schedule = settings.suburbSchedules.find(s => s.suburb === suburb);
 
-    // Fallback to Mon-Fri with capacity 2 if no schedule found
-    const availableDays = schedule?.availableDays || [1, 2, 3, 4, 5];
+    // Fallback to all days with capacity 2 if no schedule found
+    const availableDays = schedule?.availableDays || [0, 1, 2, 3, 4, 5, 6];
     const morningCapacity = schedule?.morningCapacity ?? 2;
     const afternoonCapacity = schedule?.afternoonCapacity ?? 2;
 

@@ -1068,6 +1068,33 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
   });
 
   // REST OF API ROUTES
+  app.get("/api/public/job-counts", async (req, res) => {
+    try {
+      // Fetch jobs from the last 7 days onwards for public calendar count
+      const now = Date.now() - (7 * 24 * 60 * 60 * 1000);
+      const snapshot = await db.collection("jobs")
+        .where("scheduledDate", ">=", now)
+        .get();
+      
+      const jobsList: { scheduledDate: number, status: string, suburb: string, timeSlot: string }[] = [];
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        if (data.status !== "cancelled" && data.scheduledDate) {
+          jobsList.push({
+            scheduledDate: data.scheduledDate,
+            status: data.status,
+            suburb: data.suburb || '',
+            timeSlot: data.timeSlot || ''
+          });
+        }
+      });
+      res.json(jobsList);
+    } catch (err: any) {
+      console.error("[public job-counts] Error:", err.message);
+      res.status(500).json({ error: "Failed to fetch job counts" });
+    }
+  });
+
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
   });
