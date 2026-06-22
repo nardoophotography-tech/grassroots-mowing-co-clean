@@ -801,27 +801,57 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
     res.json({ received: true });
   });
 
-  // Diagnostic Test Endpoint for SMS
+  // Diagnostic Test Endpoint for SMS — calls Twilio directly and reports the real result.
+  // Never include TWILIO_AUTH_TOKEN (or any secret value) in the response — presence flags only.
   app.post("/api/admin/test-sms", async (req, res) => {
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    const fromNumber = process.env.TWILIO_PHONE_NUMBER;
+    const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
+    const adminPhone = process.env.ADMIN_PHONE_NUMBER || process.env.ADMIN_PHONE;
+
+    const debug = {
+      hasAccountSid: !!accountSid,
+      hasAuthToken: !!authToken,
+      hasFromNumber: !!fromNumber,
+      hasMessagingServiceSid: !!messagingServiceSid,
+      hasAdminPhone: !!adminPhone,
+    };
+
+    if (!accountSid || !authToken) {
+      return res.json({ ok: false, errorCode: 'ENV_MISSING', errorMessage: 'TWILIO_ACCOUNT_SID and/or TWILIO_AUTH_TOKEN is not set on this server.', debug });
+    }
+    if (!adminPhone) {
+      return res.json({ ok: false, errorCode: 'ENV_MISSING', errorMessage: 'ADMIN_PHONE_NUMBER (or ADMIN_PHONE) is not set on this server.', debug });
+    }
+    if (!fromNumber && !messagingServiceSid) {
+      return res.json({ ok: false, errorCode: 'ENV_MISSING', errorMessage: 'Neither TWILIO_PHONE_NUMBER nor TWILIO_MESSAGING_SERVICE_SID is set on this server.', debug });
+    }
+
+    const to = toE164(adminPhone);
+    const maskedTo = to.length > 5 ? to.substring(0, 5) + '***' + to.substring(to.length - 3) : '***';
+
     try {
-      const adminPhone = process.env.ADMIN_PHONE_NUMBER || process.env.ADMIN_PHONE;
-      if (!adminPhone) {
-        return res.status(400).json({ success: false, error: 'ADMIN_PHONE_NUMBER is not set in environment.' });
+      const client = twilioClient || twilio(accountSid, authToken);
+      const params: any = { body: 'GrassRoots Mowing: SMS diagnostic test. If you received this, Twilio is working.', to };
+      if (messagingServiceSid) {
+        params.messagingServiceSid = messagingServiceSid;
+      } else {
+        params.from = fromNumber;
       }
 
-      console.log(`[Diagnostic] Attempting test SMS to: ${adminPhone}`);
-      const results = await handleNotification({
-        stage: 'payment-successful',
-        job: { id: "test-sms-001" },
-        clientName: "Test Diagnostic",
-        clientPhone: adminPhone,
-        amount: 1,
-        invoiceNumber: "TEST-001"
-      });
-      res.json({ success: true, results });
+      console.log(`[TestSMS] Attempting direct Twilio send to ${maskedTo}`);
+      const message = await client.messages.create(params);
+      console.log(`[TestSMS] SUCCESS sid=${message.sid} to=${maskedTo}`);
+      return res.json({ ok: true, to, sid: message.sid });
     } catch (err: any) {
-      console.error(`[Diagnostic Error]: ${err.message}`);
-      res.status(500).json({ success: false, error: err.message });
+      console.error(`[TestSMS] FAILED to=${maskedTo} code=${err.code || 'N/A'} message=${err.message}`);
+      return res.json({
+        ok: false,
+        errorCode: String(err.code || 'UNKNOWN'),
+        errorMessage: err.message || 'Unknown Twilio error',
+        debug,
+      });
     }
   });
 
