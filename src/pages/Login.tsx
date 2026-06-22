@@ -5,7 +5,7 @@ import { Button } from '../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
 import { Label } from '../components/ui/Label';
-import { ClipboardList, Mail, Lock, UserPlus, Fingerprint, ShieldCheck, Home, ArrowLeft } from 'lucide-react';
+import { ClipboardList, Mail, Lock, UserPlus, Fingerprint, ShieldCheck, Home, ArrowLeft, Building2, Zap, Users } from 'lucide-react';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../firebase';
 import { GrassRootsLogo } from '../components/GrassRootsLogo';
@@ -197,6 +197,132 @@ export const Login = () => {
     }
   };
 
+  // ─── Portal Selector ────────────────────────────────────────────────────────
+  // When /login is hit with NO intendedRole AND the user is not signed in, show
+  // a role-selector screen so the mobile "Portal" button is a neutral entry point,
+  // not a force-load of the client portal or the Upgrade Recommended screen.
+  // Once auth resolves (App.tsx guards loading) !user is a clean signal.
+  if (!intendedRole && !user) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-cream p-4 relative overflow-x-hidden overflow-y-auto">
+        <div className="absolute inset-0 cultural-pattern opacity-10 pointer-events-none" />
+        <div className="hidden sm:flex absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.03] pointer-events-none grayscale z-0 overflow-hidden w-full justify-center">
+          <GrassRootsGuardian size={600} />
+        </div>
+
+        {/* Back / Home */}
+        <div className="absolute top-4 left-4 flex gap-2 z-20">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate(-1 as any)}
+            className="text-deep-red hover:bg-black/5 h-10 w-10 rounded-full border border-black/10 p-0 flex items-center justify-center"
+            title="Go Back"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/')}
+            className="text-deep-red hover:bg-black/5 h-10 w-10 rounded-full border border-black/10 p-0 flex items-center justify-center"
+            title="Home"
+          >
+            <Home className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Header */}
+        <div className="text-center mb-8 relative z-10">
+          <GrassRootsLogo className="h-16 w-auto mx-auto mb-4" />
+          <h1 className="text-3xl font-serif font-black text-deep-red uppercase tracking-tighter">Portal Entry</h1>
+          <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-ochre mt-1">Select your access pathway</p>
+          <div className="flex items-center justify-center gap-2 mt-3">
+            <AboriginalFlagBadge height={14} />
+            <span className="text-[8px] font-black uppercase tracking-[0.25em] italic text-ochre">Aboriginal-led · Respect for Country</span>
+          </div>
+          <div className="cultural-values-strip mx-auto mt-4 max-w-[160px] rounded-full" />
+        </div>
+
+        {/* Role Options */}
+        <div className="w-full max-w-md space-y-3 relative z-10">
+
+          {/* Admin Access */}
+          <button
+            onClick={() => navigate('/login?intendedRole=admin')}
+            className="w-full flex items-center gap-4 p-5 bg-deep-red text-white rounded-2xl hover:bg-deep-red/90 active:scale-95 transition-all shadow-lg text-left"
+          >
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+              <ShieldCheck className="h-5 w-5" />
+            </div>
+            <div className="flex-1">
+              <p className="font-black uppercase tracking-widest text-sm">Admin Access</p>
+              <p className="text-xs opacity-70 mt-0.5">Owner &amp; management console</p>
+            </div>
+          </button>
+
+          {/* Returning Client */}
+          <button
+            onClick={() => navigate('/login?intendedRole=client')}
+            className="w-full flex items-center gap-4 p-5 bg-primary text-white rounded-2xl hover:bg-primary/90 active:scale-95 transition-all shadow-lg text-left"
+          >
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Users className="h-5 w-5" />
+            </div>
+            <div className="flex-1">
+              <p className="font-black uppercase tracking-widest text-sm">Returning Client Login</p>
+              <p className="text-xs opacity-70 mt-0.5">Manage jobs &amp; service history</p>
+            </div>
+          </button>
+
+          {/* Asset Management */}
+          <button
+            onClick={() => navigate('/login?intendedRole=client')}
+            className="w-full flex items-center gap-4 p-5 bg-charcoal text-white rounded-2xl hover:bg-charcoal/90 active:scale-95 transition-all shadow-lg text-left"
+          >
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Building2 className="h-5 w-5" />
+            </div>
+            <div className="flex-1">
+              <p className="font-black uppercase tracking-widest text-sm">Asset Management / Agency</p>
+              <p className="text-xs opacity-70 mt-0.5">Agency portal &amp; bulk invoicing</p>
+            </div>
+          </button>
+
+          {/* Recurring Client */}
+          <button
+            onClick={() => navigate('/login?intendedRole=client')}
+            className="w-full flex items-center gap-4 p-5 bg-ochre text-charcoal rounded-2xl hover:brightness-105 active:scale-95 transition-all shadow-lg text-left"
+          >
+            <div className="w-10 h-10 bg-black/10 rounded-xl flex items-center justify-center flex-shrink-0">
+              <ClipboardList className="h-5 w-5" />
+            </div>
+            <div className="flex-1">
+              <p className="font-black uppercase tracking-widest text-sm">Recurring Client Login</p>
+              <p className="text-xs opacity-70 mt-0.5">Scheduled mowing &amp; property care</p>
+            </div>
+          </button>
+
+          {/* Guest / Quick Booking */}
+          <button
+            onClick={() => navigate('/booking?type=one_off')}
+            className="w-full flex items-center gap-4 p-5 bg-secondary text-white rounded-2xl hover:bg-secondary/90 active:scale-95 transition-all shadow-lg text-left"
+          >
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Zap className="h-5 w-5" />
+            </div>
+            <div className="flex-1">
+              <p className="font-black uppercase tracking-widest text-sm">Guest / Quick Booking</p>
+              <p className="text-xs opacity-70 mt-0.5">One-off service · No account needed</p>
+            </div>
+          </button>
+        </div>
+
+        <div className="pb-8" />
+      </div>
+    );
+  }
+
   return (
     <div className={`min-h-screen flex flex-col items-center justify-center ${currentTheme.bg} p-4 relative overflow-x-hidden overflow-y-auto transition-colors duration-500`}>
       <div className="absolute top-4 left-4 flex gap-2 z-20">
@@ -267,120 +393,206 @@ export const Login = () => {
                 </p>
                 <p className={`text-[10px] font-black uppercase tracking-widest ${intendedRole === 'client' ? 'text-stone-500' : 'text-amber-700'} mt-4`}>
                   Please contact regional management for access nodes.
-                </p>
-              </div>
-              <Button 
-                variant="outline" 
-                onClick={() => logout()}
-                className={`w-full ${intendedRole === 'client' ? 'border-stone-700 text-stone-300 hover:bg-stone-800' : 'border-charcoal/10 text-charcoal'} font-bold rounded-2xl h-12`}
-              >
-                Sign Out & Retry
-              </Button>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4 px-2">
-            {isSignUp && (
-              <div className="space-y-2">
-                <Label htmlFor="displayName" className={`text-[10px] font-bold uppercase tracking-widest ${intendedRole === 'client' ? 'text-stone-500' : 'text-charcoal/60'}`}>Identity Key</Label>
-                <div className="relative">
-                  <UserPlus className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${currentTheme.iconColor}`} />
-                  <Input
-                    id="displayName"
-                    placeholder="Full Name"
-                    className={`pl-10 h-14 rounded-2xl ${intendedRole === 'client' ? 'bg-stone-800 border-stone-700 text-white placeholder:text-stone-600' : 'bg-white border-ochre/10'} focus:ring-ochre`}
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    required
-                  />
+                  </p>
                 </div>
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="email" className={`text-[10px] font-bold uppercase tracking-widest ${intendedRole === 'client' ? 'text-stone-500' : 'text-charcoal/60'}`}>Email Node</Label>
-              <div className="relative">
-                <Mail className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${currentTheme.iconColor}`} />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="name@grassroots.com"
-                  className={`pl-10 h-14 rounded-2xl ${intendedRole === 'client' ? 'bg-stone-800 border-stone-700 text-white placeholder:text-stone-600' : 'bg-white border-ochre/10'} focus:ring-ochre`}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password" className={`text-[10px] font-bold uppercase tracking-widest ${intendedRole === 'client' ? 'text-stone-500' : 'text-charcoal/60'}`}>Access Key</Label>
-              <div className="relative">
-                <Lock className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${currentTheme.iconColor}`} />
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  className={`pl-10 h-14 rounded-2xl ${intendedRole === 'client' ? 'bg-stone-800 border-stone-700 text-white placeholder:text-stone-600' : 'bg-white border-ochre/10'} focus:ring-ochre`}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
 
-            {!isSignUp && (
-              <div className="flex justify-end -mt-1">
-                <button
-                  type="button"
-                  onClick={handleForgotPassword}
-                  className={`text-[10px] font-bold uppercase tracking-widest ${intendedRole === 'client' ? 'text-stone-500 hover:text-stone-300' : 'text-ochre/70 hover:text-deep-red'} transition-colors`}
+                <Button
+                  variant="outline"
+                  onClick={() => logout()}
+                  className={`w-full ${
+                    intendedRole === 'client'
+                      ? 'border-stone-700 text-stone-300 hover:bg-stone-800'
+                      : 'border-charcoal/10 text-charcoal'
+                  } font-bold rounded-2xl h-12`}
                 >
-                  Forgot password?
-                </button>
+                  Sign Out & Retry
+                </Button>
               </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-4 px-1 sm:px-2">
+                {isSignUp && (
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="displayName"
+                      className={`text-[10px] font-bold uppercase tracking-widest ${
+                        intendedRole === 'client' ? 'text-stone-500' : 'text-charcoal/60'
+                      }`}
+                    >
+                      Identity Key
+                    </Label>
+
+                    <div className="relative">
+                      <UserPlus
+                        className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${currentTheme.iconColor}`}
+                      />
+
+                      <Input
+                        id="displayName"
+                        placeholder="Full Name"
+                        className={`pl-10 h-14 rounded-2xl ${
+                          intendedRole === 'client'
+                            ? 'bg-stone-800 border-stone-700 text-white placeholder:text-stone-600'
+                            : 'bg-white border-ochre/10'
+                        } focus:ring-ochre`}
+                        value={displayName}
+                        onChange={(e) => setDisplayName(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="email"
+                    className={`text-[10px] font-bold uppercase tracking-widest ${
+                      intendedRole === 'client' ? 'text-stone-500' : 'text-charcoal/60'
+                    }`}
+                  >
+                    Email Node
+                  </Label>
+
+                  <div className="relative">
+                    <Mail
+                      className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${currentTheme.iconColor}`}
+                    />
+
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="name@grassroots.com"
+                      className={`pl-10 h-14 rounded-2xl ${
+                        intendedRole === 'client'
+                          ? 'bg-stone-800 border-stone-700 text-white placeholder:text-stone-600'
+                          : 'bg-white border-ochre/10'
+                      } focus:ring-ochre`}
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="password"
+                    className={`text-[10px] font-bold uppercase tracking-widest ${
+                      intendedRole === 'client' ? 'text-stone-500' : 'text-charcoal/60'
+                    }`}
+                  >
+                    Access Key
+                  </Label>
+
+                  <div className="relative">
+                    <Lock
+                      className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${currentTheme.iconColor}`}
+                    />
+
+                    <Input
+                      id="password"
+                      type="password"
+                      placeholder="••••••••"
+                      className={`pl-10 h-14 rounded-2xl ${
+                        intendedRole === 'client'
+                          ? 'bg-stone-800 border-stone-700 text-white placeholder:text-stone-600'
+                          : 'bg-white border-ochre/10'
+                      } focus:ring-ochre`}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  type="submit"
+                  className={`w-full py-6 sm:py-7 text-base sm:text-lg font-bold ${currentTheme.accent} ${currentTheme.hoverAccent} text-white rounded-2xl shadow-xl mt-6 relative overflow-hidden group`}
+                  isLoading={isLoading}
+                >
+                  <span className="relative z-10">
+                    {isSignUp ? 'Generate Access' : 'Authenticate Entry'}
+                  </span>
+
+                  <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                </Button>
+
+                <div className="relative py-5 sm:py-6">
+                  <div className="absolute inset-0 flex items-center">
+                    <span
+                      className={`w-full border-t ${
+                        intendedRole === 'client' ? 'border-stone-800' : 'border-ochre/10'
+                      }`}
+                    />
+                  </div>
+
+                  <div className="relative flex justify-center text-[10px] uppercase font-bold tracking-widest">
+                    <span
+                      className={`${
+                        intendedRole === 'client'
+                          ? 'bg-stone-900 border border-stone-800'
+                          : 'bg-white border-ochre/20'
+                      } px-4 py-1 rounded-full ${
+                        intendedRole === 'client' ? 'text-stone-500' : 'text-ochre'
+                      }`}
+                    >
+                      Secure Logic
+                    </span>
+                  </div>
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className={`w-full h-14 rounded-2xl font-bold ${
+                    intendedRole === 'client'
+                      ? 'border-stone-700 text-stone-300 hover:bg-stone-800'
+                      : 'border-ochre/20 text-charcoal hover:bg-ochre/5'
+                  }`}
+                  onClick={() => signIn()}
+                >
+                  <img
+                    src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                    className="w-5 h-5 mr-3"
+                    alt="Google"
+                  />
+                  Company Workspace ID
+                </Button>
+
+                <div className="text-center pt-6 sm:pt-8">
+                  <button
+                    type="button"
+                    className={`text-xs ${
+                      intendedRole === 'client'
+                        ? 'text-stone-400 hover:text-white'
+                        : 'text-deep-red hover:underline'
+                    } font-bold transition-colors`}
+                    onClick={() => setIsSignUp(!isSignUp)}
+                  >
+                    {isSignUp ? 'Existing Terminal? Sign In' : 'New Node? Initialize Link'}
+                  </button>
+                </div>
+              </form>
             )}
+          </CardContent>
+        </Card>
 
-                        <Button type="submit" className={`w-full py-7 text-lg font-bold ${currentTheme.accent} ${currentTheme.hoverAccent} text-white rounded-2xl shadow-xl mt-6 relative overflow-hidden group`} isLoading={isLoading}>
-              <span className="relative z-10">{isSignUp ? 'Generate Access' : 'Authenticate Entry'}</span>
-              <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-            </Button>
+        <div className="hidden sm:grid w-full max-w-md mt-8 sm:mt-10 relative z-10 grid-cols-2 gap-4 pb-10">
+          <ImagePlaceholder
+            id={9}
+            seed={`login-footer-1-${intendedRole}`}
+            height={80}
+            label="Encrypted Access"
+            className="grayscale opacity-50 contrast-125"
+          />
 
-            <div className="relative py-6">
-              <div className="absolute inset-0 flex items-center">
-                <span className={`w-full border-t ${intendedRole === 'client' ? 'border-stone-800' : 'border-ochre/10'}`} />
-              </div>
-              <div className="relative flex justify-center text-[10px] uppercase font-bold tracking-widest">
-                <span className={`${intendedRole === 'client' ? 'bg-stone-900 border border-stone-800' : 'bg-white border-ochre/20'} px-4 py-1 rounded-full ${intendedRole === 'client' ? 'text-stone-500' : 'text-ochre'}`}>Secure Logic</span>
-              </div>
-            </div>
-
-            <Button
-              type="button"
-              variant="outline"
-              className={`w-full h-14 rounded-2xl font-bold ${intendedRole === 'client' ? 'border-stone-700 text-stone-300 hover:bg-stone-800' : 'border-ochre/20 text-charcoal hover:bg-ochre/5'}`}
-              onClick={() => signIn()}
-            >
-              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5 mr-3" alt="Google" />
-              Company Workspace ID
-            </Button>
-
-            <div className="text-center pt-8">
-              <button
-                type="button"
-                className={`text-xs ${intendedRole === 'client' ? 'text-stone-400 hover:text-white' : 'text-deep-red hover:underline'} font-bold transition-colors`}
-                onClick={() => setIsSignUp(!isSignUp)}
-              >
-                {isSignUp ? 'Existing Terminal? Sign In' : "New Node? Initialize Link"}
-              </button>
-            </div>
-          </form>
-          )}
-        </CardContent>
-      </Card>
-      {/* Footer image tiles — tablet/desktop only */}
-      <div className="hidden sm:grid w-full max-w-md mt-10 relative z-10 grid-cols-2 gap-4 pb-12">
-        <ImagePlaceholder id={9} seed={`login-footer-1-${intendedRole}`} height={80} label="Encrypted Access" className="grayscale opacity-50 contrast-125" />
-        <ImagePlaceholder id={10} seed={`login-footer-2-${intendedRole}`} height={80} label="Regional Network" className="grayscale opacity-50 contrast-125" />
-      </div>
-      <div className="pb-8 sm:hidden" />
+          <ImagePlaceholder
+            id={10}
+            seed={`login-footer-2-${intendedRole}`}
+            height={80}
+            label="Regional Network"
+            className="grayscale opacity-50 contrast-125"
+          />
+        </div>
     </div>
   );
 };

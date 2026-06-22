@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { 
   format, 
   addDays, 
@@ -25,7 +25,7 @@ interface ClientCalendarProps {
   onSelect: (date: string, slot: 'morning' | 'afternoon') => void;
   selectedDate?: string;
   selectedSlot?: 'morning' | 'afternoon';
-  /** Active calendar_blocks from Firestore — used to honour admin block-outs */
+  /** Active calendar_blocks from Firestore â€” used to honour admin block-outs */
   blocks?: CalendarBlock[];
 }
 
@@ -51,6 +51,8 @@ export const ClientCalendar: React.FC<ClientCalendarProps> = ({
     end: endDate,
   });
 
+  const MAX_JOBS_PER_DAY = 6;
+
   const getAvailability = (date: Date) => {
     if (!settings || !suburb) return { morning: false, afternoon: false, isAvailable: false };
 
@@ -62,14 +64,38 @@ export const ClientCalendar: React.FC<ClientCalendarProps> = ({
     const morningCapacity = schedule?.morningCapacity ?? 2;
     const afternoonCapacity = schedule?.afternoonCapacity ?? 2;
 
-    // Check if day of week is available
+    // Check if day of week is available per suburb schedule
     const dayOfWeek = getDay(date);
     if (!availableDays.includes(dayOfWeek)) return { morning: false, afternoon: false, isAvailable: false };
 
     // Check if date is blocked by suburb schedule
     if (schedule?.blockedDates && schedule.blockedDates.includes(dateStr)) return { morning: false, afternoon: false, isAvailable: false };
 
-    // Check capacity
+    // â”€â”€ Full-day admin block-outs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // showPublic only controls whether a reason label is shown to clients.
+    // A full_day block ALWAYS disables public booking regardless of showPublic.
+    if (blocks.length > 0) {
+      const hasFullDayBlock = blocks.some(
+        (b) => b.status === 'active' && isBlockActiveOnDate(b, dateStr) && b.slot === 'full_day'
+      );
+      if (hasFullDayBlock) {
+        return { morning: false, afternoon: false, isAvailable: false };
+      }
+    }
+
+    // â”€â”€ Global 6-job daily limit â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Best-effort: jobs array is populated for authenticated users only.
+    // Anonymous public bookings fall back to blockout-based availability above.
+    if (jobs.length > 0) {
+      const allDayJobs = jobs.filter(
+        (j) => j.scheduledDate && isSameDay(new Date(j.scheduledDate), date) && j.status !== 'cancelled'
+      );
+      if (allDayJobs.length >= MAX_JOBS_PER_DAY) {
+        return { morning: false, afternoon: false, isAvailable: false };
+      }
+    }
+
+    // â”€â”€ Per-suburb per-slot capacity â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const dayJobs = jobs.filter(j => isSameDay(new Date(j.scheduledDate), date) && j.suburb === suburb);
     const morningJobs = dayJobs.filter(j => j.timeSlot === 'morning');
     const afternoonJobs = dayJobs.filter(j => j.timeSlot === 'afternoon');
@@ -77,25 +103,26 @@ export const ClientCalendar: React.FC<ClientCalendarProps> = ({
     let morningAvailable = morningJobs.length < morningCapacity;
     let afternoonAvailable = afternoonJobs.length < afternoonCapacity;
 
-    // ── Check admin calendar block-outs (showPublic only) ──────────────
-    // Uses isBlockActiveOnDate to handle both one-off and weekly recurring blocks.
+    // â”€â”€ Slot-specific admin block-outs (respects showPublic) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // morning/afternoon/flexible blocks respect showPublic for labelling control.
     if (blocks.length > 0) {
-      const publicDayBlocks = blocks.filter(
-        (b) => b.status === 'active' && isBlockActiveOnDate(b, dateStr) && b.showPublic
+      const slotBlocks = blocks.filter(
+        (b) => b.status === 'active' && isBlockActiveOnDate(b, dateStr) && b.showPublic && b.slot !== 'full_day'
       );
-      for (const block of publicDayBlocks) {
-        if (block.slot === 'full_day') {
-          return { morning: false, afternoon: false, isAvailable: false };
-        }
+      for (const block of slotBlocks) {
         if (block.slot === 'morning') morningAvailable = false;
         if (block.slot === 'afternoon') afternoonAvailable = false;
+        if (block.slot === 'flexible') {
+          morningAvailable = false;
+          afternoonAvailable = false;
+        }
       }
     }
 
     return {
       morning: morningAvailable,
       afternoon: afternoonAvailable,
-      isAvailable: morningAvailable || afternoonAvailable
+      isAvailable: morningAvailable || afternoonAvailable,
     };
   };
 
@@ -190,6 +217,7 @@ export const ClientCalendar: React.FC<ClientCalendarProps> = ({
                   const isSelected = selectedSlot === slot;
 
                   return (
+          
                     <button
                       key={slot}
                       type="button"
@@ -214,7 +242,7 @@ export const ClientCalendar: React.FC<ClientCalendarProps> = ({
                     </button>
                   );
                 })}
-                      </div>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>

@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'react-hot-toast';
@@ -149,7 +149,7 @@ const AdminDashboard = () => {
     setIsBooking(true);
     try {
       const bookingTimeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Connection timed out. Booking may still be saved — check Jobs Dashboard.')), 12000)
+        setTimeout(() => reject(new Error('Connection timed out. Booking may still be saved â€” check Jobs Dashboard.')), 12000)
       );
       const newJobId = await Promise.race([addJob({
         clientId: 'admin_walk_in_' + Date.now(),
@@ -257,15 +257,15 @@ const AdminDashboard = () => {
         <GrassRootsGuardian size={400} />
       </div>
 
-      {/* Firestore read error — only appears when the jobs query is denied or fails */}
+      {/* Firestore read error â€” only appears when the jobs query is denied or fails */}
       {jobsFirestoreError && (
         <div className="relative z-10 bg-red-50 border border-red-200 rounded-xl p-4 text-sm">
-          <p className="font-bold text-red-700 mb-1">⚠ Firestore read blocked — jobs cannot load</p>
+          <p className="font-bold text-red-700 mb-1">âš  Firestore read blocked â€” jobs cannot load</p>
           <p className="text-red-600 font-mono text-xs">{jobsFirestoreError}</p>
           <p className="text-red-500 text-xs mt-2">
             This usually means Firestore security rules deny reads for the current session.
             Fix: Sign in with Google (<a href="/login" className="underline">Login page</a>), or update Firestore rules in the Firebase console to allow authenticated reads on the <code className="bg-red-100 px-1 rounded">jobs</code> collection.
-            <br/>Job writes may still be working — check the browser console (F12) for <code className="bg-red-100 px-1 rounded">[MYTHOS FIREBASE] WRITE_SUCCESS</code> to confirm.
+            <br/>Job writes may still be working â€” check the browser console (F12) for <code className="bg-red-100 px-1 rounded">[MYTHOS FIREBASE] WRITE_SUCCESS</code> to confirm.
           </p>
         </div>
       )}
@@ -536,7 +536,7 @@ const AdminDashboard = () => {
                   <div key={job.id} className="py-4 flex items-center justify-between group">
                      <div>
                         <p className="text-sm font-black text-slate-900">{job.clientName || job.customerName}</p>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{job.suburb} • ${job.price}</p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{job.suburb} â€¢ ${job.price}</p>
                      </div>
                      <div className="text-right">
                         <p className="text-xs font-black text-green-600">+$82.40 Profit</p>
@@ -614,7 +614,7 @@ const AdminDashboard = () => {
                     </div>
                     <div>
                       <p className="font-bold text-slate-900 group-hover:text-primary transition-colors leading-tight mb-1">{job.clientName || job.customerName}</p>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{format(job.scheduledDate, 'MMM d')} • {TIME_SLOT_LABELS[job.timeSlot]} • {job.suburb}</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{format(job.scheduledDate, 'MMM d')} â€¢ {TIME_SLOT_LABELS[job.timeSlot]} â€¢ {job.suburb}</p>
                     </div>
                   </div>
                   <Badge variant="outline" className="border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-widest rounded-lg px-3 py-1 bg-white">
@@ -747,7 +747,7 @@ const AdminDashboard = () => {
       </Card>
     </div>
 
-    {/* ── Quick-Book Modal ─────────────────────────────────────────── */}
+    {/* â”€â”€ Quick-Book Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
     {showQuickBook && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setShowQuickBook(false)}>
         <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md relative" onClick={e => e.stopPropagation()}>
@@ -976,7 +976,7 @@ const StaffDashboard = () => {
                     </Badge>
                   </div>
                   <p className="text-sm text-slate-600 font-medium mb-1">{job.address}</p>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{job.suburb} • {format(job.scheduledDate, 'MMM d, yyyy')}</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{job.suburb} â€¢ {format(job.scheduledDate, 'MMM d, yyyy')}</p>
                   
                   <div className="mt-6 pt-6 border-t border-slate-100 flex gap-3">
                     <Button 
@@ -1114,7 +1114,7 @@ const RealEstateDashboard = () => {
             <h1 className="text-4xl lg:text-5xl font-bold text-slate-900 tracking-tight">Agent <span className="text-primary">Portal</span></h1>
           </div>
           <p className="text-slate-500 font-semibold uppercase tracking-widest text-[10px] ml-4">
-            {profile?.businessName || profile?.displayName} • Property Dashboard
+            {profile?.businessName || profile?.displayName} â€¢ Property Dashboard
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
@@ -1300,7 +1300,7 @@ const RealEstateDashboard = () => {
                               )} />
                               <div>
                                 <p className="font-bold text-slate-900 text-sm">{format(job.scheduledDate, 'MMM d, yyyy')}</p>
-                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{job.servicePackage} Protocol • {JOB_STATUS_LABELS[job.status]}</p>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{job.servicePackage} Protocol â€¢ {JOB_STATUS_LABELS[job.status]}</p>
                               </div>
                             </div>
                             <Button variant="ghost" size="sm" onClick={() => navigate(`/jobs/${job.id}`)} className="text-primary hover:bg-primary/5 font-bold uppercase text-[9px] tracking-widest h-9 rounded-lg px-4">
@@ -1403,7 +1403,7 @@ const RealEstateDashboard = () => {
                           <td className="px-6 py-4 text-xs text-center font-bold text-charcoal/60">{data.count}</td>
                           <td className="px-6 py-4 text-xs text-right font-black text-charcoal">${data.total.toFixed(2)}</td>
                           <td className="px-6 py-4 text-xs text-right font-black text-deep-red">
-                            {data.overdue > 0 ? `$${data.overdue.toFixed(2)}` : '—'}
+                            {data.overdue > 0 ? `$${data.overdue.toFixed(2)}` : 'â€”'}
                           </td>
                         </tr>
                       ))}
@@ -1784,7 +1784,7 @@ const ClientDashboard = () => {
             {jobs.filter(j => j.quotePdfUrl || j.bookingPdfUrl || j.reportPdfUrl || j.invoicePdfUrl || j.receiptPdfUrl).length === 0 && (
               <div className="col-span-full py-12 text-center bg-ochre/5 rounded-2xl border-2 border-dashed border-ochre/10">
                 <FileText className="h-10 w-10 text-ochre/20 mx-auto mb-4" />
-                <p className="text-[10px] font-bold uppercase tracking-widest text-ochre/40">Archive Empty • Awaiting first job completion</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-ochre/40">Archive Empty â€¢ Awaiting first job completion</p>
               </div>
             )}
           </div>
@@ -1806,7 +1806,7 @@ export const Dashboard = () => {
   const isAdminEmail = user?.email && ADMIN_EMAILS.includes(user.email);
   if (isAdminEmail) return <AdminDashboard />;
 
-  // Admin and staff roles also go straight through — role is the primary check.
+  // Admin and staff roles also go straight through â€” role is the primary check.
   if (profile?.role === 'admin') return <AdminDashboard />;
   if (profile?.role === 'staff') return <StaffDashboard />;
   if (profile?.role === 'client' && profile?.clientType === 'asset_management') return <RealEstateDashboard />;
@@ -1853,9 +1853,7 @@ export const Dashboard = () => {
         We couldn't determine your account role. Please return to the homepage and select your intended portal.
       </p>
       <Button 
-        onClick={() => {
-          window.location.href = '/';
-        }}
+        onClick={() => { window.location.href = '/'; }}
         className="bg-deep-red text-white hover:bg-deep-red/90 px-8 py-6 rounded-2xl font-bold uppercase tracking-widest text-xs"
       >
         Return to Landing Page

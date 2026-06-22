@@ -330,8 +330,12 @@ export function useBlockouts(): CalendarBlock[] {
   React.useEffect(() => {
     refresh();
     _refreshListeners.add(refresh);
+    // Poll every 60 s so the public booking calendar picks up admin changes
+    // (e.g. newly blocked    // (e.g. newly blocked days) without requiring a full page reload.
+    const interval = setInterval(refresh, 60_000);
     return () => {
       _refreshListeners.delete(refresh);
+      clearInterval(interval);
     };
   }, [refresh]);
 

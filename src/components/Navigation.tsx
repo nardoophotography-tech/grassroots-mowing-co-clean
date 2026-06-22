@@ -127,7 +127,7 @@ export const GlobalHeader = ({ onMenuClick, profile, loading = false }: { onMenu
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate('/login?intendedRole=returning')}
+                onClick={() => navigate('/login?intendedRole=client')}
                 className="text-[10px] sm:text-xs font-black uppercase tracking-widest px-3 sm:px-5 h-9 sm:h-10 text-white/80 rounded-full italic hover:bg-white/10 whitespace-nowrap"
               >
                 returning clients
@@ -135,7 +135,7 @@ export const GlobalHeader = ({ onMenuClick, profile, loading = false }: { onMenu
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate('/login?intendedRole=asset_management')}
+                onClick={() => navigate('/login?intendedRole=client')}
                 className="hidden xs:block text-[10px] sm:text-xs font-black uppercase tracking-widest px-3 sm:px-5 h-9 sm:h-10 text-white/60 rounded-full italic hover:bg-white/10 whitespace-nowrap"
               >
                 asset management
