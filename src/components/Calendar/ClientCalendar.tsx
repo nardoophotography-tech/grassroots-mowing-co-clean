@@ -116,6 +116,10 @@ export const ClientCalendar: React.FC<ClientCalendarProps> = ({
           morningAvailable = false;
           afternoonAvailable = false;
         }
+        if (block.slot === 'custom' && block.startTime && block.endTime) {
+          if (block.startTime < '12:00') morningAvailable = false;
+          if (block.endTime > '12:00') afternoonAvailable = false;
+        }
       }
     }
 
