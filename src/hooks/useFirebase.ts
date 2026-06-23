@@ -18,7 +18,7 @@ import {
 } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { db, OperationType, handleFirestoreError, safeOnSnapshot } from '../firebase';
-import { UserProfile, Job, Client, Invoice, BusinessSettings, InvoiceItem, AccountStatus, PaymentMethod, PricingRules, Payment, AppNotification } from '../types';
+import { UserProfile, Job, Client, Invoice, BusinessSettings, InvoiceItem, AccountStatus, PaymentMethod, PricingRules, Payment, AppNotification, BookingSettings } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { JOB_STATUS_LABELS, JOB_STATUS_COLORS, TIME_SLOT_LABELS, PRICING_RULES, ADD_ON_LABELS, SUBURBS, DEFAULT_SETTINGS } from '../constants';
 import { triggerNotification } from '../services/notificationService';
@@ -856,4 +856,73 @@ export function useNotifications() {
   };
 
   return { notifications, loading, markAsRead, markAllAsRead };
+}
+
+// ─── Booking Availability Settings ───────────────────────────────────────────
+
+export const DEFAULT_BOOKING_SETTINGS: BookingSettings = {
+  bookingIntakeOpenDate: '2026-06-26',
+  firstAvailableServiceDate: '2026-06-29',
+  maxBookingsPerDay: 6,
+  workingDays: {
+    monday: true,
+    tuesday: true,
+    wednesday: true,
+    thursday: true,
+    friday: true,
+    saturday: false,
+    sunday: false,
+  },
+  timeSlots: [
+    { id: 'morning', label: 'Morning Run', time: '08:00', enabled: true, maxBookings: 3 },
+    { id: 'afternoon', label: 'Afternoon Run', time: '13:00', enabled: true, maxBookings: 3 },
+  ],
+  blockedDates: [],
+  blockedSlots: [],
+};
+
+export function useBookingSettings() {
+  const [bookingSettings, setBookingSettings] = React.useState<BookingSettings>(DEFAULT_BOOKING_SETTINGS);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const unsubscribe = safeOnSnapshot(
+      doc(db, 'bookingSettings', 'main'),
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          setBookingSettings({
+            ...DEFAULT_BOOKING_SETTINGS,
+            ...data,
+            workingDays: { ...DEFAULT_BOOKING_SETTINGS.workingDays, ...(data.workingDays || {}) },
+            timeSlots: Array.isArray(data.timeSlots) && data.timeSlots.length > 0
+              ? data.timeSlots
+              : DEFAULT_BOOKING_SETTINGS.timeSlots,
+            blockedDates: Array.isArray(data.blockedDates) ? data.blockedDates : [],
+            blockedSlots: Array.isArray(data.blockedSlots) ? data.blockedSlots : [],
+          });
+        } else {
+          setBookingSettings(DEFAULT_BOOKING_SETTINGS);
+        }
+        setLoading(false);
+      },
+      () => {
+        setBookingSettings(DEFAULT_BOOKING_SETTINGS);
+        setLoading(false);
+      }
+    );
+    return () => unsubscribe();
+  }, []);
+
+  const updateBookingSettings = async (data: Partial<BookingSettings>): Promise<boolean> => {
+    try {
+      await setDoc(doc(db, 'bookingSettings', 'main'), data, { merge: true });
+      return true;
+    } catch (e) {
+      console.error('[useBookingSettings] save failed:', e);
+      return false;
+    }
+  };
+
+  return { bookingSettings, loading, updateBookingSettings };
 }

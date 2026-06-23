@@ -360,3 +360,42 @@ export interface AppNotification {
   link?: string;
   createdAt: number;
 }
+
+// ─── Booking Availability Settings ───────────────────────────────────────────
+
+export interface BookingTimeSlot {
+  id: 'morning' | 'afternoon';
+  label: string;
+  time: string;
+  enabled: boolean;
+  maxBookings: number;
+}
+
+export interface BookingBlockedDate {
+  date: string;   // 'YYYY-MM-DD'
+  reason: string;
+}
+
+export interface BookingBlockedSlot {
+  date: string;   // 'YYYY-MM-DD'
+  slotId: 'morning' | 'afternoon';
+  reason: string;
+}
+
+export interface BookingSettings {
+  bookingIntakeOpenDate: string;      // 'YYYY-MM-DD' — before this date submit is blocked
+  firstAvailableServiceDate: string;  // 'YYYY-MM-DD' — earliest date customer can select
+  maxBookingsPerDay: number;          // total across all slots
+  workingDays: {
+    monday: boolean;
+    tuesday: boolean;
+    wednesday: boolean;
+    thursday: boolean;
+    friday: boolean;
+    saturday: boolean;
+    sunday: boolean;
+  };
+  timeSlots: BookingTimeSlot[];
+  blockedDates: BookingBlockedDate[];
+  blockedSlots: BookingBlockedSlot[];
+}

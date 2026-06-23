@@ -53,6 +53,8 @@ import {
 } from '@/data/blockoutStore';
 import { useJobs } from '@/hooks/useFirebase';
 import { Job } from '@/types';
+import { BookingSettingsPanel } from '@/components/BookingSettingsPanel';
+
 
 const RUN_STYLE: Record<RunType, string> = {
   'Morning Run': 'bg-amber-100 text-amber-800 border-amber-200',
@@ -938,6 +940,9 @@ export const ScheduleCalendar = () => {
           </button>
         </div>
       </div>
+
+      {/* Booking Availability Settings — admin controls */}
+      <BookingSettingsPanel />
 
       <div className="flex items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-2">

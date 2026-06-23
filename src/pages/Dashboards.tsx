@@ -1850,10 +1850,12 @@ export const Dashboard = () => {
       </div>
       <h2 className="text-2xl font-serif text-deep-red mb-2">Portal Access Required</h2>
       <p className="text-sm text-charcoal/60 mb-8 max-w-sm">
-        We couldn't determine your account role. Please return to the homepage and select your intended portal.
+        We couldn't determine your account role. Please return to the homepage and select your intended port        We couldn't determine your account role. Please return to the homepage and select your intended portal.
       </p>
       <Button 
-        onClick={() => { window.location.href = '/'; }}
+        onClick={() => {
+          window.location.href = '/';
+        }}
         className="bg-deep-red text-white hover:bg-deep-red/90 px-8 py-6 rounded-2xl font-bold uppercase tracking-widest text-xs"
       >
         Return to Landing Page

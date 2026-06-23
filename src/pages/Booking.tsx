@@ -5,7 +5,7 @@ import * as z from 'zod';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { useJobs, useClients, useSettings } from '@/hooks/useFirebase';
+import { useJobs, useClients, useSettings, useBookingSettings } from '@/hooks/useFirebase';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
@@ -68,6 +68,11 @@ export const Booking = () => {
   const { addClient } = useClients();
   const { settings, loading: settingsLoading } = useSettings();
   const blocks = useBlockouts();
+  const { bookingSettings } = useBookingSettings();
+
+  // Intake gate: before bookingIntakeOpenDate, submit is blocked
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const bookingsOpen = todayStr >= (bookingSettings?.bookingIntakeOpenDate ?? '2026-06-26');
 
   const [step, setStep] = React.useState((searchParams.get('type') === 'one_off' || searchParams.get('type') === 'asset_management') ? 2 : 1);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -499,9 +504,12 @@ export const Booking = () => {
                   selectedDate={watchedValues.date}
                   selectedSlot={watchedValues.timeSlot}
                   blocks={blocks}
+                  bookingSettings={bookingSettings}
                   onSelect={(date, slot) => {
                     setValue('date', date);
                     setValue('timeSlot', slot);
+                    // Keep runType in sync so jobs save under the correct run
+                    setValue('runType', slot === 'morning' ? 'Morning Run' : 'Afternoon Run');
                   }}
                 />
                 <Button type="button" onClick={nextStep} disabled={!watchedValues.date} className="w-full bg-primary h-12 rounded-full font-black uppercase tracking-widest text-[10px] shadow-premium">
@@ -563,9 +571,20 @@ export const Booking = () => {
                     <span className="text-xl font-black text-primary">${calculateEstimate().total.toFixed(2)}</span>
                   </div>
                 </div>
-                <Button type="submit" className="w-full bg-secondary hover:bg-secondary-hover text-white h-14 rounded-full font-black uppercase tracking-[0.2em] text-[11px] shadow-premium italic" isLoading={isSubmitting}>
-                  Confirm Booking <Zap size={16} className="ml-2" />
-                </Button>
+                {!bookingsOpen ? (
+                  <div className="w-full rounded-2xl bg-ochre/10 border border-ochre/30 p-4 text-center">
+                    <p className="text-[11px] font-black text-ochre uppercase tracking-[0.15em] italic">
+                      Online bookings open Friday 26 June 2026.
+                    </p>
+                    <p className="text-[10px] text-clay/70 mt-1">
+                      You can view the form now, but bookings cannot be submitted yet.
+                    </p>
+                  </div>
+                ) : (
+                  <Button type="submit" className="w-full bg-secondary hover:bg-secondary-hover text-white h-14 rounded-full font-black uppercase tracking-[0.2em] text-[11px] shadow-premium italic" isLoading={isSubmitting}>
+                    Confirm Booking <Zap size={16} className="ml-2" />
+                  </Button>
+                )}
               </CardContent>
             </Card>
           )}
@@ -600,7 +619,3 @@ export const Booking = () => {
     </div>
   );
 };
-
-
-
-
