@@ -13,9 +13,7 @@ import {
   Info,
   ExternalLink,
   ChevronRight,
-  Quote,
-  Calendar,
-  Clock
+  Quote
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useSettings } from '@/hooks/useFirebase';
@@ -39,15 +37,7 @@ export function SystemSettings() {
 
   React.useEffect(() => {
     if (settings) {
-      setFormData({
-        ...settings,
-        bookingAvailability: settings.bookingAvailability || {
-          availableWeekdays: [1, 3, 5],
-          timeSlots: ['morning', 'afternoon'],
-          blockedDates: [],
-          blockedDateTimeSlots: {}
-        }
-      });
+      setFormData(settings);
     }
   }, [settings]);
 
@@ -135,10 +125,6 @@ export function SystemSettings() {
                 <Link to="#testimonials" className="flex items-center gap-3 p-3 rounded-xl hover:bg-surface text-clay font-bold italic transition-colors">
                   <Quote className="w-4 h-4" />
                   Testimonials
-                </Link>
-                <Link to="#booking" className="flex items-center gap-3 p-3 rounded-xl hover:bg-surface text-clay font-bold italic transition-colors">
-                  <Calendar className="w-4 h-4" />
-                  Booking Availability
                 </Link>
                 <Link to="/admin/pricing" className="flex items-center justify-between p-3 rounded-xl hover:bg-surface text-clay font-bold italic transition-colors group">
                   <div className="flex items-center gap-3">
@@ -434,153 +420,6 @@ export function SystemSettings() {
                 Add New Testimonial
               </Button>
             </div>
-          </section>
-
-          {/* Booking Availability Section */}
-          <section id="booking" className="space-y-6 pt-8 border-t border-border">
-            <div className="flex items-center gap-4">
-              <h2 className="text-xl font-black text-charcoal uppercase italic tracking-widest">Booking Availability</h2>
-              <div className="h-px flex-1 bg-border" />
-            </div>
-
-            {formData.bookingAvailability && (
-              <>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm font-black uppercase italic tracking-widest text-clay">Available Weekdays</CardTitle>
-                    <CardDescription>Select which days of the week are generally available for booking.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex flex-wrap gap-4">
-                      {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, idx) => {
-                        const isEnabled = formData.bookingAvailability.availableWeekdays.includes(idx);
-                        return (
-                          <div key={idx} className="flex items-center gap-2">
-                            <Switch 
-                              checked={isEnabled}
-                              onCheckedChange={(checked) => {
-                                const newDays = checked 
-                                  ? [...formData.bookingAvailability.availableWeekdays, idx].sort()
-                                  : formData.bookingAvailability.availableWeekdays.filter((d: number) => d !== idx);
-                                updateNestedField('bookingAvailability.availableWeekdays', newDays);
-                              }}
-                            />
-                            <Label className="font-bold">{day}</Label>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm font-black uppercase italic tracking-widest text-clay">Time Slots</CardTitle>
-                    <CardDescription>Select which time slots are generally available.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex flex-wrap gap-4">
-                      {['morning', 'afternoon'].map((slot) => {
-                        const isEnabled = formData.bookingAvailability.timeSlots.includes(slot);
-                        return (
-                          <div key={slot} className="flex items-center gap-2">
-                            <Switch 
-                              checked={isEnabled}
-                              onCheckedChange={(checked) => {
-                                const newSlots = checked 
-                                  ? [...formData.bookingAvailability.timeSlots, slot]
-                                  : formData.bookingAvailability.timeSlots.filter((s: string) => s !== slot);
-                                updateNestedField('bookingAvailability.timeSlots', newSlots);
-                              }}
-                            />
-                            <Label className="font-bold capitalize">{slot}</Label>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm font-black uppercase italic tracking-widest text-clay">Blocked Dates & Exceptions</CardTitle>
-                    <CardDescription>Add specific dates to fully block, or block specific time slots on a date.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    <div className="flex gap-2">
-                      <Input id="new-block-date" type="date" className="max-w-[200px]" />
-                      <Select id="new-block-slot" defaultValue="all">
-                        <option value="all">Full Day (All Slots)</option>
-                        <option value="morning">Morning Only</option>
-                        <option value="afternoon">Afternoon Only</option>
-                      </Select>
-                      <Button onClick={() => {
-                        const dateInput = document.getElementById('new-block-date') as HTMLInputElement;
-                        const slotInput = document.getElementById('new-block-slot') as HTMLSelectElement;
-                        if (!dateInput.value) return toast.error('Please select a date');
-                        
-                        const dateStr = dateInput.value;
-                        const slotStr = slotInput.value;
-                        
-                        if (slotStr === 'all') {
-                          if (!formData.bookingAvailability.blockedDates.includes(dateStr)) {
-                            updateNestedField('bookingAvailability.blockedDates', [...formData.bookingAvailability.blockedDates, dateStr]);
-                          }
-                        } else {
-                          const currentSlots = formData.bookingAvailability.blockedDateTimeSlots[dateStr] || [];
-                          if (!currentSlots.includes(slotStr)) {
-                            updateNestedField('bookingAvailability.blockedDateTimeSlots', {
-                              ...formData.bookingAvailability.blockedDateTimeSlots,
-                              [dateStr]: [...currentSlots, slotStr]
-                            });
-                          }
-                        }
-                        dateInput.value = '';
-                      }}>Add Blockout</Button>
-                    </div>
-
-                    <div className="space-y-4">
-                      {formData.bookingAvailability.blockedDates.length > 0 && (
-                        <div>
-                          <h4 className="text-xs font-bold mb-2">Fully Blocked Dates</h4>
-                          <div className="space-y-2">
-                            {formData.bookingAvailability.blockedDates.map((date: string) => (
-                              <div key={date} className="flex justify-between items-center p-2 bg-red-50 text-red-900 rounded border border-red-100">
-                                <span className="font-bold">{date}</span>
-                                <Button variant="ghost" size="sm" onClick={() => {
-                                  updateNestedField('bookingAvailability.blockedDates', formData.bookingAvailability.blockedDates.filter((d: string) => d !== date));
-                                }}><Trash2 className="w-4 h-4 text-red-500" /></Button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {Object.keys(formData.bookingAvailability.blockedDateTimeSlots).length > 0 && (
-                        <div>
-                          <h4 className="text-xs font-bold mb-2">Partially Blocked Dates</h4>
-                          <div className="space-y-2">
-                            {Object.entries(formData.bookingAvailability.blockedDateTimeSlots).map(([date, slots]: [string, any]) => (
-                              <div key={date} className="flex justify-between items-center p-2 bg-orange-50 text-orange-900 rounded border border-orange-100">
-                                <div>
-                                  <span className="font-bold">{date}</span>
-                                  <span className="ml-2 text-xs uppercase bg-orange-200 px-2 py-0.5 rounded">{slots.join(', ')}</span>
-                                </div>
-                                <Button variant="ghost" size="sm" onClick={() => {
-                                  const newObj = { ...formData.bookingAvailability.blockedDateTimeSlots };
-                                  delete newObj[date];
-                                  updateNestedField('bookingAvailability.blockedDateTimeSlots', newObj);
-                                }}><Trash2 className="w-4 h-4 text-red-500" /></Button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </>
-            )}
           </section>
         </div>
       </div>

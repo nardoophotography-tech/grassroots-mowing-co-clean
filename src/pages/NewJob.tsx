@@ -1,4 +1,4 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { useForm, useWatch, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -8,7 +8,6 @@ import { ArrowLeft, User, Phone, Mail } from 'lucide-react';
 import { GrassRootsGuardian } from '@/components/GrassRootsGuardian';
 import { GrassRootsLogo } from '@/components/GrassRootsLogo';
 import { useJobs, useClients, useSettings } from '@/hooks/useFirebase';
-import { ClientCalendar } from '@/components/Calendar/ClientCalendar';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
@@ -107,7 +106,7 @@ const jobSchema = z.object({
     if (!data.location || !data.location.verified) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Please confirm the job location on the map.",
+        message: "Please enter the job location.",
         path: ["location"]
       });
     }
@@ -119,7 +118,7 @@ type JobFormValues = z.infer<typeof jobSchema>;
 export const NewJob = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { jobs, addJob } = useJobs();
+  const { addJob } = useJobs();
   const { clients, loading: clientsLoading, addClient } = useClients();
   const { settings, loading: settingsLoading } = useSettings();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -233,25 +232,6 @@ export const NewJob = () => {
 
   const onSubmit = async (data: JobFormValues) => {
     Mythos.log("SUBMIT_START", "New Job Payload Pre-Processing", data);
-    
-    const globalRules = settings?.bookingAvailability || {
-      availableWeekdays: [1, 3, 5],
-      timeSlots: ['morning', 'afternoon'],
-      blockedDates: [],
-      blockedDateTimeSlots: {}
-    };
-
-    const d = new Date(data.scheduledDate);
-    const day = d.getUTCDay();
-    const blockedSlotsForDate = globalRules.blockedDateTimeSlots?.[data.scheduledDate] || [];
-
-    if (!globalRules.availableWeekdays.includes(day) || 
-        globalRules.blockedDates.includes(data.scheduledDate) ||
-        !globalRules.timeSlots.includes(data.timeSlot) ||
-        blockedSlotsForDate.includes(data.timeSlot)) {
-      toast.error('This date or time is not available. Please choose another GrassRoots booking time.');
-      return;
-    }
     
     // 1. Centralized Pricing Validation
     const validation = validateQuotePricing(pricingSnapshot);
@@ -390,7 +370,7 @@ export const NewJob = () => {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex flex-col">
             <GrassRootsLogo className="h-16 w-auto" />
-            <p className="text-ochre font-bold uppercase tracking-widest text-[10px] mt-1">New Job • {settings?.serviceLocation || 'Mount Isa'} Region</p>
+            <p className="text-ochre font-bold uppercase tracking-widest text-[10px] mt-1">New Job â€¢ {settings?.serviceLocation || 'Mount Isa'} Region</p>
           </div>
           <div className="text-right bg-white/80 backdrop-blur-sm p-4 rounded-xl border border-ochre/10 shadow-sm min-w-[200px]">
             <p className="text-[10px] text-ochre font-bold uppercase tracking-wider mb-1">Estimated Total</p>
@@ -489,7 +469,7 @@ export const NewJob = () => {
                       </div>
                       <div className="space-y-2">
                         <Label>Automated Location Intelligence</Label>
-                        <LocationPicker 
+                        <LocationPicker autoDetect={false} 
                           onLocationSelect={(loc) => {
                             setValue('location', loc);
                             // Extract suburb from formatted address if possible
@@ -513,20 +493,20 @@ export const NewJob = () => {
                   <Input type="hidden" {...register('suburb')} />
                 </div>
 
-                <div className="col-span-full">
-                  <ClientCalendar 
-                    suburb={watch('suburb') || 'AdminEntry'}
-                    jobs={jobs}
-                    settings={settings!}
-                    selectedDate={watch('scheduledDate')}
-                    selectedSlot={watch('timeSlot')}
-                    onSelect={(date, slot) => {
-                      setValue('scheduledDate', date, { shouldValidate: true });
-                      setValue('timeSlot', slot, { shouldValidate: true });
-                    }}
-                  />
-                  {errors.scheduledDate && <p className="text-xs text-red-500 font-bold uppercase tracking-widest mt-1">{(errors.scheduledDate as any).message}</p>}
-                  {errors.timeSlot && <p className="text-xs text-red-500 font-bold uppercase tracking-widest mt-1">{(errors.timeSlot as any).message}</p>}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Date</Label>
+                    <Input type="date" {...register('scheduledDate')} />
+                    {errors.scheduledDate && <p className="text-xs text-red-500 font-bold uppercase tracking-widest mt-1">{(errors.scheduledDate as any).message}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Time Slot</Label>
+                    <Select {...register('timeSlot')}>
+                      <option value="morning">Morning</option>
+                      <option value="afternoon">Afternoon</option>
+                    </Select>
+                    {errors.timeSlot && <p className="text-xs text-red-500 font-bold uppercase tracking-widest mt-1">{(errors.timeSlot as any).message}</p>}
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -619,7 +599,7 @@ export const NewJob = () => {
                 <div className="flex items-center justify-between p-4 bg-deep-red/5 border border-deep-red/10 rounded-2xl mb-4">
                   <div className="space-y-1">
                     <Label htmlFor="urgent-toggle" className="text-deep-red font-black uppercase tracking-widest text-xs">Urgent Booking</Label>
-                    <p className="text-[10px] text-deep-red/60 font-bold uppercase">Priority Dispatch • +$60 Surcharge</p>
+                    <p className="text-[10px] text-deep-red/60 font-bold uppercase">Priority Dispatch â€¢ +$60 Surcharge</p>
                   </div>
                   <input 
                     type="checkbox" 
@@ -744,3 +724,5 @@ export const NewJob = () => {
     </div>
   );
 };
+
+
