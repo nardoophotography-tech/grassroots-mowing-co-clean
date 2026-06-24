@@ -500,7 +500,27 @@ export const NewJob = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Date</Label>
-                    <Input type="date" {...register('scheduledDate')} />
+                    <Input 
+                      type="date" 
+                      {...(() => {
+                        const { onChange, ...rest } = register('scheduledDate');
+                        return {
+                          ...rest,
+                          onChange: (e: any) => {
+                            const val = e.target.value;
+                            if (val) {
+                              const day = new Date(val).getUTCDay();
+                              if (day !== 1 && day !== 3 && day !== 5) {
+                                toast.error("Bookings are only available Monday, Wednesday, and Friday.");
+                                setValue('scheduledDate', '', { shouldValidate: true });
+                                return;
+                              }
+                            }
+                            onChange(e);
+                          }
+                        };
+                      })()}
+                    />
                     {errors.scheduledDate && <p className="text-xs text-red-500 font-bold uppercase tracking-widest mt-1">{(errors.scheduledDate as any).message}</p>}
                   </div>
                   <div className="space-y-2">
