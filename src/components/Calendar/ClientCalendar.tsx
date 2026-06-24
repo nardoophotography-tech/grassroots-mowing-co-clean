@@ -48,31 +48,46 @@ export const ClientCalendar: React.FC<ClientCalendarProps> = ({
   });
 
   const getAvailability = (date: Date) => {
-    if (!settings || !suburb) return { morning: false, afternoon: false, isAvailable: false };
+    if (!settings) return { morning: false, afternoon: false, isAvailable: false };
     
     const dateStr = format(date, 'yyyy-MM-dd');
-    const schedule = settings.suburbSchedules.find(s => s.suburb === suburb);
+    const schedule = suburb ? settings.suburbSchedules?.find(s => s.suburb === suburb) : undefined;
     
-    // Fallback to Mon, Wed, Fri with capacity 2 if no schedule found
-    // Enforce Mon, Wed, Fri only
-    const availableDays = [1, 3, 5];
-    const morningCapacity = schedule?.morningCapacity ?? 2;
-    const afternoonCapacity = schedule?.afternoonCapacity ?? 2;
+    const defaultAvail = {
+      availableWeekdays: [1, 3, 5],
+      timeSlots: ['morning', 'afternoon'],
+      blockedDates: [] as string[],
+      blockedDateTimeSlots: {} as Record<string, string[]>
+    };
+    const globalRules = settings.bookingAvailability || defaultAvail;
 
     // Check if day of week is available
     const dayOfWeek = getDay(date);
-    if (!availableDays.includes(dayOfWeek)) return { morning: false, afternoon: false, isAvailable: false };
+    if (!globalRules.availableWeekdays.includes(dayOfWeek)) return { morning: false, afternoon: false, isAvailable: false };
 
-    // Check if date is blocked
+    // Check if date is blocked globally
+    if (globalRules.blockedDates && globalRules.blockedDates.includes(dateStr)) return { morning: false, afternoon: false, isAvailable: false };
+    
+    // Check if date is blocked locally
     if (schedule?.blockedDates && schedule.blockedDates.includes(dateStr)) return { morning: false, afternoon: false, isAvailable: false };
 
+    const blockedSlotsForDate = globalRules.blockedDateTimeSlots?.[dateStr] || [];
+
     // Check capacity
+    const morningCapacity = schedule?.morningCapacity ?? 2;
+    const afternoonCapacity = schedule?.afternoonCapacity ?? 2;
+
     const dayJobs = jobs.filter(j => isSameDay(new Date(j.scheduledDate), date) && j.suburb === suburb);
     const morningJobs = dayJobs.filter(j => j.timeSlot === 'morning');
     const afternoonJobs = dayJobs.filter(j => j.timeSlot === 'afternoon');
 
-    const morningAvailable = morningJobs.length < morningCapacity;
-    const afternoonAvailable = afternoonJobs.length < afternoonCapacity;
+    const morningAvailable = globalRules.timeSlots.includes('morning') 
+      && !blockedSlotsForDate.includes('morning') 
+      && morningJobs.length < morningCapacity;
+      
+    const afternoonAvailable = globalRules.timeSlots.includes('afternoon') 
+      && !blockedSlotsForDate.includes('afternoon') 
+      && afternoonJobs.length < afternoonCapacity;
 
     return {
       morning: morningAvailable,

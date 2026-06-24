@@ -33,11 +33,7 @@ const jobSchema = z.object({
   manualClientEmail: z.string().email('Valid email is required').optional().or(z.literal('')),
   location: z.any().optional(),
   suburb: z.string().optional(),
-  scheduledDate: z.string().min(1, 'Please select a date').refine(dateStr => {
-    const d = new Date(dateStr);
-    const day = d.getUTCDay();
-    return day === 1 || day === 3 || day === 5;
-  }, { message: 'Bookings are only available Monday, Wednesday, and Friday.' }),
+  scheduledDate: z.string().min(1, 'Please select a date'),
   timeSlot: z.enum(['morning', 'afternoon']),
   clientType: z.enum(['one_off', 'returning', 'premium', 'asset_management']),
   servicePackage: z.string().optional(),
@@ -237,6 +233,25 @@ export const NewJob = () => {
 
   const onSubmit = async (data: JobFormValues) => {
     Mythos.log("SUBMIT_START", "New Job Payload Pre-Processing", data);
+    
+    const globalRules = settings?.bookingAvailability || {
+      availableWeekdays: [1, 3, 5],
+      timeSlots: ['morning', 'afternoon'],
+      blockedDates: [],
+      blockedDateTimeSlots: {}
+    };
+
+    const d = new Date(data.scheduledDate);
+    const day = d.getUTCDay();
+    const blockedSlotsForDate = globalRules.blockedDateTimeSlots?.[data.scheduledDate] || [];
+
+    if (!globalRules.availableWeekdays.includes(day) || 
+        globalRules.blockedDates.includes(data.scheduledDate) ||
+        !globalRules.timeSlots.includes(data.timeSlot) ||
+        blockedSlotsForDate.includes(data.timeSlot)) {
+      toast.error('This date or time is not available. Please choose another GrassRoots booking time.');
+      return;
+    }
     
     // 1. Centralized Pricing Validation
     const validation = validateQuotePricing(pricingSnapshot);

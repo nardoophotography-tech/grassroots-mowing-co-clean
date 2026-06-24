@@ -37,11 +37,7 @@ const bookingSchema = z.object({
   phone: z.string().min(8, 'Valid phone number is required'),
   location: z.any().refine(val => val && val.verified === true, 'Please confirm your property location on the map above.'),
   suburb: z.string().optional(),
-  date: z.string().min(1, 'Please select a date').refine(dateStr => {
-    const d = new Date(dateStr);
-    const day = d.getUTCDay();
-    return day === 1 || day === 3 || day === 5;
-  }, { message: 'Bookings are only available Monday, Wednesday, and Friday.' }),
+  date: z.string().min(1, 'Please select a date'),
   timeSlot: z.enum(['morning', 'afternoon']),
   clientType: z.enum(['one_off', 'returning', 'premium', 'asset_management']),
   serviceType: z.string().min(1, 'Please select a service package'),
@@ -176,6 +172,26 @@ export const Booking = () => {
   };
 
   const onSubmit = async (data: BookingFormValues) => {
+    const globalRules = settings?.bookingAvailability || {
+      availableWeekdays: [1, 3, 5],
+      timeSlots: ['morning', 'afternoon'],
+      blockedDates: [],
+      blockedDateTimeSlots: {}
+    };
+
+    const d = new Date(data.date);
+    const day = d.getUTCDay();
+    const blockedSlotsForDate = globalRules.blockedDateTimeSlots?.[data.date] || [];
+
+    if (!globalRules.availableWeekdays.includes(day) || 
+        globalRules.blockedDates.includes(data.date) ||
+        !globalRules.timeSlots.includes(data.timeSlot) ||
+        blockedSlotsForDate.includes(data.timeSlot)) {
+      toast.error('This date or time is not available. Please choose another GrassRoots booking time.');
+      setStep(2);
+      return;
+    }
+
     const rules = settings?.pricing || PRICING_RULES;
     const snapshot = calculateEstimate();
     
@@ -468,6 +484,28 @@ export const Booking = () => {
 
   const nextStep = () => setStep(s => s + 1);
   const prevStep = () => setStep(s => s - 1);
+
+  const handleDateNextStep = () => {
+    const globalRules = settings?.bookingAvailability || {
+      availableWeekdays: [1, 3, 5],
+      timeSlots: ['morning', 'afternoon'],
+      blockedDates: [],
+      blockedDateTimeSlots: {}
+    };
+
+    const d = new Date(watchedValues.date);
+    const day = d.getUTCDay();
+    const blockedSlotsForDate = globalRules.blockedDateTimeSlots?.[watchedValues.date] || [];
+
+    if (!globalRules.availableWeekdays.includes(day) || 
+        globalRules.blockedDates.includes(watchedValues.date) ||
+        !globalRules.timeSlots.includes(watchedValues.timeSlot) ||
+        blockedSlotsForDate.includes(watchedValues.timeSlot)) {
+      toast.error('This date or time is not available. Please choose another GrassRoots booking time.');
+      return;
+    }
+    nextStep();
+  };
 
   if (step === 7) {
     const estimate = calculateEstimate();
@@ -764,7 +802,7 @@ export const Booking = () => {
                     setValue('timeSlot', slot);
                   }}
                 />
-                <Button type="button" onClick={nextStep} disabled={!watchedValues.date} className="w-full bg-primary h-12 rounded-full font-black uppercase tracking-widest text-[10px] shadow-premium">
+                <Button type="button" onClick={handleDateNextStep} disabled={!watchedValues.date} className="w-full bg-primary h-12 rounded-full font-black uppercase tracking-widest text-[10px] shadow-premium">
                   Select Service Profile <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>
               </CardContent>
