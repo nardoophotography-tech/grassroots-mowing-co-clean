@@ -8,6 +8,7 @@ import { ArrowLeft, User, Phone, Mail } from 'lucide-react';
 import { GrassRootsGuardian } from '@/components/GrassRootsGuardian';
 import { GrassRootsLogo } from '@/components/GrassRootsLogo';
 import { useJobs, useClients, useSettings } from '@/hooks/useFirebase';
+import { ClientCalendar } from '@/components/Calendar/ClientCalendar';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
@@ -122,7 +123,7 @@ type JobFormValues = z.infer<typeof jobSchema>;
 export const NewJob = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { addJob } = useJobs();
+  const { jobs, addJob } = useJobs();
   const { clients, loading: clientsLoading, addClient } = useClients();
   const { settings, loading: settingsLoading } = useSettings();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -497,40 +498,20 @@ export const NewJob = () => {
                   <Input type="hidden" {...register('suburb')} />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Date</Label>
-                    <Input 
-                      type="date" 
-                      {...(() => {
-                        const { onChange, ...rest } = register('scheduledDate');
-                        return {
-                          ...rest,
-                          onChange: (e: any) => {
-                            const val = e.target.value;
-                            if (val) {
-                              const day = new Date(val).getUTCDay();
-                              if (day !== 1 && day !== 3 && day !== 5) {
-                                toast.error("Bookings are only available Monday, Wednesday, and Friday.");
-                                setValue('scheduledDate', '', { shouldValidate: true });
-                                return;
-                              }
-                            }
-                            onChange(e);
-                          }
-                        };
-                      })()}
-                    />
-                    {errors.scheduledDate && <p className="text-xs text-red-500 font-bold uppercase tracking-widest mt-1">{(errors.scheduledDate as any).message}</p>}
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Time Slot</Label>
-                    <Select {...register('timeSlot')}>
-                      <option value="morning">Morning</option>
-                      <option value="afternoon">Afternoon</option>
-                    </Select>
-                    {errors.timeSlot && <p className="text-xs text-red-500 font-bold uppercase tracking-widest mt-1">{(errors.timeSlot as any).message}</p>}
-                  </div>
+                <div className="col-span-full">
+                  <ClientCalendar 
+                    suburb={watch('suburb') || 'AdminEntry'}
+                    jobs={jobs}
+                    settings={settings!}
+                    selectedDate={watch('scheduledDate')}
+                    selectedSlot={watch('timeSlot')}
+                    onSelect={(date, slot) => {
+                      setValue('scheduledDate', date, { shouldValidate: true });
+                      setValue('timeSlot', slot, { shouldValidate: true });
+                    }}
+                  />
+                  {errors.scheduledDate && <p className="text-xs text-red-500 font-bold uppercase tracking-widest mt-1">{(errors.scheduledDate as any).message}</p>}
+                  {errors.timeSlot && <p className="text-xs text-red-500 font-bold uppercase tracking-widest mt-1">{(errors.timeSlot as any).message}</p>}
                 </div>
               </CardContent>
             </Card>
