@@ -258,61 +258,7 @@ export const LandingPage = () => {
               Practical yard support built on respect, Country, community, and cultural values.
             </p>
 
-            {/* Project #156 Feature Card — always visible, prominent */}
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.15, duration: 0.4 }}
-              className="w-full max-w-2xl mx-auto mb-8 rounded-2xl p-5 sm:p-7 text-left border-2 shadow-2xl"
-              style={{
-                backgroundColor: 'rgba(0,0,0,0.50)',
-                borderColor: 'rgba(194,137,60,0.45)',
-              }}
-            >
-              {/* Logo + text layout: stacked on mobile, side-by-side on sm+ */}
-              <div className="flex flex-col sm:flex-row gap-5 sm:gap-7 sm:items-start">
 
-                {/* Project #156 logo */}
-                <div className="flex justify-center sm:justify-start flex-shrink-0">
-                  <img
-                    src="/project156.png"
-                    alt="Project #156"
-                    className="w-28 sm:w-36 h-auto object-contain"
-                  />
-                </div>
-
-                {/* Text content */}
-                <div className="flex-1">
-                  <p
-                    className="text-[10px] font-black uppercase tracking-[0.35em] mb-3"
-                    style={{ color: 'var(--color-yellow-ochre)' }}
-                  >
-                    ◆ Project #156 Initial Self-Funded Project
-                  </p>
-                  <p className="text-base sm:text-lg font-bold leading-snug mb-4 text-white">
-                    GrassRoots Mowing Co. is the initial self-funded project of Project #156 — an Aboriginal-led community initiative built on community working with community.
-                  </p>
-                  <p
-                    className="text-sm sm:text-base leading-relaxed mb-6"
-                    style={{ color: 'var(--color-sand, #e8d5b0)' }}
-                  >
-                    Project #156 starts with practical support, local partnerships, and long-term community impact. GrassRoots Mowing Co. is the first self-funded service, beginning with real yard maintenance and organised local support in Mount Isa.
-                    <br /><br />
-                    The Project #156 hybrid web app gives the community a way to have their say in what projects should come next. Community ideas, needs, and requests are managed through a triage process so the next Project #156 projects are guided by community input, practical need, and what can be properly organised, maintained, and grown over time.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => document.getElementById('project-156-vision')?.scrollIntoView({ behavior: 'smooth' })}
-                    className="inline-flex items-center gap-2 px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] hover:brightness-110 transition-all shadow-lg"
-                    style={{ backgroundColor: 'var(--color-yellow-ochre)', color: '#111111' }}
-                  >
-                    View the Project #156 Vision
-                    <ArrowRight size={13} />
-                  </button>
-                </div>
-
-              </div>
-            </motion.div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <Button
@@ -463,29 +409,6 @@ export const LandingPage = () => {
          </div>
       </section>
 
-      {/* Project #156 Vision Section */}
-      <section id="project-156-vision" className="py-20 px-4 sm:px-6 text-white relative overflow-hidden" style={{ backgroundColor: 'var(--color-rock-red, #7a1a1a)' }}>
-        <div className="absolute inset-0 cultural-pattern opacity-10 pointer-events-none" />
-        <div className="max-w-3xl mx-auto relative z-10 text-center">
-          <p className="text-[10px] font-black uppercase tracking-[0.4em] mb-3" style={{ color: 'var(--color-yellow-ochre)' }}>
-            ◆ Community Initiative
-          </p>
-          <h2 className="text-3xl sm:text-5xl font-black uppercase italic tracking-tighter mb-6">
-            Project #156 Vision
-          </h2>
-          <div className="space-y-4 text-base sm:text-lg font-medium leading-relaxed max-w-2xl mx-auto text-left sm:text-center" style={{ color: 'var(--color-sand, #e8d5b0)' }}>
-            <p>
-              Project #156 is a community-led model focused on practical support, local partnerships, and long-term community impact.
-            </p>
-            <p>
-              GrassRoots Mowing Co. is the initial self-funded project, starting with yard maintenance and organised local support in Mount Isa.
-            </p>
-            <p>
-              Future Project #156 projects will be shaped through community input using the Project #156 hybrid web app. Ideas and requests will be triaged to help decide what is needed most, what can be delivered properly, and what can be managed and maintained long term.
-            </p>
-          </div>
-        </div>
-      </section>
 
       {/* Brand Identity Showcase */}
       <section className="py-12 sm:py-24 px-4 sm:px-6 bg-slate-50 relative overflow-hidden">

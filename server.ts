@@ -16,7 +16,7 @@ dotenv.config();
 
 // Startup diagnostic — safe logging only (no key values printed)
 console.log(`[Startup] RESEND_API_KEY present=${!!process.env.RESEND_API_KEY}, prefix=${process.env.RESEND_API_KEY?.slice(0, 3) ?? 'n/a'}`);
-console.log(`[Startup] RESEND_FROM_EMAIL=${process.env.RESEND_FROM_EMAIL ?? '(unset — will use fallback admin@project156.com)'}`);
+console.log(`[Startup] RESEND_FROM_EMAIL=${process.env.RESEND_FROM_EMAIL ?? '(unset - will use fallback admin@grassrootsmowing.co)'}`);
 console.log(`[Startup] RENDER env flag=${process.env.RENDER ?? '(not set — likely local)'}`);
 console.log(`[Startup] STRIPE_SECRET_KEY present=${!!process.env.STRIPE_SECRET_KEY}, mode=${process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_') ? 'LIVE' : (process.env.STRIPE_SECRET_KEY?.startsWith('sk_test_') ? 'TEST' : 'not set')}`);
 console.log(`[Startup] STRIPE_WEBHOOK_SECRET present=${!!process.env.STRIPE_WEBHOOK_SECRET}`);
@@ -399,7 +399,7 @@ GST (10%): $${(snapshot.gst || 0).toFixed(2)}
 Total: $${(snapshot.total || 0).toFixed(2)}
 ` : `Total: $${(job?.price || 0).toFixed(2)}`;
 
-        emailContent = `Hi ${clientName},\n\n${isConfirmed ? "You're all booked in!" : (isLead ? 'We have received your quote request.' : 'We have received your service request.')}\n\nDate: ${dateStr}\nTime: ${job?.timeSlot || 'TBD'}\nLocation: ${job?.address || 'TBD'}\n\n${breakdownText}${pdfUrl ? `\n\nYou can download your Job Details & Quote here: ${pdfUrl}` : ''}\n\nView Portal: ${paymentLink || 'N/A'}\n\n${isConfirmed ? 'Thanks for choosing GrassRoots Mowing Co.' : 'We will review your request and get back to you shortly.'}\nProject #156 — GrassRoots Team\nadmin@project156.com`;
+        emailContent = `Hi ${clientName},\n\n${isConfirmed ? "You're all booked in!" : (isLead ? 'We have received your quote request.' : 'We have received your service request.')}\n\nDate: ${dateStr}\nTime: ${job?.timeSlot || 'TBD'}\nLocation: ${job?.address || 'TBD'}\n\n${breakdownText}${pdfUrl ? `\n\nYou can download your Job Details & Quote here: ${pdfUrl}` : ''}\n\nView Portal: ${paymentLink || 'N/A'}\n\n${isConfirmed ? 'Thanks for choosing GrassRoots Mowing Co.' : 'We will review your request and get back to you shortly.'}\nGrassRoots Team\nops@grassrootsmowing.co`;
         smsContent = `GrassRoots Mowing: ${isConfirmed ? "You're all booked in!" : 'Request Received'}\nTotal: $${(job?.price || 0).toFixed(2)}\nDate: ${dateStr}\nDetails: ${paymentLink || ''}${pdfUrl ? `\nPDF: ${pdfUrl}` : ''}`;
         adminEmailSubject = `NEW ${isConfirmed ? 'CONFIRMED' : (isLead ? 'QUOTE REQUEST' : 'PENDING')} JOB: ${clientName}`;
         adminEmailContent = `A new ${isConfirmed ? 'paid' : 'pending'} job has been created.\n\nClient: ${clientName}\nService: ${job?.serviceType || job?.servicePackage || 'Service'}\nLocation: ${job?.address || 'TBD'}\nTotal: $${job?.price || 0}`;
@@ -420,7 +420,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
 ` : `Estimated Total: $${(job?.price || 0).toFixed(2)}`;
 
         emailSubject = `Your Service Quote: GrassRoots Mowing`;
-        emailContent = `Hi ${clientName},\n\nWe have prepared a quote for your service at ${job?.address || 'TBD'}.\n\n${quoteBreakdown}\n\nYou can view the full details and approve it here:\n${paymentLink}${pdfUrl ? `\n\nDownload PDF: ${pdfUrl}` : ''}\n\nThanks,\nGrassRoots Mowing Co. — Project #156\nadmin@project156.com`;
+        emailContent = `Hi ${clientName},\n\nWe have prepared a quote for your service at ${job?.address || 'TBD'}.\n\n${quoteBreakdown}\n\nYou can view the full details and approve it here:\n${paymentLink}${pdfUrl ? `\n\nDownload PDF: ${pdfUrl}` : ''}\n\nThanks,\nGrassRoots Mowing Co.\nops@grassrootsmowing.co`;
         smsContent = `GrassRoots Mowing: Your quote of $${(job?.price || 0).toFixed(2)} is ready. Approve here: ${paymentLink}${pdfUrl ? `\nPDF: ${pdfUrl}` : ''}`;
         break;
 
@@ -428,7 +428,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
         emailSubject = `Payment Confirmed: Invoice ${invoiceNumber || job?.invoiceNumber || 'Receipt'} - GrassRoots Mowing Co.`;
         emailContent = settings.receiptTemplate
           ? replacePlaceholders(settings.receiptTemplate, { clientName, amount, invoiceNumber: invoiceNumber || job?.invoiceNumber || job?.id, paymentLink, pdfUrl })
-          : `Hi ${clientName},\n\nPayment Successful!\n\nInvoice Number: ${invoiceNumber || job?.invoiceNumber || 'N/A'}\nAmount Paid: $${(amount || 0)}\nStatus: PAID\n\nYou can view your receipt here: ${paymentLink}${pdfUrl ? `\n\nDownload PDF Receipt: ${pdfUrl}` : ''}\n\nWe've received your payment and your booking is confirmed in our schedule.\n\nThanks for choosing GrassRoots Mowing Co.\nProject #156 — GrassRoots Team\nadmin@project156.com`;
+          : `Hi ${clientName},\n\nPayment Successful!\n\nInvoice Number: ${invoiceNumber || job?.invoiceNumber || 'N/A'}\nAmount Paid: $${(amount || 0)}\nStatus: PAID\n\nYou can view your receipt here: ${paymentLink}${pdfUrl ? `\n\nDownload PDF Receipt: ${pdfUrl}` : ''}\n\nWe've received your payment and your booking is confirmed in our schedule.\n\nThanks for choosing GrassRoots Mowing Co.\nGrassRoots Team\nops@grassrootsmowing.co`;
         smsContent = `GrassRoots Mowing: Payment of $${(amount || 0)} received. Thank you! Receipt: ${paymentLink}${pdfUrl ? `\nPDF: ${pdfUrl}` : ''}`;
         adminEmailSubject = `PAYMENT RECEIVED: $${(amount || 0)} from ${clientName}`;
         adminEmailContent = `Payment of $${(amount || 0)} has been received for job ${job?.id || 'N/A'}. Invoice: ${invoiceNumber || 'N/A'}`;
@@ -449,7 +449,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
 
       case 'completed':
         emailSubject = `Service Completed: GrassRoots Mowing Co.`;
-        emailContent = `Hi ${clientName},\n\nYour service at ${job?.address || 'TBD'} is complete. You can view your report and invoice here: ${paymentLink}${pdfUrl ? `\n\nDownload Service Report: ${pdfUrl}` : ''}\n\nThanks for choosing GrassRoots Mowing Co.\nProject #156 — GrassRoots Team\nadmin@project156.com`;
+        emailContent = `Hi ${clientName},\n\nYour service at ${job?.address || 'TBD'} is complete. You can view your report and invoice here: ${paymentLink}${pdfUrl ? `\n\nDownload Service Report: ${pdfUrl}` : ''}\n\nThanks for choosing GrassRoots Mowing Co.\nGrassRoots Team\nops@grassrootsmowing.co`;
         smsContent = settings.paymentLinkTemplate 
           ? replacePlaceholders(settings.paymentLinkTemplate, { clientName, invoiceLink: paymentLink, amount: job?.price || 0, pdfUrl })
           : `Service completed at ${job?.address || 'TBD'}. Download report: ${pdfUrl || paymentLink}`;
@@ -457,13 +457,13 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
 
       case 'invoice-sent':
         emailSubject = `Final Invoice: ${invoiceNumber || 'Your Service'} - GrassRoots Mowing Co.`;
-        emailContent = `Hi ${clientName},\n\nYour service at ${job?.address || 'TBD'} is complete. We've generated your final invoice.\n\nAmount Due: $${(amount || job?.price || 0)}\n\nPlease pay using this secure link:\n${paymentLink}${pdfUrl ? `\n\nDownload PDF Invoice: ${pdfUrl}` : ''}\n\nThanks for choosing GrassRoots Mowing Co.\nProject #156 — GrassRoots Team\nadmin@project156.com`;
+        emailContent = `Hi ${clientName},\n\nYour service at ${job?.address || 'TBD'} is complete. We've generated your final invoice.\n\nAmount Due: $${(amount || job?.price || 0)}\n\nPlease pay using this secure link:\n${paymentLink}${pdfUrl ? `\n\nDownload PDF Invoice: ${pdfUrl}` : ''}\n\nThanks for choosing GrassRoots Mowing Co.\nGrassRoots Team\nops@grassrootsmowing.co`;
         smsContent = `GrassRoots Mowing: Service complete! Final invoice of $${(amount || job?.price || 0)} is ready. Pay here: ${paymentLink}${pdfUrl ? `\nPDF: ${pdfUrl}` : ''}`;
         break;
 
       case 'payment-receipt':
         emailSubject = `Payment Receipt: ${invoiceNumber || 'Your Service'} - GrassRoots Mowing Co.`;
-        emailContent = `Hi ${clientName},\n\nThank you for your payment of $${(amount || 0)}\n\nYour service at ${job?.address || 'TBD'} is now fully paid and closed.\n\nYou can view your receipt here: ${paymentLink}${pdfUrl ? `\n\nDownload PDF Receipt: ${pdfUrl}` : ''}\n\nThanks for choosing GrassRoots Mowing Co.\nProject #156 — GrassRoots Team\nadmin@project156.com`;
+        emailContent = `Hi ${clientName},\n\nThank you for your payment of $${(amount || 0)}\n\nYour service at ${job?.address || 'TBD'} is now fully paid and closed.\n\nYou can view your receipt here: ${paymentLink}${pdfUrl ? `\n\nDownload PDF Receipt: ${pdfUrl}` : ''}\n\nThanks for choosing GrassRoots Mowing Co.\nGrassRoots Team\nops@grassrootsmowing.co`;
         smsContent = `GrassRoots Mowing: Payment received! Thank you for the $${(amount || 0)}. Receipt: ${paymentLink}${pdfUrl ? `\nPDF: ${pdfUrl}` : ''}`;
         adminSmsContent = `✅ Payment receipt: $${(amount || 0)} from ${clientName}. Job: ${job?.id || invoiceNumber || 'N/A'}`;
         break;
@@ -472,7 +472,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
         emailSubject = `Friendly Payment Reminder — Invoice ${invoiceNumber || 'Outstanding'}`;
         emailContent = settings.reminderTemplate
           ? replacePlaceholders(settings.reminderTemplate, { clientName, amount, invoiceNumber: invoiceNumber || '', paymentLink, pdfUrl })
-          : `Hi ${clientName},\n\nJust a friendly reminder that the following invoice is still outstanding:\n\n  Invoice:  ${invoiceNumber || 'N/A'}\n  Amount:   $${Number(amount || 0).toFixed(2)}\n${paymentLink ? `\nPay securely online:\n${paymentLink}\n` : ''}\nIf you have already paid, please disregard this message — and thank you!\n\nIf you have any questions, reply to this email or call us directly.\n\nThanks for choosing GrassRoots Mowing Co.,\nProject #156 — GrassRoots Team\nadmin@project156.com`;
+          : `Hi ${clientName},\n\nJust a friendly reminder that the following invoice is still outstanding:\n\n  Invoice:  ${invoiceNumber || 'N/A'}\n  Amount:   $${Number(amount || 0).toFixed(2)}\n${paymentLink ? `\nPay securely online:\n${paymentLink}\n` : ''}\nIf you have already paid, please disregard this message — and thank you!\n\nIf you have any questions, reply to this email or call us directly.\n\nThanks for choosing GrassRoots Mowing Co.,\nGrassRoots Team\nops@grassrootsmowing.co`;
         smsContent = `GrassRoots Mowing: Friendly reminder — Invoice ${invoiceNumber || ''} for $${Number(amount || 0).toFixed(2)} is outstanding. Pay here: ${paymentLink}`;
         // Admin confirmation — sent internally, not to the client
         adminEmailSubject = `[ADMIN] Reminder dispatched → ${clientName}`;
@@ -535,7 +535,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
     const sendEmail = async (to: string, subject: string, text: string) => {
       const keyPresent = !!process.env.RESEND_API_KEY;
       const keyPrefix = process.env.RESEND_API_KEY?.slice(0, 3) ?? 'n/a';
-      const fromAddr = process.env.RESEND_FROM_EMAIL || 'admin@project156.com';
+      const fromAddr = process.env.RESEND_FROM_EMAIL || 'ops@grassrootsmowing.co';
       console.log(`[Resend] Attempting send — keyPresent=${keyPresent}, prefix=${keyPrefix}, from=${fromAddr}, to=${to}`);
 
       if (!resend) {
@@ -640,7 +640,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
         resendApiKeyPresent: resendKeyPresent,
         resendApiKeyPrefix: resendKeyPrefix,           // safe: first 3 chars only (e.g. "re_")
         twilioConnected: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN),
-        fromEmail: fromEmailEnv || 'admin@project156.com',
+        fromEmail: fromEmailEnv || 'ops@grassrootsmowing.co',
         fromEmailSource: fromEmailEnv ? 'env' : 'fallback',  // distinguishes set vs fallback
         renderEnvDetected: !!process.env.RENDER,              // Render sets RENDER=true at runtime
       });
