@@ -106,14 +106,13 @@ const bucket = admin.app().options.storageBucket ? admin.storage().bucket() : nu
 // Helper for E.164 phone formatting
 const toE164 = (phone: string): string => {
   if (!phone) return '';
-  const cleaned = phone.replace(/\D/g, '');
-  let formatted = cleaned;
+  let cleaned = phone.replace(/\D/g, '');
   if (cleaned.startsWith('0') && cleaned.length === 10) {
-    formatted = '61' + cleaned.substring(1);
+    cleaned = '61' + cleaned.substring(1);
   } else if (cleaned.length === 9 && (cleaned.startsWith('4') || cleaned.startsWith('5'))) {
-    formatted = '61' + cleaned;
+    cleaned = '61' + cleaned;
   }
-  return formatted.startsWith('+') ? formatted : '+' + formatted;
+  return '+' + cleaned;
 };
 
 const isESM = typeof import.meta !== 'undefined' && import.meta.url;
@@ -238,6 +237,50 @@ async function startServer() {
   const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
     ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
     : null;
+
+  // --- CENTRAL SMS HELPER ---
+  const sendSms = async (to: string, messageBody: string, purpose: string) => {
+    try {
+      const accountSid = process.env.TWILIO_ACCOUNT_SID;
+      const authToken = process.env.TWILIO_AUTH_TOKEN;
+      const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
+      const fromNumber = process.env.TWILIO_PHONE_NUMBER;
+
+      if (!accountSid || !authToken) {
+        console.error(`[SMS Skipped] ${purpose} - TWILIO_ACCOUNT_SID or TWILIO_AUTH_TOKEN missing`);
+        return { ok: false, error: 'Twilio credentials missing', purpose, code: 'ENV_MISSING' };
+      }
+
+      if (!messagingServiceSid && !fromNumber) {
+        console.error(`[SMS Skipped] ${purpose} - TWILIO_PHONE_NUMBER or TWILIO_MESSAGING_SERVICE_SID missing`);
+        return { ok: false, error: 'Twilio sender missing', purpose, code: 'ENV_MISSING' };
+      }
+
+      if (!to) {
+        console.error(`[SMS Skipped] ${purpose} - Missing 'to' number`);
+        return { ok: false, error: 'Missing destination number', purpose, code: 'NO_DESTINATION' };
+      }
+
+      const finalTo = toE164(to);
+      const maskedTo = finalTo.length > 5 ? finalTo.substring(0, 5) + '***' + finalTo.substring(finalTo.length - 3) : '***';
+
+      const client = twilioClient || twilio(accountSid, authToken);
+      const params: any = { body: messageBody, to: finalTo };
+      if (messagingServiceSid) {
+        params.messagingServiceSid = messagingServiceSid;
+      } else {
+        params.from = fromNumber;
+      }
+
+      const twilioMsg = await client.messages.create(params);
+      console.log(`[SMS] Success (${purpose}) to ${maskedTo}, SID: ${twilioMsg.sid}`);
+      return { ok: true, sid: twilioMsg.sid, purpose };
+    } catch (err: any) {
+      const maskedTo = to ? (to.length > 5 ? to.substring(0, 5) + '***' + to.substring(to.length - 3) : '***') : 'N/A';
+      console.error(`[SMS] Failed (${purpose}) to ${maskedTo}. Code: ${err.code || 'N/A'}, Error: ${err.message}`);
+      return { ok: false, error: err.message, code: String(err.code || 'UNKNOWN'), purpose };
+    }
+  };
 
   // Notification Handler Function
   const handleNotification = async (payload: any) => {
@@ -443,43 +486,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
         break;
     }
 
-    const sendSms = async (to: string, body: string, recipientType: 'admin' | 'client', eventStage: string) => {
-      // Use Messaging Service SID if available, otherwise Fallback to Phone Number
-      const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
-      const fromNumber = process.env.TWILIO_PHONE_NUMBER;
-      const hasTwilioSid = !!process.env.TWILIO_ACCOUNT_SID;
-      const hasTwilioToken = !!process.env.TWILIO_AUTH_TOKEN;
-      const hasTwilioFrom = !!fromNumber;
-      const hasMessagingServiceSid = !!messagingServiceSid;
 
-      const maskedTo = to ? (to.length > 5 ? to.substring(0, 5) + '***' + to.substring(to.length - 3) : '***') : 'N/A';
-
-      console.log(`[SMS] attempt\neventStage: ${eventStage}\nrecipientType: ${recipientType}\nmaskedTo: ${maskedTo}\nhasTwilioSid: ${hasTwilioSid}\nhasTwilioToken: ${hasTwilioToken}\nhasTwilioFrom: ${hasTwilioFrom}\nhasMessagingServiceSid: ${hasMessagingServiceSid}`);
-
-      if (twilioClient && (messagingServiceSid || fromNumber) && to) {
-        const finalTo = toE164(to);
-        const finalMasked = finalTo.length > 5 ? finalTo.substring(0, 5) + '***' + finalTo.substring(finalTo.length - 3) : '***';
-
-        try {
-          const params: any = { body, to: finalTo };
-          if (messagingServiceSid) {
-            params.messagingServiceSid = messagingServiceSid;
-          } else {
-            params.from = fromNumber;
-          }
-
-          const message = await retry(() => twilioClient.messages.create(params));
-          console.log(`[SMS] success\nrecipientType: ${recipientType}\nmaskedTo: ${finalMasked}\nmessageSid: ${message.sid}`);
-          return message;
-        } catch (err: any) {
-          console.error(`[SMS] failed\nrecipientType: ${recipientType}\nmaskedTo: ${finalMasked}\nerrorCode: ${err.code || 'N/A'}\nerrorMessage: ${err.message}`);
-          throw err;
-        }
-      } else {
-        console.log(`[SMS Skipped] Missing Twilio credentials or missing 'to' number. Event: ${eventStage} | Recipient: ${recipientType}`);
-      }
-      return { status: 'simulated' };
-    };
 
     // ── GOOGLE REVIEW MULTIPLIER ─────────────────────────────────────────────
     // Fires an SMS 15 min after any confirmed payment (Stripe or manual).
@@ -515,7 +522,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
           `${reviewUrl}\n\n` +
           `— David & the GrassRoots Team`;
         try {
-          await sendSms(phone, body, 'client', 'review-reminder');
+          await sendSms(phone, body, 'review-reminder (client)');
         } catch (err: any) {
           console.error(`[ReviewSMS]: Failed for ref ${refId}`);
         }
@@ -591,7 +598,8 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
       // Step 5. SMS notification (Client)
       if (smsContent && clientPhone) {
         try { 
-          await sendSms(clientPhone, smsContent, 'client', stage); 
+          const smsRes = await sendSms(clientPhone, smsContent, stage + ' (client)'); 
+          if (!smsRes.ok) throw new Error(smsRes.error);
           results.sms = 'sent'; 
         } catch (err) { 
           results.sms = 'failed'; 
@@ -608,7 +616,8 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
       if (adminSmsContent) {
         const adminPhone = process.env.ADMIN_PHONE_NUMBER || process.env.ADMIN_PHONE;
         if (adminPhone) {
-          try { await sendSms(adminPhone, adminSmsContent, 'admin', stage); results.adminSms = 'sent'; } catch (err) { results.adminSms = 'failed'; }
+          const smsRes = await sendSms(adminPhone, adminSmsContent, stage + ' (admin)');
+          results.adminSms = smsRes.ok ? 'sent' : 'failed';
         }
       }
 
@@ -802,58 +811,25 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
   });
 
   // Diagnostic Test Endpoint for SMS — calls Twilio directly and reports the real result.
-  // Never include TWILIO_AUTH_TOKEN (or any secret value) in the response — presence flags only.
   app.post("/api/admin/test-sms", async (req, res) => {
-    const accountSid = process.env.TWILIO_ACCOUNT_SID;
-    const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const fromNumber = process.env.TWILIO_PHONE_NUMBER;
-    const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
     const adminPhone = process.env.ADMIN_PHONE_NUMBER || process.env.ADMIN_PHONE;
-
-    const debug = {
-      hasAccountSid: !!accountSid,
-      hasAuthToken: !!authToken,
-      hasFromNumber: !!fromNumber,
-      hasMessagingServiceSid: !!messagingServiceSid,
-      hasAdminPhone: !!adminPhone,
-    };
-
-    if (!accountSid || !authToken) {
-      return res.json({ ok: false, errorCode: 'ENV_MISSING', errorMessage: 'TWILIO_ACCOUNT_SID and/or TWILIO_AUTH_TOKEN is not set on this server.', debug });
-    }
     if (!adminPhone) {
-      return res.json({ ok: false, errorCode: 'ENV_MISSING', errorMessage: 'ADMIN_PHONE_NUMBER (or ADMIN_PHONE) is not set on this server.', debug });
+      return res.json({ ok: false, errorCode: 'ENV_MISSING', errorMessage: 'ADMIN_PHONE_NUMBER (or ADMIN_PHONE) is not set on this server.' });
     }
-    if (!fromNumber && !messagingServiceSid) {
-      return res.json({ ok: false, errorCode: 'ENV_MISSING', errorMessage: 'Neither TWILIO_PHONE_NUMBER nor TWILIO_MESSAGING_SERVICE_SID is set on this server.', debug });
-    }
-
-    const to = toE164(adminPhone);
-    const maskedTo = to.length > 5 ? to.substring(0, 5) + '***' + to.substring(to.length - 3) : '***';
-
-    try {
-      const client = twilioClient || twilio(accountSid, authToken);
-      const params: any = { body: 'GrassRoots Mowing: SMS diagnostic test. If you received this, Twilio is working.', to };
-      if (messagingServiceSid) {
-        params.messagingServiceSid = messagingServiceSid;
-      } else {
-        params.from = fromNumber;
-      }
-
-      console.log(`[TestSMS] Attempting direct Twilio send to ${maskedTo}`);
-      const message = await client.messages.create(params);
-      console.log(`[TestSMS] SUCCESS sid=${message.sid} to=${maskedTo}`);
-      return res.json({ ok: true, to, sid: message.sid });
-    } catch (err: any) {
-      console.error(`[TestSMS] FAILED to=${maskedTo} code=${err.code || 'N/A'} message=${err.message}`);
-      return res.json({
-        ok: false,
-        errorCode: String(err.code || 'UNKNOWN'),
-        errorMessage: err.message || 'Unknown Twilio error',
-        debug,
-      });
-    }
+    const result = await sendSms(adminPhone, 'GrassRoots Mowing: SMS diagnostic test (Admin). If you received this, Twilio is working.', 'admin_test_sms');
+    return res.json(result);
   });
+
+  // Safe Test SMS Endpoint for specific number
+  app.post("/api/test-sms", express.json(), async (req, res) => {
+    const { to, message } = req.body;
+    if (!to || !message) {
+      return res.status(400).json({ ok: false, error: 'Missing to or message in body' });
+    }
+    const result = await sendSms(to, message, 'api_test_sms');
+    return res.json(result);
+  });
+
 
   // Notification Route
   app.use(express.json({ limit: "50mb" }));

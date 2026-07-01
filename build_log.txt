@@ -1,0 +1,84 @@
+[BUILD STARTED] Sat 13/06/2026 16:46:48.16 
+ 
+=== RUNNING npm run build === 
+
+> grassroots-mowing-co@1.0.0 build
+> npm run clean && vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs
+
+
+> grassroots-mowing-co@1.0.0 clean
+> node clean.cjs
+
+node:internal/modules/cjs/loader:1503
+  throw err;
+  ^
+
+Error: Cannot find module 'C:\Users\nardo\Desktop\GRASSROOTS-MASTER-DO-NOT-DELETE\node_modules\vite\bin\vite.js'
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1500:15)
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47 {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: []
+}
+
+Node.js v24.16.0
+BUILD EXIT CODE: 1 
+ 
+=== GIT STATUS === 
+On branch grassroots-clean-recovery-base
+Your branch is up to date with 'origin/grassroots-clean-recovery-base'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   src/components/Calendar/DailyCalendar.tsx
+	modified:   src/hooks/useFirebase.ts
+	modified:   src/pages/JobDetail.tsx
+	modified:   src/pages/QuoteApproval.tsx
+	modified:   src/pages/TechnicianDashboard.tsx
+	modified:   src/services/pdfGenerator.ts
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	App.approved.tsx
+	SplashGate.approved.tsx
+	build-banner-fix.bat
+	build-brand-rule-project156.bat
+	build-header-fix.bat
+	build-header-landing-fix.bat
+	build-log.txt
+	build-media-centre.bat
+	build-mobile-overflow-fix.bat
+	build-splash-design.bat
+	build-touch-target-fix.bat
+	build_log.txt
+	do-commit.bat
+	redesign-diff.txt
+	run-banner-fix-logged.bat
+	run_build.bat
+
+no changes added to commit (use "git add" and/or "git commit -a")
+ 
+=== GIT ADD === 
+warning: in the working copy of 'src/hooks/useFirebase.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/pages/JobDetail.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/services/pdfGenerator.ts', LF will be replaced by CRLF the next time Git touches it
+ 
+=== GIT COMMIT === 
+[grassroots-clean-recovery-base a897e04] fix: guard job.addOns and pricingSnapshot.addOns against undefined in older Firestore documents - fixes JobDetail crash preventing Send Quote button from rendering
+ 6 files changed, 12 insertions(+), 12 deletions(-)
+COMMIT EXIT CODE: 0 
+ 
+=== GIT PUSH === 
+To https://github.com/nardoophotography-tech/grassroots-mowing-co-clean.git
+   2fe91eb..a897e04  grassroots-clean-recovery-base -> grassroots-clean-recovery-base
+PUSH EXIT CODE: 0 
+ 
+=== DONE === 
+BUILD: 1 COMMIT: 0 PUSH: 0 
+[FINISHED] Sat 13/06/2026 16:47:03.37 

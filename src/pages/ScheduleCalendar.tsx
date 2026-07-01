@@ -52,6 +52,7 @@ import {
   getActiveBlocksForDate,
 } from '@/data/blockoutStore';
 import { useJobs } from '@/hooks/useFirebase';
+import { useAuth } from '@/contexts/AuthContext';
 import { Job } from '@/types';
 import { BookingSettingsPanel } from '@/components/BookingSettingsPanel';
 
@@ -175,6 +176,7 @@ const inputCls =
   'w-full h-11 rounded-xl border border-stone-300 px-3 text-sm focus:ring-2 focus:ring-deep-red outline-none';
 
 export const ScheduleCalendar = () => {
+  const { profile } = useAuth();
   const { jobs, loading: jobsLoading, firestoreError } = useJobs();
   const localEntries = useSchedule();
   const activeBlocks = useBlockouts();
@@ -941,8 +943,8 @@ export const ScheduleCalendar = () => {
         </div>
       </div>
 
-      {/* Booking Availability Settings — admin controls */}
-      <BookingSettingsPanel />
+      {/* Booking Availability Settings — admin only */}
+      {profile?.role === 'admin' && <BookingSettingsPanel />}
 
       <div className="flex items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-2">

@@ -210,6 +210,7 @@ service cloud.firestore {
       allow delete: if isOwner(existing().userId);
     }
 
+
     // ── Calendar block-outs ─────────────────────────────────────────────
     // Public read: public booking calendar needs block-outs without auth.
     // Only publicLabel is shown to clients; private reason is filtered client-side.
@@ -219,6 +220,22 @@ service cloud.firestore {
       allow create: if isWorkforce();
       allow update: if isWorkforce();
       allow delete: if isAdmin();
+    }
+
+    // ── Booking availability settings ────────────────────────────────────
+    // Public read: the public booking page must read these settings (open date,
+    // service date, working days, run limits, blocked dates) without auth.
+    // Write: admin only — controls when bookings open and how many run per day.
+    match /bookingSettings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ── Schedule entries (internal calendar) ─────────────────────────────
+    // Read/write: admin and staff (field workers need to see and update entries).
+    match /scheduleEntries/{entryId} {
+      allow read: if isWorkforce();
+      allow write: if isWorkforce();
     }
   }
 }

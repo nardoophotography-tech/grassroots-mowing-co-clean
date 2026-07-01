@@ -1,0 +1,83 @@
+START 
+[1] Building... 
+
+> grassroots-mowing-co@1.0.0 build
+> npm run clean && vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs
+
+
+> grassroots-mowing-co@1.0.0 clean
+> node clean.cjs
+
+[36mvite v6.4.3 [32mbuilding for production...[36m[39m
+transforming...
+[32m✓[39m 2573 modules transformed.
+rendering chunks...
+computing gzip size...
+[2mdist/[22m[32mindex.html                 [39m[1m[2m    1.61 kB[22m[1m[22m[2m │ gzip:   0.62 kB[22m
+[2mdist/[22m[35massets/index-Css0RgQc.css  [39m[1m[2m  125.11 kB[22m[1m[22m[2m │ gzip:  19.19 kB[22m
+[2mdist/[22m[36massets/index-E-TVtj0z.js   [39m[1m[33m1,668.54 kB[39m[22m[2m │ gzip: 425.69 kB[22m
+[33m
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+[32m✓ built in 5.46s[39m
+▲ [WARNING] "import.meta" is not available with the "cjs" output format and will be empty [empty-import-meta]
+
+    server.ts:119:21:
+      119 │ const isESM = typeof import.meta !== 'undefined' && import.meta.url;
+          ╵                      ~~~~~~~~~~~
+
+  You need to set the output format to "esm" for "import.meta" to work correctly.
+
+▲ [WARNING] "import.meta" is not available with the "cjs" output format and will be empty [empty-import-meta]
+
+    server.ts:119:52:
+      119 │ const isESM = typeof import.meta !== 'undefined' && import.meta.url;
+          ╵                                                     ~~~~~~~~~~~
+
+  You need to set the output format to "esm" for "import.meta" to work correctly.
+
+▲ [WARNING] "import.meta" is not available with the "cjs" output format and will be empty [empty-import-meta]
+
+    server.ts:120:40:
+      120 │ ...e = isESM ? fileURLToPath(import.meta.url) : (typeof __filenam...
+          ╵                              ~~~~~~~~~~~
+
+  You need to set the output format to "esm" for "import.meta" to work correctly.
+
+3 warnings
+
+  dist\server.cjs       71.7kb
+  dist\server.cjs.map  130.6kb
+
+Done in 12ms
+BUILD_RESULT=PASS 
+[2] Checking dist for banner text... 
+dist\assets\index-E-TVtj0z.js: */function L7(t,e){const s=ny(t,"auth");if(s.isInitialized()){const a=s.getImmediate(),l=s.getOptions();if(Cc(l,e??{}))return a;ha(a,"already-initialized")}return s.initialize({options:e})}function z7(t,e){const s=(e==null?void 0:e.persistence)||[],n=(Array.isArray(s)?s:[s]).map(Wi);e!=null&&e.errorMap&&t._updateErrorMap(e.errorMap),t._initializeWithPersistence(n,e==null?void 0:e.popupRedirectResolver)}function U7(t,e,s){const n=ho(t);ct(/^https?:\/\//.test(e),n,"invalid-emulator-scheme");const a=!1,l=OI(e),{host:c,port:u}=F7(e),f=u===null?"":`:${u}`,m={url:`${l}//${c}${f}/`},p=Object.freeze({host:c,port:u,protocol:l.replace(":",""),options:Object.freeze({disableWarnings:a})});if(!n._canInitEmulator){ct(n.config.emulator&&n.emulatorConfig,n,"emulator-config-failed"),ct(Cc(m,n.config.emulator)&&Cc(p,n.emulatorConfig),n,"emulator-config-failed");return}n.config.emulator=m,n.emulatorConfig=p,n.settings.appVerificationDisabledForTesting=!0,$c(c)?aN(`${l}//${c}${f}`):B7()}function OI(t){const e=t.indexOf(":");return e<0?"":t.substr(0,e+1)}function F7(t){const e=OI(t),s=/(\/\/)?([^?#/]+)/.exec(t.substr(e.length));if(!s)return{host:"",port:null};const n=s[2].split("@").pop()||"",a=/^(\[[^\]]+\])(:|$)/.exec(n);if(a){const l=a[1];return{host:l,port:fT(n.substr(l.length+1))}}else{const[l,c]=n.split(":");return{host:l,port:fT(c)}}}function fT(t){if(!t)return null;const e=Number(t);return isNaN(e)?null:e}function B7(){function t(){const e=document.createElement("p"),s=e.style;e.innerText="Running in emulator mode. Do not use with production credentials.",s.position="fixed",s.width="100%",s.backgroundColor="#ffffff",s.border=".1em solid #000000",s.color="#b50000",s.bottom="0px",s.left="0px",s.margin="0px",s.zIndex="10000",s.textAlign="center",e.classList.add("firebase-emulator-warning"),document.body.appendChild(e)}typeof console<"u"&&typeof console.info=="function"&&console.info("WARNING: You are using the Auth Emulator, which is intended for local testing only.  Do not use with production credentials."),typeof window<"u"&&typeof document<"u"&&(document.readyState==="loading"?window.addEventListener("DOMContentLoaded",t):t())}/**
+BANNER_SCAN=FAIL - banner text still in bundle 
+[3] Git commit and push... 
+warning: in the working copy of 'src/App.tsx', LF will be replaced by CRLF the next time Git touches it
+On branch grassroots-clean-recovery-base
+Your branch is up to date with 'origin/grassroots-clean-recovery-base'.
+
+Changes to be committed:
+  (use "git restore --staged <file>..." to unstage)
+	modified:   src/App.tsx
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	build-banner-fix.bat
+	build-log.txt
+	run-banner-fix-logged.bat
+
+[grassroots-clean-recovery-base 67c7201] fix: hide TEST VERSION banner by default ΓÇö only show when VITE_LAUNCH_MODE=test
+ 1 file changed, 3 insertions(+), 5 deletions(-)
+To https://github.com/nardoophotography-tech/grassroots-mowing-co-clean.git
+   aa9f0fb..67c7201  grassroots-clean-recovery-base -> grassroots-clean-recovery-base
+PUSH_RESULT=PASS 
+[4] Git log last 3 commits: 
+67c7201 fix: hide TEST VERSION banner by default ΓÇö only show when VITE_LAUNCH_MODE=test
+aa9f0fb fix: admin sidebar role guard, invoice layout, auth role detection, webhook security, payment badges, launch mode banner
+ee4fdf7 fix: admin role detection ΓÇö upgrade existing Firestore doc role for ADMIN_EMAILS on login
+DONE 

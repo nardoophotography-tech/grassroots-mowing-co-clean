@@ -17,7 +17,7 @@ import {
   limit 
 } from 'firebase/firestore';
 import { format } from 'date-fns';
-import { db, OperationType, handleFirestoreError, safeOnSnapshot } from '../firebase';
+import { db, auth, OperationType, handleFirestoreError, safeOnSnapshot } from '../firebase';
 import { UserProfile, Job, Client, Invoice, BusinessSettings, InvoiceItem, AccountStatus, PaymentMethod, PricingRules, Payment, AppNotification, BookingSettings } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { JOB_STATUS_LABELS, JOB_STATUS_COLORS, TIME_SLOT_LABELS, PRICING_RULES, ADD_ON_LABELS, SUBURBS, DEFAULT_SETTINGS } from '../constants';
@@ -915,8 +915,60 @@ export function useBookingSettings() {
   }, []);
 
   const updateBookingSettings = async (data: Partial<BookingSettings>): Promise<boolean> => {
+    // Use Firestore REST API instead of SDK setDoc — the named-database SDK write
+    // stream is unreliable in this environment (same pattern as blockoutStore.ts).
     try {
-      await setDoc(doc(db, 'bookingSettings', 'main'), data, { merge: true });
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        console.error('[useBookingSettings] No authenticated user — cannot write bookingSettings. Is the admin logged in?');
+        return false;
+      }
+      const token = await currentUser.getIdToken();
+      const _PROJECT = 'gen-lang-client-0207351054';
+      const _DB = 'ai-studio-e9bfaa37-43fb-46f5-bcf0-c0a5adc17337';
+      const _FS_DOC = `https://firestore.googleapis.com/v1/projects/${_PROJECT}/databases/${_DB}/documents/bookingSettings/main`;
+
+      // Encode a JS value into Firestore REST typed format (handles nested maps/arrays)
+      const _encVal = (v: unknown): unknown => {
+        if (v === null || v === undefined) return { nullValue: null };
+        if (typeof v === 'string') return { stringValue: v };
+        if (typeof v === 'boolean') return { booleanValue: v };
+        if (typeof v === 'number') return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
+        if (Array.isArray(v)) return { arrayValue: { values: (v as unknown[]).map(_encVal) } };
+        if (typeof v === 'object') {
+          const fields: Record<string, unknown> = {};
+          for (const [k, val] of Object.entries(v as Record<string, unknown>)) fields[k] = _encVal(val);
+          return { mapValue: { fields } };
+        }
+        return { nullValue: null };
+      };
+
+      const fields: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(data)) {
+        if (v === undefined) continue;
+        fields[k] = _encVal(v);
+      }
+
+      const mask = Object.keys(fields)
+        .map((k) => `updateMask.fieldPaths=${encodeURIComponent(k)}`)
+        .join('&');
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      };
+
+      const resp = await fetch(`${_FS_DOC}?${mask}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ fields }),
+      });
+
+      if (!resp.ok) {
+        const txt = await resp.text();
+        console.error('[useBookingSettings] REST write failed:', resp.status, txt);
+        return false;
+      }
       return true;
     } catch (e) {
       console.error('[useBookingSettings] save failed:', e);

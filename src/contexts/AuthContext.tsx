@@ -225,13 +225,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               // then onSnapshot will re-fire with the correct doc.
               return;
             } else {
-              // Auto-create profile for new users
+              // Auto-create profile for new users.
+              // Check sessionStorage for a pending signup role (set by signUp() before
+              // createUserWithEmailAndPassword) to avoid a race that would set role:'client'
+              // for a worker who just signed up via the Staff Portal.
+              const _pendingRole = sessionStorage.getItem('pending_signup_role') as UserRole | null;
+              sessionStorage.removeItem('pending_signup_role');
+              const _autoRole: UserRole = (_pendingRole === 'staff') ? 'staff' : 'client';
               const newProfile: UserProfile = {
                 uid: currentUser.uid,
                 email: currentUser.email || '',
                 displayName: currentUser.displayName || 'Guest User',
-                role: 'client',
-                clientType: 'one_off',
+                role: _autoRole,
+                clientType: _autoRole === 'staff' ? 'returning' as ClientType : 'one_off' as ClientType,
                 loginEnabled: true,
                 setupComplete: true,
               };
@@ -336,7 +342,66 @@ await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
     }
   };
 
-  const signOut = async () => {
+  const signInAnonymously = async (): Promise<void> => {
+    await firebaseSignInAnonymously(auth);
+  };
+
+  const signUp = async (email: string, password: string, displayName: string, role?: UserRole): Promise<void> => {
+    try {
+      // Store the intended role in sessionStorage BEFORE creating the Firebase Auth user.
+      // onAuthStateChanged fires during createUserWithEmailAndPassword and may race to
+      // auto-create the Firestore profile. This flag tells that path to use the correct role.
+      const safeRoleForSession: UserRole = (role === 'staff') ? 'staff' : 'client';
+      sessionStorage.setItem('pending_signup_role', safeRoleForSession);
+      const credential = await createUserWithEmailAndPassword(auth, email, password);
+      const newUser = credential.user;
+
+      // Guard: self-signup may only assign 'client' or 'staff'. Never 'admin'.
+      const safeRole: UserRole = (role === 'staff') ? 'staff' : 'client';
+      const newProfile: UserProfile = {
+        uid: newUser.uid,
+        email: newUser.email || email,
+        displayName: displayName || email,
+        role: safeRole,
+        clientType: safeRole === 'staff' ? 'returning' as ClientType : 'one_off' as ClientType,
+        loginEnabled: true,
+        setupComplete: true,
+      };
+
+      // Write profile to Firestore — onAuthStateChanged + safeOnSnapshot will pick it up
+      await setDoc(doc(db, 'users', newUser.uid), newProfile).catch((err) => {
+        handleFirestoreError(err, OperationType.WRITE, `users/${newUser.uid}`);
+      });
+    } catch (error: any) {
+      console.error('Auth: Sign-up error:', error.message);
+      throw error;
+    }
+  };
+
+  const updateProfile = async (updates: Partial<UserProfile>): Promise<void> => {
+    if (!user) throw new Error('Not authenticated');
+    const userDocRef = doc(db, 'users', user.uid);
+    await updateDoc(userDocRef, updates as Record<string, unknown>).catch((err) => {
+      handleFirestoreError(err, OperationType.UPDATE, `users/${user.uid}`);
+      throw err;
+    });
+  };
+
+  const setupPasscode = async (passcode: string): Promise<void> => {
+    if (!user) throw new Error('Not authenticated');
+    const userDocRef = doc(db, 'users', user.uid);
+    await updateDoc(userDocRef, { passcode }).catch((err) => {
+      handleFirestoreError(err, OperationType.UPDATE, `users/${user.uid}`);
+      throw err;
+    });
+  };
+
+  const enablePasskey = async (): Promise<void> => {
+    // Passkey support not yet implemented
+    console.warn('[AuthContext] Passkey support is not yet available.');
+  };
+
+  const signOut = async (): Promise<void> => {
     try {
       // Clear dev session markers
       sessionStorage.removeItem('app_unlocked');
@@ -363,7 +428,18 @@ await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
       : profile;
 
   return (
-    <AuthContext.Provider value={{ user, profile: effectiveProfile, loading, signIn, signOut, localDevAdminActive }}>
+    <AuthContext.Provider value={{
+      user,
+      profile: effectiveProfile,
+      loading,
+      signIn,
+      signInAnonymously,
+      signUp,
+      logout: signOut,
+      setupPasscode,
+      updateProfile,
+      enablePasskey,
+    }}>
       {children}
     </AuthContext.Provider>
   );

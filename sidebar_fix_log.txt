@@ -1,0 +1,13 @@
+[SIDEBAR FIX] Sat 13/06/2026 17:45:17.20 
+=== GIT ADD === 
+=== GIT COMMIT === 
+[grassroots-clean-recovery-base 79ecad3] fix: mobile sidebar touch bleed-through - prevent overlay from closing immediately on tap
+ 1 file changed, 16 insertions(+), 3 deletions(-)
+COMMIT EXIT: 0 
+=== GIT PUSH === 
+To https://github.com/nardoophotography-tech/grassroots-mowing-co-clean.git
+   8614293..79ecad3  grassroots-clean-recovery-base -> grassroots-clean-recovery-base
+PUSH EXIT: 0 
+=== DONE === 
+COMMIT: 0 PUSH: 0 
+[FINISHED] Sat 13/06/2026 17:45:23.02 

@@ -1,0 +1,11 @@
+commit e93eef606517be83a76d62b1aae0e76fba0c2a47
+Author: David Nardoo <your-email@gmail.com>
+Date:   Sat Jun 13 10:40:34 2026 +1000
+
+    feat: indigenous design system - SplashGate entry screen mines horizon dot-art
+
+ public/assets/dot-art-pattern.svg |  47 +++++
+ public/assets/mines-horizon.svg   |  56 ++++++
+ src/App.tsx                       |  40 +++-
+ src/components/SplashGate.tsx     | 409 ++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 549 insertions(+), 3 deletions(-)
