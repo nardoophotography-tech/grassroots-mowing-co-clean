@@ -160,7 +160,6 @@ export const InvoicePayment = () => {
       <div className="max-w-xl mx-auto space-y-8 relative z-10">
         <div className="flex flex-col items-center mb-8 gap-2">
           <GrassRootsLogo className="h-16 w-auto" />
-          <p className="text-[11px] font-black uppercase tracking-widest text-ochre italic">Project #156 — GrassRoots Mowing Co.</p>
         </div>
 
         <Card className="border-ochre/20 shadow-2xl overflow-hidden rounded-2xl bg-white">
@@ -258,7 +257,7 @@ export const InvoicePayment = () => {
             >
               <ArrowLeft className="h-3 w-3 mr-2" /> Return to Website
             </Button>
-            <p className="text-[9px] font-black uppercase tracking-widest text-charcoal/20">GrassRoots Mowing Co. — Project #156 | admin@project156.com</p>
+            <p className="text-[9px] font-black uppercase tracking-widest text-charcoal/20">GrassRoots Mowing Co. | A Project #156 Initiative</p>
         </div>
       </div>
     </div>
