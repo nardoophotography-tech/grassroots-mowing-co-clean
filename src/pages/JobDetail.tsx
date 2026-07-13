@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { GrassRootsGuardian } from '@/components/GrassRootsGuardian';
@@ -1196,13 +1197,13 @@ export const JobDetail = () => {
       )}
 
       {/* Completion panel */}
-      {showCompletionPanel && renderCompletionPanel()}
+      {showCompletionPanel && createPortal(renderCompletionPanel(), document.body)}
 
       {/* Manual payment modal */}
-      {showManualPayment && renderManualPaymentModal()}
+      {showManualPayment && createPortal(renderManualPaymentModal(), document.body)}
 
       {/* Delete confirmation */}
-      {showDeleteConfirm && (
+      {showDeleteConfirm && createPortal(
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-deep-red/40 backdrop-blur-md">
           <Card className="w-full max-w-sm border-ochre/20 shadow-2xl rounded-2xl overflow-hidden">
             <CardHeader className="bg-deep-red/10 border-b border-deep-red/10 text-center">
@@ -1220,10 +1221,10 @@ export const JobDetail = () => {
             </CardContent>
           </Card>
         </div>
-      )}
+      , document.body)}
 
       {/* Price override modal */}
-      {showOverrideModal && (
+      {showOverrideModal && createPortal(
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-deep-red/20 backdrop-blur-md">
           <Card className="w-full max-w-sm border-ochre/20 shadow-2xl rounded-2xl overflow-hidden">
             <CardHeader className="bg-ochre/5 border-b border-ochre/10">
@@ -1245,9 +1246,9 @@ export const JobDetail = () => {
             </CardContent>
           </Card>
         </div>
-      )}
+      , document.body)}
 
-      {showOverrideConfirm && (
+      {showOverrideConfirm && createPortal(
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-deep-red/40 backdrop-blur-md">
           <Card className="w-full max-w-sm border-ochre/20 shadow-2xl rounded-2xl overflow-hidden">
             <CardHeader className="bg-ochre/5 border-b border-ochre/10 text-center">
@@ -1279,7 +1280,7 @@ export const JobDetail = () => {
             </CardContent>
           </Card>
         </div>
-      )}
+      , document.body)}
     </div>
   );
 };
