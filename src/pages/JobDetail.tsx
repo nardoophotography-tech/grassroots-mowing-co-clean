@@ -134,10 +134,14 @@ export const JobDetail = () => {
 
   const workflowStage = job ? getWorkflowStage(job) : 'booked';
 
-  // Pre-fill completion panel when it opens
+  // Pre-fill completion panel when it opens.
+  // Prefer bookedPrice (preserved at booking time) → pricingSnapshot total → job.price.
+  // This ensures the invoice always reflects what the customer was quoted, even if
+  // global pricing rules change later.
   React.useEffect(() => {
     if (showCompletionPanel && job) {
-      setCompletionAmount((job.price || 0).toFixed(2));
+      const preferredPrice = (job as any).bookedPrice ?? job.pricingSnapshot?.total ?? job.price ?? 0;
+      setCompletionAmount((preferredPrice || 0).toFixed(2));
       // Pre-fill invoice number as reference for manual payment
       if (job.invoiceNumber) setManualPayRef(job.invoiceNumber);
     }
@@ -588,7 +592,7 @@ export const JobDetail = () => {
                   placeholder="0.00" value={completionAmount}
                   onChange={e => setCompletionAmount(e.target.value)} />
               </div>
-              <p className="text-[10px] text-charcoal/50">Loaded from booking: ${(job.price || 0).toFixed(2)}. Change only if needed.</p>
+              <p className="text-[10px] text-charcoal/50">Booked price: ${((job as any).bookedPrice ?? job.pricingSnapshot?.total ?? job.price ?? 0).toFixed(2)}. Change only if on-site conditions differ.</p>
             </div>
 
             {/* On-site add-ons */}
@@ -1250,18 +1254,26 @@ export const JobDetail = () => {
               <p className="text-sm text-charcoal">Change the total price to ${(parseFloat(overridePrice) || 0).toFixed(2)}?</p>
               <div className="flex gap-3">
                 <Button variant="ghost" className="flex-1 rounded-xl h-12 font-bold" onClick={() => { setShowOverrideConfirm(false); setShowOverrideModal(true); }}>Back</Button>
-                <Button className="flex-1 bg-deep-red hover:bg-deep-red/90 text-white rounded-xl h-12 font-bold" onClick={() => handleApplyOverride(true)} disabled={isUpdating}>Confirm</Button>
+                <Button className="flex-1 bg-deep-red hover:bg-deep-red/90 text-white rounded-xl h-12 font-bold" onClick={async () => {
+                  if (!job) return;
+                  try {
+                    setWorkflowLoading(true);
+                    await updateDoc(doc(db, 'jobs', job.id), { price: parseFloat(overridePrice) || 0 });
+                    toast.success('Price updated.');
+                    setShowOverrideConfirm(false);
+                    setShowOverrideModal(false);
+                    setOverridePrice('');
+                  } catch (e: any) {
+                    toast.error(e.message || 'Failed to update price.');
+                  } finally {
+                    setWorkflowLoading(false);
+                  }
+                }}>Confirm Override</Button>
               </div>
             </CardContent>
           </Card>
         </div>
       )}
-
-      {/* Completion panel */}
-      {showCompletionPanel && renderCompletionPanel()}
-
-      {/* Manual payment modal */}
-      {showManualPayment && renderManualPaymentModal()}
     </div>
   );
 };

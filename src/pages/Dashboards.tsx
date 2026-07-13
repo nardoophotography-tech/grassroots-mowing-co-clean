@@ -7,6 +7,7 @@ import { collection, query, orderBy, onSnapshot, setDoc, doc, deleteDoc } from '
 import { useJobs, useClients, useInvoices, useSettings, useAgencyStaff, usePayments } from '@/hooks/useFirebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { ADMIN_EMAILS } from '@/constants';
+import { calculateBookingPrice } from '@/utils/pricing';
 import { cn } from '@/lib/utils';
 import { 
   PlusCircle, 
@@ -109,6 +110,26 @@ const AdminDashboard = () => {
     service: 'residential_standard', clientType: 'one_off',
     timeSlot: 'morning', notes: '', price: '',
   });
+  const [quickBookAutoPrice, setQuickBookAutoPrice] = React.useState<number>(0);
+  const [quickBookPriceOverride, setQuickBookPriceOverride] = React.useState(false);
+  const [quickBookAdjustReason, setQuickBookAdjustReason] = React.useState('');
+
+  // Auto-calculate price whenever service or client type changes in quick-book modal
+  React.useEffect(() => {
+    if (!settings) return;
+    const result = calculateBookingPrice(quickBookForm.service, quickBookForm.clientType, settings.pricing);
+    if (result.pricingStatus === 'calculated') {
+      setQuickBookAutoPrice(result.estimatedTotal);
+      if (!quickBookPriceOverride) {
+        setQuickBookForm(f => ({ ...f, price: result.estimatedTotal.toFixed(2) }));
+      }
+    } else {
+      setQuickBookAutoPrice(0);
+      if (!quickBookPriceOverride) {
+        setQuickBookForm(f => ({ ...f, price: '' }));
+      }
+    }
+  }, [quickBookForm.service, quickBookForm.clientType, settings, quickBookPriceOverride]);
 
   // Re-check stripe when settings change
   React.useEffect(() => {
@@ -143,8 +164,20 @@ const AdminDashboard = () => {
       toast.error('Name, address, and date are required.');
       return;
     }
+    const bookedPrice = parseFloat(quickBookForm.price) || 0;
+    if (bookedPrice === 0) {
+      toast.error('Price cannot be $0. Select a service to auto-calculate or enter a manual price.');
+      return;
+    }
+    if (quickBookPriceOverride && !quickBookAdjustReason.trim()) {
+      toast.error('Please enter a reason for the manual price adjustment.');
+      return;
+    }
     setIsBooking(true);
     try {
+      const priceResult = calculateBookingPrice(quickBookForm.service, quickBookForm.clientType, settings?.pricing);
+      const priceAdjusted = quickBookPriceOverride && Math.abs(bookedPrice - quickBookAutoPrice) > 0.01;
+
       const bookingTimeout = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('Connection timed out. Booking may still be saved — check Jobs Dashboard.')), 12000)
       );
@@ -172,14 +205,21 @@ const AdminDashboard = () => {
         serviceGrade: 'standard',
         conditionFactors: { timeSinceLastMow: 'under-2-weeks', grassHeight: 'short', thickness: 'light', obstacles: 'low', urgency: 'normal' },
         addOns: [],
-        basePrice: parseFloat(quickBookForm.price) || 0,
+        basePrice: priceResult.calculatedBasePrice,
         gradeAdjustment: 0,
         conditionSurcharge: 0,
         addOnTotal: 0,
         urgencySurcharge: 0,
-        price: parseFloat(quickBookForm.price) || 0,
-        billingType: 'one_off',
-        recurringSchedule: 'none',
+        price: bookedPrice,
+        // Pricing provenance
+        calculatedBasePrice: priceResult.calculatedBasePrice,
+        bookedPrice,
+        pricingStatus: priceResult.pricingStatus,
+        pricingSnapshot: priceResult.snapshot || undefined,
+        priceAdjusted: priceAdjusted || undefined,
+        priceAdjustedReason: priceAdjusted ? quickBookAdjustReason.trim() : undefined,
+        billingType: 'standard',
+        recurringSchedule: 'one-off',
         description: quickBookForm.notes.trim() || 'Walk-in / phone booking taken by admin.',
         source: 'admin_quick_book',
       } as any), bookingTimeout]);
@@ -188,6 +228,8 @@ const AdminDashboard = () => {
       setShowQuickBook(false);
       const newTomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
       setQuickBookForm({ name: '', phone: '', address: '', date: newTomorrow, service: 'residential_standard', clientType: 'one_off', timeSlot: 'morning', notes: '', price: '' });
+      setQuickBookPriceOverride(false);
+      setQuickBookAdjustReason('');
     } catch (err: any) {
       toast.error(err.message || 'Failed to create booking.');
     } finally {
@@ -825,27 +867,53 @@ const AdminDashboard = () => {
               </div>
             </div>
 
-            {/* Notes + Price */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-[9px] font-black uppercase tracking-widest text-clay">Notes (optional)</Label>
-                <textarea value={quickBookForm.notes} onChange={e => setQuickBookForm(f => ({ ...f, notes: e.target.value }))} placeholder="Gate code, access info..." rows={2} className="mt-1 w-full px-3 py-2 rounded-md border border-border text-xs font-bold bg-background text-charcoal focus:outline-none focus:ring-2 focus:ring-primary resize-none" />
+            {/* Notes */}
+            <div>
+              <Label className="text-[9px] font-black uppercase tracking-widest text-clay">Notes (optional)</Label>
+              <textarea value={quickBookForm.notes} onChange={e => setQuickBookForm(f => ({ ...f, notes: e.target.value }))} placeholder="Gate code, access info..." rows={2} className="mt-1 w-full px-3 py-2 rounded-md border border-border text-xs font-bold bg-background text-charcoal focus:outline-none focus:ring-2 focus:ring-primary resize-none" />
+            </div>
+
+            {/* Price — auto-calculated, optional admin override */}
+            <div className="rounded-xl border border-border bg-background/60 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-[9px] font-black uppercase tracking-widest text-clay">Price (inc. GST)</Label>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={quickBookPriceOverride}
+                    onChange={e => setQuickBookPriceOverride(e.target.checked)}
+                    className="h-3 w-3 rounded"
+                  />
+                  <span className="text-[9px] font-black uppercase tracking-widest text-clay">Manual override</span>
+                </label>
               </div>
-              <div>
-                <Label className="text-[9px] font-black uppercase tracking-widest text-clay">Price ($)</Label>
-                <div className="relative mt-1">
-                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-clay/40" />
+              <div className="relative">
+                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-clay/40" />
+                <Input
+                  type="number"
+                  min="0"
+                  step="5"
+                  value={quickBookForm.price}
+                  onChange={e => setQuickBookForm(f => ({ ...f, price: e.target.value }))}
+                  readOnly={!quickBookPriceOverride}
+                  placeholder={quickBookAutoPrice > 0 ? quickBookAutoPrice.toFixed(2) : 'Select a service'}
+                  className={`h-10 text-xs pl-8 ${!quickBookPriceOverride ? 'bg-primary/5 text-primary font-black cursor-default' : ''}`}
+                />
+              </div>
+              {quickBookPriceOverride && (
+                <div>
+                  <Label className="text-[9px] font-black uppercase tracking-widest text-clay">Reason for adjustment *</Label>
                   <Input
-                    type="number"
-                    min="0"
-                    step="5"
-                    value={quickBookForm.price}
-                    onChange={e => setQuickBookForm(f => ({ ...f, price: e.target.value }))}
-                    placeholder="0.00"
-                    className="h-10 text-xs pl-8"
+                    value={quickBookAdjustReason}
+                    onChange={e => setQuickBookAdjustReason(e.target.value)}
+                    placeholder="e.g. Project 156 / Complimentary / Negotiated rate"
+                    className="mt-1 h-9 text-xs"
                   />
                 </div>
-              </div>
+              )}
+              {!quickBookPriceOverride && quickBookAutoPrice > 0 && (
+                <p className="text-[9px] text-clay/60 italic">Auto-calculated from service + client type</p>
+              )}
             </div>
 
             {/* Actions */}
@@ -1785,7 +1853,7 @@ const ClientDashboard = () => {
               </div>
             )}
           </div>
-        </CardContent>
+              </CardContent>
       </Card>
     </div>
   );
@@ -1847,13 +1915,18 @@ export const Dashboard = () => {
       </div>
       <h2 className="text-2xl font-serif text-deep-red mb-2">Portal Access Required</h2>
       <p className="text-sm text-charcoal/60 mb-8 max-w-sm">
-        We couldn't determine your account role. Please return to the homepage and select your intended port        We couldn't determine your account role. Please return to the homepage and select your intended portal.
+        We couldn't determine your account role. Please return to the homepage and select your intended portal.
       </p>
-      <Button 
-        onClick={() => {
-          window.location.href = '/';
-        }}
+      <Button
+        onClick={() => { window.location.href = '/'; }}
         className="bg-deep-red text-white hover:bg-deep-red/90 px-8 py-6 rounded-2xl font-bold uppercase tracking-widest text-xs"
+      >
+        Return to Landing Page
+      </Button>
+    </div>
+  );
+};
+me="bg-deep-red text-white hover:bg-deep-red/90 px-8 py-6 rounded-2xl font-bold uppercase tracking-widest text-xs"
       >
         Return to Landing Page
       </Button>

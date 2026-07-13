@@ -108,10 +108,10 @@ export const getDefaultPricingRules = (currentPricing?: PricingRules): PricingRu
       'custom': 0,
     },
     clientType: {
-      'one-off': 1.15,
+      'one_off': 1.15,
       'returning': 1.0,
-      'ultimate-gold': 1.25,
-      'real-estate': 1.15,
+      'premium': 1.25,
+      'asset_management': 1.15,
     },
     grade: {
       'standard': 0,

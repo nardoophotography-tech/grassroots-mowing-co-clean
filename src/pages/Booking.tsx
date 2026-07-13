@@ -25,12 +25,13 @@ import { ClientCalendar } from '@/components/Calendar/ClientCalendar';
 import { useBlockouts } from '@/data/blockoutStore';
 import { ImagePlaceholder } from '@/components/ImagePlaceholder';
 import { calculateServicePrice } from '@/services/pricingEngine';
+import { calculateBookingPrice } from '@/utils/pricing';
 import { notificationService } from '@/services/notificationService';
 import { GrassRootsGuardian } from '@/components/GrassRootsGuardian';
 
 const bookingSchema = z.object({
   name: z.string().min(2, 'Name is required'),
-  email: z.string().email('Valid email is required'),
+  email: z.union([z.string().email(), z.literal('')]).optional(),
   phone: z.string().min(8, 'Valid phone number is required'),
   location: z.any().refine(val => val && val.verified === true, 'Please confirm your property location.'),
   suburb: z.string().optional(),
@@ -74,7 +75,10 @@ export const Booking = () => {
   const todayStr = new Date().toISOString().slice(0, 10);
   const bookingsOpen = todayStr >= (bookingSettings?.bookingIntakeOpenDate ?? '2026-06-26');
 
-  const [step, setStep] = React.useState((searchParams.get('type') === 'one_off' || searchParams.get('type') === 'asset_management') ? 2 : 1);
+  // Step 1 (client type selector) has been removed from the public flow.
+  // All public bookings start at step 2 (customer details). clientType defaults
+  // to 'one_off' unless the URL param provides an override (e.g. ?type=asset_management).
+  const [step, setStep] = React.useState(2);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [paymentMethod, setPaymentMethod] = React.useState<'card' | 'cash'>('card');
   const [createdJobId, setCreatedJobId] = React.useState<string | null>(null);
@@ -104,7 +108,7 @@ export const Booking = () => {
       phone: '', 
       timeSlot: 'morning',
       runType: 'Morning Run',
-      clientType: (searchParams.get('type') as any) || (profile ? (profile.clientType || 'returning') : 'one_off'),
+      clientType: (searchParams.get('type') as any) || 'one_off',
       serviceType: (searchParams.get('package') as any) || 'residential_standard',
       serviceGrade: 'standard',
       squareFootage: 0,
@@ -165,6 +169,13 @@ export const Booking = () => {
 
   const onSubmit = async (data: BookingFormValues) => {
     const snapshot = calculateEstimate();
+
+    // Zero-dollar protection: block if price is $0 and it's not a quote-required service
+    if (!snapshot.isQuoteRequired && snapshot.total <= 0) {
+      toast.error('Could not calculate a price for this service. Please contact us to book.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       // Use Firebase uid if available (logged-in user), otherwise a guest booking ID.
@@ -387,49 +398,12 @@ export const Booking = () => {
 
       <div className="max-w-xl mx-auto px-4 relative z-10">
         <form onSubmit={handleSubmit(onSubmit as any, onInvalid)}>
-          {step === 1 && (
-            <Card className="border-border shadow-premium rounded-[32px] overflow-hidden bg-surface/80 backdrop-blur-sm">
-              <CardHeader className="bg-primary/5 py-4 border-b border-border">
-                <CardTitle className="flex items-center gap-2 font-black text-charcoal uppercase tracking-tight italic text-sm">
-                  <Users size={16} className="text-primary" />
-                  Gateway Selection
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 pt-4 px-4 pb-6">
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { id: 'one_off', label: 'One-Off', icon: Zap },
-                    { id: 'returning', label: 'Regular', icon: Users },
-                    { id: 'premium', label: 'Premium', icon: Sparkles },
-                    { id: 'asset_management', label: 'Asset Mgmt', icon: Building2 }
-                  ].map((type) => (
-                    <button
-                      key={type.id}
-                      type="button"
-                      onClick={() => {
-                        setValue('clientType', type.id as any);
-                        nextStep();
-                      }}
-                      className={cn(
-                        "flex flex-col items-center justify-center p-4 rounded-2xl border-2 text-center transition-all h-24",
-                        watchedValues.clientType === type.id ? "border-secondary bg-secondary/5 shadow-premium" : "border-border bg-background hover:border-primary/20"
-                      )}
-                    >
-                      <type.icon size={18} className={cn("mb-2", watchedValues.clientType === type.id ? "text-secondary" : "text-clay/40")} />
-                      <span className="font-black text-[10px] uppercase tracking-tight italic">{type.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
           {step === 2 && (
             <Card className="border-border shadow-premium rounded-[32px] overflow-hidden bg-surface/80 backdrop-blur-sm">
               <CardHeader className="bg-primary/5 py-4 border-b border-border">
                 <CardTitle className="flex items-center gap-2 font-black text-charcoal uppercase tracking-tight italic text-sm">
                   <MapPin size={16} className="text-primary" />
-                  Identity & Location
+                  Your Details
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 pt-4 px-4 pb-6">
@@ -493,7 +467,7 @@ export const Booking = () => {
               <CardHeader className="bg-primary/5 py-4 border-b border-border">
                 <CardTitle className="flex items-center gap-2 font-black text-charcoal uppercase tracking-tight italic text-sm">
                   <Calendar size={16} className="text-primary" />
-                  Booking Window
+                  Schedule
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 pt-4 px-4 pb-6">
@@ -524,29 +498,42 @@ export const Booking = () => {
               <CardHeader className="bg-primary/5 py-4 border-b border-border">
                 <CardTitle className="flex items-center gap-2 font-black text-charcoal uppercase tracking-tight italic text-sm">
                   <ClipboardList size={16} className="text-primary" />
-                  Service Matrix
+                  Service
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 pt-4 px-4 pb-6">
                 <div className="grid grid-cols-2 gap-2">
-                  {Object.entries(settings?.pricing?.base || {}).slice(0, 4).map(([id, price]) => {
-                    const detail = settings?.pricing?.packageDetails?.[id];
-                    return (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => setValue('serviceType', id as any)}
-                        className={cn("flex flex-col p-3 rounded-2xl border-2 text-left h-32 relative", watchedValues.serviceType === id ? "border-secondary bg-secondary/5" : "border-border bg-background")}
-                      >
-                        <span className="font-black text-[10px] uppercase tracking-tight italic">{detail?.name || id.replace('_', ' ')}</span>
-                        <span className="text-[9px] text-clay font-bold mt-1 line-clamp-2">{detail?.description}</span>
-                        <span className="mt-auto text-xs font-black text-primary">${price}</span>
-                      </button>
-                    );
-                  })}
+                  {Object.entries(settings?.pricing?.base || {})
+                    .filter(([id]) => id !== 'custom')
+                    .slice(0, 4)
+                    .map(([id]) => {
+                      const detail = settings?.pricing?.packageDetails?.[id];
+                      const priceResult = calculateBookingPrice(
+                        id,
+                        watchedValues.clientType || 'one_off',
+                        settings?.pricing
+                      );
+                      const priceLabel = priceResult.pricingStatus === 'calculated'
+                        ? `$${priceResult.estimatedTotal.toFixed(0)}`
+                        : priceResult.pricingStatus === 'quote_required'
+                          ? 'Quote required'
+                          : `$${(settings?.pricing?.base as any)?.[id] ?? 0}`;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => setValue('serviceType', id as any)}
+                          className={cn("flex flex-col p-3 rounded-2xl border-2 text-left h-32 relative", watchedValues.serviceType === id ? "border-secondary bg-secondary/5" : "border-border bg-background")}
+                        >
+                          <span className="font-black text-[10px] uppercase tracking-tight italic">{detail?.name || id.replace('_', ' ')}</span>
+                          <span className="text-[9px] text-clay font-bold mt-1 line-clamp-2">{detail?.description}</span>
+                          <span className="mt-auto text-xs font-black text-primary">{priceLabel}</span>
+                        </button>
+                      );
+                    })}
                 </div>
                 <Button type="button" onClick={nextStep} className="w-full bg-primary h-12 rounded-full font-black uppercase tracking-widest text-[10px] shadow-premium">
-                  Review & Finalize <ChevronRight className="h-4 w-4 ml-1" />
+                  Review & Confirm <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>
               </CardContent>
             </Card>
@@ -557,20 +544,52 @@ export const Booking = () => {
               <CardHeader className="bg-primary/5 py-4 border-b border-border">
                 <CardTitle className="flex items-center gap-2 font-black text-charcoal uppercase tracking-tight italic text-sm">
                   <CheckCircle2 size={16} className="text-primary" />
-                  Final Operational Audit
+                  Price Summary
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 pt-4 px-4 pb-6">
-                <div className="bg-background p-4 rounded-2xl border border-border space-y-3">
-                  <div className="flex justify-between text-[9px] font-bold text-clay uppercase italic border-b border-border/40 pb-2">
-                    <span>Customer</span>
-                    <span className="text-charcoal">{watchedValues.name}</span>
-                  </div>
-                  <div className="flex justify-between items-center pt-2">
-                    <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em] italic">Net Total</span>
-                    <span className="text-xl font-black text-primary">${calculateEstimate().total.toFixed(2)}</span>
-                  </div>
-                </div>
+                {(() => {
+                  const est = calculateEstimate();
+                  return (
+                    <div className="bg-background p-4 rounded-2xl border border-border space-y-3">
+                      <div className="flex justify-between text-[9px] font-bold text-clay uppercase italic border-b border-border/40 pb-2">
+                        <span>Customer</span>
+                        <span className="text-charcoal">{watchedValues.name}</span>
+                      </div>
+                      <div className="flex justify-between text-[9px] font-bold text-clay uppercase italic">
+                        <span>Service</span>
+                        <span className="text-charcoal">{est.packageName}</span>
+                      </div>
+                      <div className="flex justify-between text-[9px] font-bold text-clay uppercase italic">
+                        <span>Date</span>
+                        <span className="text-charcoal">{watchedValues.date ? new Date(watchedValues.date).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'}</span>
+                      </div>
+                      <div className="border-t border-border/40 pt-2">
+                        {est.isQuoteRequired ? (
+                          <div className="flex justify-between items-center">
+                            <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em] italic">Custom Quote</span>
+                            <span className="text-sm font-black text-clay italic">We'll be in touch</span>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex justify-between text-[9px] text-clay mb-1">
+                              <span>Subtotal (excl. GST)</span>
+                              <span>${est.subtotal.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between text-[9px] text-clay mb-2">
+                              <span>GST (10%)</span>
+                              <span>${est.gst.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em] italic">Total (inc. GST)</span>
+                              <span className="text-xl font-black text-primary">${est.total.toFixed(2)}</span>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
                 {!bookingsOpen ? (
                   <div className="w-full rounded-2xl bg-ochre/10 border border-ochre/30 p-4 text-center">
                     <p className="text-[11px] font-black text-ochre uppercase tracking-[0.15em] italic">
@@ -594,7 +613,7 @@ export const Booking = () => {
               <CardHeader className="bg-charcoal py-4 border-b border-border">
                 <CardTitle className="flex items-center gap-2 font-black text-white uppercase tracking-tight italic text-sm">
                   <CreditCard size={16} className="text-primary" />
-                  Fiscal Resolution
+                  Payment
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 pt-6 px-4 pb-6 text-center">
@@ -609,7 +628,7 @@ export const Booking = () => {
                    </button>
                 </div>
                 <Button onClick={handlePaymentSelection} isLoading={isSubmitting} className="w-full bg-secondary h-14 rounded-full font-black uppercase tracking-[0.2em] text-[11px] mt-6 italic">
-                   CONFIRM RESOLUTION
+                   CONFIRM PAYMENT
                 </Button>
               </CardContent>
             </Card>
@@ -618,4 +637,5 @@ export const Booking = () => {
       </div>
     </div>
   );
+};
 };

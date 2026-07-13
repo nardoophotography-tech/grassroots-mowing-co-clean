@@ -208,6 +208,13 @@ export interface Job {
   invoicePdfUrl?: string;
   receiptPdfUrl?: string;
   documents?: AppDocument[];
+  // Pricing provenance (set at booking time, preserved for life of job)
+  calculatedBasePrice?: number;    // system-calculated price at booking
+  bookedPrice?: number;            // price customer was quoted/shown
+  priceAdjusted?: boolean;         // true if admin changed the auto-calculated price
+  priceAdjustedReason?: string;    // required when priceAdjusted = true
+  pricingStatus?: 'calculated' | 'quote_required' | 'zero_price' | 'no_service' | 'free';
+  pricingRuleVersion?: string;     // version of pricing rules used at booking
 }
 
 export interface ActivityEntry {
@@ -417,6 +424,7 @@ export interface BookingBlockedSlot {
   reason: string;
 }
 
+
 export interface BookingSettings {
   bookingIntakeOpenDate: string;      // 'YYYY-MM-DD' — before this date submit is blocked
   firstAvailableServiceDate: string;  // 'YYYY-MM-DD' — earliest date customer can select
@@ -429,11 +437,6 @@ export interface BookingSettings {
     friday: boolean;
     saturday: boolean;
     sunday: boolean;
-  };
-  timeSlots: BookingTimeSlot[];
-  blockedDates: BookingBlockedDate[];
-  blockedSlots: BookingBlockedSlot[];
-}
   };
   timeSlots: BookingTimeSlot[];
   blockedDates: BookingBlockedDate[];
