@@ -1926,10 +1926,3 @@ export const Dashboard = () => {
     </div>
   );
 };
-me="bg-deep-red text-white hover:bg-deep-red/90 px-8 py-6 rounded-2xl font-bold uppercase tracking-widest text-xs"
-      >
-        Return to Landing Page
-      </Button>
-    </div>
-  );
-};
