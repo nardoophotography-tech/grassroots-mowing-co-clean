@@ -237,5 +237,17 @@ service cloud.firestore {
       allow read: if isWorkforce();
       allow write: if isWorkforce();
     }
+
+    // ── Private admin jobs ────────────────────────────────────────────────
+    // Admin-only personal schedule entries that can sit on publicly-blocked days.
+    // These are NEVER readable by public users or unauthenticated requests.
+    // The public booking calendar (ClientCalendar) never queries this collection.
+    // A private job does NOT remove or modify the public blockout on the same date.
+    match /private_jobs/{jobId} {
+      allow read:   if isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
   }
 }

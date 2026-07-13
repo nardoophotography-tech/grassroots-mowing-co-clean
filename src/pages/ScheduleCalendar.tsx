@@ -27,6 +27,7 @@ import {
   ExternalLink,
   Loader2,
   Ban,
+  Lock,
 } from 'lucide-react';
 import {
   scheduleStore,
@@ -51,6 +52,15 @@ import {
   formatBlockLabel,
   getActiveBlocksForDate,
 } from '@/data/blockoutStore';
+import {
+  privateJobStore,
+  usePrivateJobs,
+  PrivateJob,
+  PrivateJobCategory,
+  PrivateJobTimeSlot,
+  PRIVATE_JOB_CATEGORIES,
+  PRIVATE_JOB_TIME_SLOT_LABELS,
+} from '@/data/privateJobStore';
 import { useJobs } from '@/hooks/useFirebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Job } from '@/types';
@@ -172,6 +182,34 @@ const EMPTY_BLOCKOUT: BlockoutFormState = {
   repeatEndDate: '',
 };
 
+type PrivateJobFormState = {
+  title: string;
+  date: string;
+  timeSlot: PrivateJobTimeSlot;
+  startTime: string;
+  endTime: string;
+  address: string;
+  contactName: string;
+  phone: string;
+  price: string; // string so empty input works; parsed to number on save
+  privateNotes: string;
+  category: PrivateJobCategory;
+};
+
+const EMPTY_PRIVATE_JOB: PrivateJobFormState = {
+  title: '',
+  date: todayKey(),
+  timeSlot: 'morning',
+  startTime: '08:00',
+  endTime: '10:00',
+  address: '',
+  contactName: '',
+  phone: '',
+  price: '',
+  privateNotes: '',
+  category: 'private_job',
+};
+
 const inputCls =
   'w-full h-11 rounded-xl border border-stone-300 px-3 text-sm focus:ring-2 focus:ring-deep-red outline-none';
 
@@ -180,6 +218,7 @@ export const ScheduleCalendar = () => {
   const { jobs, loading: jobsLoading, firestoreError } = useJobs();
   const localEntries = useSchedule();
   const activeBlocks = useBlockouts();
+  const privateJobs = usePrivateJobs();
 
   const [view, setView] = React.useState<ViewMode>('weekly');
   const [anchor, setAnchor] = React.useState<Date>(new Date());
@@ -195,6 +234,14 @@ export const ScheduleCalendar = () => {
   const [editingBlockId, setEditingBlockId] = React.useState<string | null>(null);
   const [blockoutForm, setBlockoutForm] = React.useState<BlockoutFormState>(EMPTY_BLOCKOUT);
   const [savingBlockout, setSavingBlockout] = React.useState(false);
+
+  // ── Private job form state ─────────────────────────────────────────────
+  const [privateJobFormOpen, setPrivateJobFormOpen] = React.useState(false);
+  const [editingPrivateJobId, setEditingPrivateJobId] = React.useState<string | null>(null);
+  const [privateJobForm, setPrivateJobForm] = React.useState<PrivateJobFormState>(EMPTY_PRIVATE_JOB);
+  const [savingPrivateJob, setSavingPrivateJob] = React.useState(false);
+  // Set true to open private job modal right after a blockout is saved
+  const [blockoutThenAddPrivateJob, setBlockoutThenAddPrivateJob] = React.useState(false);
 
   // ── Overlap confirmation modal (replaces window.confirm) ──────────────
   const [confirmOverlap, setConfirmOverlap] = React.useState<{
@@ -238,6 +285,7 @@ export const ScheduleCalendar = () => {
       );
 
   const blocksForDay = (d: Date) => getActiveBlocksForDate(activeBlocks, keyOf(d));
+  const privateJobsForDay = (d: Date) => privateJobs.filter((j) => j.date === keyOf(d));
 
   const runCounts = (list: ScheduleEntry[]) => ({
     'Morning Run': list.filter((e) => e.runType === 'Morning Run').length,
@@ -363,6 +411,86 @@ export const ScheduleCalendar = () => {
     }
   };
 
+  // ── Private job handlers ──────────────────────────────────────────────────
+
+  const openAddPrivateJob = (date?: Date, prefill?: Partial<PrivateJobFormState>) => {
+    setPrivateJobForm({ ...EMPTY_PRIVATE_JOB, date: keyOf(date ?? anchor), ...prefill });
+    setEditingPrivateJobId(null);
+    setPrivateJobFormOpen(true);
+  };
+
+  const openEditPrivateJob = (j: PrivateJob) => {
+    setPrivateJobForm({
+      title:        j.title,
+      date:         j.date,
+      timeSlot:     j.timeSlot ?? 'morning',
+      startTime:    j.startTime ?? '08:00',
+      endTime:      j.endTime   ?? '10:00',
+      address:      j.address      ?? '',
+      contactName:  j.contactName  ?? '',
+      phone:        j.phone        ?? '',
+      price:        j.price != null ? String(j.price) : '',
+      privateNotes: j.privateNotes ?? '',
+      category:     j.category,
+    });
+    setEditingPrivateJobId(j.id);
+    setPrivateJobFormOpen(true);
+  };
+
+  const savePrivateJob = async (ev: React.FormEvent) => {
+    ev.preventDefault();
+    if (!privateJobForm.title.trim()) {
+      toast.error('Title is required for a private job.');
+      return;
+    }
+    setSavingPrivateJob(true);
+    try {
+      const priceNum = privateJobForm.price.trim() ? parseFloat(privateJobForm.price) : undefined;
+      const payload: Omit<PrivateJob, 'id' | 'createdAt' | 'updatedAt'> = {
+        entryType:    'private_job',
+        visibility:   'admin_only',
+        isPrivate:    true,
+        title:        privateJobForm.title.trim(),
+        date:         privateJobForm.date,
+        timeSlot:     privateJobForm.timeSlot,
+        startTime:    privateJobForm.timeSlot === 'custom' ? privateJobForm.startTime : undefined,
+        endTime:      privateJobForm.timeSlot === 'custom' ? privateJobForm.endTime   : undefined,
+        address:      privateJobForm.address.trim()      || undefined,
+        contactName:  privateJobForm.contactName.trim()  || undefined,
+        phone:        privateJobForm.phone.trim()        || undefined,
+        price:        !isNaN(priceNum as number) ? priceNum : undefined,
+        privateNotes: privateJobForm.privateNotes.trim() || undefined,
+        category:     privateJobForm.category,
+        status:       'active',
+        createdBy:    'admin',
+      };
+      if (editingPrivateJobId) {
+        await privateJobStore.update(editingPrivateJobId, payload);
+        toast.success('Private job updated.');
+      } else {
+        await privateJobStore.add(payload);
+        toast.success('Private job saved. Public blockout remains active.');
+      }
+      setPrivateJobFormOpen(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save private job.');
+    } finally {
+      setSavingPrivateJob(false);
+    }
+  };
+
+  const delPrivateJob = async (j: PrivateJob) => {
+    if (window.confirm(`Delete private job "${j.title}"?`)) {
+      try {
+        await privateJobStore.remove(j.id);
+        toast.success('Private job deleted.');
+        if (editingPrivateJobId === j.id) setPrivateJobFormOpen(false);
+      } catch {
+        toast.error('Failed to delete private job.');
+      }
+    }
+  };
+
   // ── Execute a blockout save (called directly or after overlap confirm) ─
   const commitBlockout = async (
     payload: Omit<CalendarBlock, 'id' | 'createdAt' | 'updatedAt'>,
@@ -374,11 +502,21 @@ export const ScheduleCalendar = () => {
       if (isEdit && editingBlockId) {
         await blockoutStore.update(editingBlockId, payload);
         toast.success('Block-out updated.');
+        setBlockoutFormOpen(false);
       } else {
         await blockoutStore.add(payload);
         toast.success(isWeekly ? 'Recurring block-out saved.' : 'Time blocked out.');
+        if (blockoutThenAddPrivateJob) {
+          setBlockoutThenAddPrivateJob(false);
+          setBlockoutFormOpen(false);
+          // Pre-fill the private job modal with the same date
+          setPrivateJobForm({ ...EMPTY_PRIVATE_JOB, date: payload.date });
+          setEditingPrivateJobId(null);
+          setPrivateJobFormOpen(true);
+        } else {
+          setBlockoutFormOpen(false);
+        }
       }
-      setBlockoutFormOpen(false);
     } catch {
       toast.error('Failed to save block-out.');
     } finally {
@@ -524,6 +662,23 @@ export const ScheduleCalendar = () => {
     </div>
   );
 
+  /** Compact chip for Weekly view — private admin job */
+  const renderPrivateJobChip = (j: PrivateJob) => (
+    <button
+      key={j.id}
+      onClick={() => openEditPrivateJob(j)}
+      className="w-full text-left rounded-lg border px-2 py-1.5 hover:shadow-sm transition-all bg-violet-50 border-violet-300 text-violet-800"
+      title={`PRIVATE — ${j.title}`}
+    >
+      <p className="text-[10px] font-black truncate flex items-center gap-1">
+        <Lock className="h-2.5 w-2.5 flex-shrink-0" />
+        {j.timeSlot === 'custom' && j.startTime ? j.startTime + ' ' : ''}
+        {j.title}
+      </p>
+      <p className="text-[9px] opacity-70 truncate">PRIVATE · {PRIVATE_JOB_CATEGORIES.find(c => c.key === j.category)?.label ?? j.category}</p>
+    </button>
+  );
+
   /** Expanded card for Daily view — schedule entry */
   function dayCard(e: ScheduleEntry) {
     return (
@@ -589,6 +744,75 @@ export const ScheduleCalendar = () => {
               </button>
             </>
           )}
+        </div>
+      </div>
+    );
+  }
+
+  /** Expanded card for Daily view — private admin job */
+  function privateJobCard(j: PrivateJob) {
+    const catLabel = PRIVATE_JOB_CATEGORIES.find(c => c.key === j.category)?.label ?? j.category;
+    return (
+      <div
+        key={j.id}
+        className="border rounded-2xl p-4 flex flex-col md:flex-row md:items-start gap-3 border-violet-300 bg-violet-50/60"
+      >
+        <div className="md:w-28 flex-shrink-0">
+          <p className="text-sm font-black flex items-center gap-1 text-violet-800">
+            <Lock className="h-4 w-4" />
+            PRIVATE
+          </p>
+          <p className="text-[10px] text-violet-600 font-bold mt-0.5 uppercase tracking-wide">
+            Admin Only
+          </p>
+          {j.timeSlot === 'custom' && j.startTime && j.endTime && (
+            <p className="text-[10px] text-violet-500 mt-0.5">{j.startTime} – {j.endTime}</p>
+          )}
+          {j.timeSlot && j.timeSlot !== 'custom' && (
+            <p className="text-[10px] text-violet-500 mt-0.5 uppercase">{PRIVATE_JOB_TIME_SLOT_LABELS[j.timeSlot]}</p>
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="font-black text-sm text-violet-900">{j.title}</p>
+            <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded border border-violet-300 bg-violet-100 text-violet-700">
+              {catLabel}
+            </span>
+          </div>
+          {j.address && (
+            <p className="text-xs text-violet-600 mt-1 flex items-center gap-1">
+              <MapPin className="h-3 w-3" />
+              {j.address}
+            </p>
+          )}
+          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-violet-500">
+            {j.contactName && (
+              <span className="flex items-center gap-1">
+                <User className="h-3 w-3" />{j.contactName}
+              </span>
+            )}
+            {j.phone && <span>{j.phone}</span>}
+            {j.price != null && <span>${j.price.toFixed(2)}</span>}
+          </div>
+          {j.privateNotes && (
+            <p className="text-sm text-violet-700 mt-2 whitespace-pre-wrap">{j.privateNotes}</p>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => openEditPrivateJob(j)}
+            className="p-2 rounded-lg bg-violet-100 hover:bg-violet-200 text-violet-700"
+            title="Edit private job"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => delPrivateJob(j)}
+            className="p-2 rounded-lg bg-red-50 hover:bg-red-100 text-deep-red"
+            title="Delete private job"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
         </div>
       </div>
     );
@@ -665,20 +889,40 @@ export const ScheduleCalendar = () => {
   function DailyView() {
     const dayEntries = entriesForDay(anchor);
     const dayBlocks = blocksForDay(anchor);
+    const dayPrivateJobs = privateJobsForDay(anchor);
     const fullDayBlocks = dayBlocks.filter((b) => b.slot === 'full_day');
     const customBlocks = dayBlocks.filter((b) => b.slot === 'custom');
+    const isDayBlocked = fullDayBlocks.length > 0;
 
     return (
       <div aria-label="Daily View" data-view="Daily View" className="earth-card p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-black italic uppercase text-charcoal">{format(anchor, 'EEEE, d MMM')}</h2>
-          <button
-            onClick={() => openAdd(anchor)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-stone-100 hover:bg-stone-200 text-[11px] font-black uppercase tracking-widest"
-          >
-            <Plus className="h-3.5 w-3.5" /> Add Entry
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => openAddPrivateJob(anchor)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-violet-100 hover:bg-violet-200 text-violet-800 text-[11px] font-black uppercase tracking-widest"
+            >
+              <Lock className="h-3.5 w-3.5" /> Private Job
+            </button>
+            <button
+              onClick={() => openAdd(anchor)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-stone-100 hover:bg-stone-200 text-[11px] font-black uppercase tracking-widest"
+            >
+              <Plus className="h-3.5 w-3.5" /> Add Entry
+            </button>
+          </div>
         </div>
+
+        {/* Public blockout status banner */}
+        {isDayBlocked && (
+          <div className="mb-3 px-4 py-2 rounded-xl border border-red-200 bg-red-50 flex items-center gap-2">
+            <Ban className="h-3.5 w-3.5 text-red-600 flex-shrink-0" />
+            <span className="text-[11px] font-black uppercase tracking-widest text-red-700">
+              Public Status: Unavailable — Full Day Blocked
+            </span>
+          </div>
+        )}
 
         {/* Full-day and custom blocks shown at the top */}
         {(fullDayBlocks.length > 0 || customBlocks.length > 0) && (
@@ -687,7 +931,19 @@ export const ScheduleCalendar = () => {
           </div>
         )}
 
-        {dayEntries.length === 0 && dayBlocks.length === 0 && (
+        {/* Private admin entries */}
+        {dayPrivateJobs.length > 0 && (
+          <div className="mb-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-violet-600 mb-2 flex items-center gap-1">
+              <Lock className="h-3 w-3" /> Private Entries ({dayPrivateJobs.length})
+            </p>
+            <div className="space-y-2">
+              {dayPrivateJobs.map((j) => privateJobCard(j))}
+            </div>
+          </div>
+        )}
+
+        {dayEntries.length === 0 && dayBlocks.length === 0 && dayPrivateJobs.length === 0 && (
           <p className="text-sm text-stone-500 italic mb-4">No schedule entries for this day.</p>
         )}
 
@@ -751,9 +1007,14 @@ export const ScheduleCalendar = () => {
                     <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">{format(d, 'EEE')}</p>
                     <p className={'text-lg font-black ' + (isToday ? 'text-deep-red' : 'text-charcoal')}>{format(d, 'd')}</p>
                   </div>
-                  <button onClick={() => openAdd(d)} className="p-1.5 rounded-lg bg-stone-100 hover:bg-stone-200" title="Add entry">
-                    <Plus className="h-3.5 w-3.5" />
-                  </button>
+                  <div className="flex gap-1">
+                    <button onClick={() => openAddPrivateJob(d)} className="p-1.5 rounded-lg bg-violet-100 hover:bg-violet-200 text-violet-700" title="Add private job">
+                      <Lock className="h-3 w-3" />
+                    </button>
+                    <button onClick={() => openAdd(d)} className="p-1.5 rounded-lg bg-stone-100 hover:bg-stone-200" title="Add entry">
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Full-day / custom block chips at top of card */}
@@ -762,6 +1023,13 @@ export const ScheduleCalendar = () => {
                     {[...fullDayBlocks, ...customBlocks].map((b) => renderBlockChip(b))}
                   </div>
                 )}
+
+                {/* Private job chips */}
+                {(() => { const pj = privateJobsForDay(d); return pj.length > 0 ? (
+                  <div className="space-y-1 mb-1">
+                    {pj.map((j) => renderPrivateJobChip(j))}
+                  </div>
+                ) : null; })()}
 
                 <div className="space-y-2 flex-1">
                   {RUN_TYPES.map((run) => {
@@ -855,6 +1123,12 @@ export const ScheduleCalendar = () => {
                         {hasFullDayBlock ? 'Day blocked' : `${dayBlocks.length} block${dayBlocks.length > 1 ? 's' : ''}`}
                       </p>
                     )}
+                    {(() => { const pc = privateJobsForDay(d).length; return pc > 0 ? (
+                      <p className="text-[9px] font-black text-violet-600 leading-tight flex items-center gap-0.5">
+                        <Lock className="h-2.5 w-2.5" />
+                        {pc} private
+                      </p>
+                    ) : null; })()}
                   </div>
                 </button>
               );
@@ -933,6 +1207,12 @@ export const ScheduleCalendar = () => {
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-stone-700 text-white font-black uppercase text-xs tracking-widest hover:bg-stone-800 transition-colors"
           >
             <Ban className="h-4 w-4" /> Block Out Time
+          </button>
+          <button
+            onClick={() => openAddPrivateJob()}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-700 text-white font-black uppercase text-xs tracking-widest hover:bg-violet-800 transition-colors"
+          >
+            <Lock className="h-4 w-4" /> Add Private Job
           </button>
           <button
             onClick={() => openAdd()}
@@ -1091,6 +1371,7 @@ export const ScheduleCalendar = () => {
                   const { payload, isEdit } = confirmOverlap;
                   setConfirmOverlap(null);
                   commitBlockout(payload, isEdit, payload.repeat === 'weekly');
+                  setBlockoutThenAddPrivateJob(false);
                 }}
                 className="px-5 py-2.5 rounded-xl bg-stone-700 text-white font-black uppercase text-xs tracking-widest hover:bg-stone-800"
               >
@@ -1314,6 +1595,233 @@ export const ScheduleCalendar = () => {
                 >
                   {savingBlockout && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                   {editingBlockId ? 'Save Changes' : 'Block Time'}
+                </button>
+                {!editingBlockId && (
+                  <button
+                    type="submit"
+                    disabled={savingBlockout}
+                    onClick={() => setBlockoutThenAddPrivateJob(true)}
+                    className="px-5 py-2.5 rounded-xl bg-violet-700 text-white font-black uppercase text-xs tracking-widest hover:bg-violet-800 disabled:opacity-50 inline-flex items-center gap-2"
+                  >
+                    {savingBlockout && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                    <Lock className="h-3.5 w-3.5" /> Block & Add Private Job
+                  </button>
+                )}
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* ── Private Job Form Modal ──────────────────────────────────── */}
+      {privateJobFormOpen && (
+        <div className="fixed inset-0 z-[90] bg-black/40 flex items-start justify-center overflow-y-auto p-4">
+          <form onSubmit={savePrivateJob} className="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl mt-10 mb-10">
+            <div className="flex items-center justify-between p-6 border-b border-stone-100">
+              <h2 className="text-xl font-black italic uppercase text-charcoal flex items-center gap-2">
+                <Lock className="h-5 w-5 text-violet-600" />
+                {editingPrivateJobId ? 'Edit Private Job' : 'New Private Job'}
+              </h2>
+              <button type="button" onClick={() => setPrivateJobFormOpen(false)} className="p-2 rounded-lg hover:bg-stone-100">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {/* Admin-only badge */}
+              <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-50 border border-violet-200">
+                <Lock className="h-3.5 w-3.5 text-violet-600 flex-shrink-0" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-violet-700">
+                  Admin Only — Hidden from public and customers
+                </span>
+              </div>
+
+              {/* Warning if date is blocked */}
+              {getActiveBlocksForDate(activeBlocks, privateJobForm.date).length > 0 && (
+                <div className="flex items-start gap-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200">
+                  <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-[11px] font-black text-amber-800 uppercase tracking-wide">
+                      This date is blocked from public bookings.
+                    </p>
+                    <p className="text-[10px] text-amber-700 mt-0.5">
+                      This private job will remain visible to admin only. The public blockout stays active.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Title */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-clay">
+                  Title <span className="text-red-500">*</span>
+                </label>
+                <input
+                  value={privateJobForm.title}
+                  onChange={(e) => setPrivateJobForm((f) => ({ ...f, title: e.target.value }))}
+                  placeholder="e.g. Mow family property, Equipment collection"
+                  className={inputCls}
+                  required
+                />
+              </div>
+
+              {/* Date */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-clay">Date <span className="text-red-500">*</span></label>
+                <input
+                  type="date"
+                  value={privateJobForm.date}
+                  onChange={(e) => setPrivateJobForm((f) => ({ ...f, date: e.target.value }))}
+                  className={inputCls}
+                  required
+                />
+              </div>
+
+              {/* Time slot */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-clay">Time Slot</label>
+                <select
+                  value={privateJobForm.timeSlot}
+                  onChange={(e) => setPrivateJobForm((f) => ({ ...f, timeSlot: e.target.value as PrivateJobTimeSlot }))}
+                  className={inputCls}
+                >
+                  <option value="morning">Morning</option>
+                  <option value="afternoon">Afternoon</option>
+                  <option value="full_day">Full Day</option>
+                  <option value="custom">Custom Time</option>
+                </select>
+              </div>
+
+              {/* Custom time range */}
+              {privateJobForm.timeSlot === 'custom' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-clay">Start Time</label>
+                    <input
+                      type="time"
+                      value={privateJobForm.startTime}
+                      onChange={(e) => setPrivateJobForm((f) => ({ ...f, startTime: e.target.value }))}
+                      className={inputCls}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-clay">End Time</label>
+                    <input
+                      type="time"
+                      value={privateJobForm.endTime}
+                      onChange={(e) => setPrivateJobForm((f) => ({ ...f, endTime: e.target.value }))}
+                      className={inputCls}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Category */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-clay">Category</label>
+                <select
+                  value={privateJobForm.category}
+                  onChange={(e) => setPrivateJobForm((f) => ({ ...f, category: e.target.value as PrivateJobCategory }))}
+                  className={inputCls}
+                >
+                  {PRIVATE_JOB_CATEGORIES.map(({ key, label }) => (
+                    <option key={key} value={key}>{label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Address */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-clay">Address <span className="text-stone-400 normal-case font-normal">(optional)</span></label>
+                <input
+                  value={privateJobForm.address}
+                  onChange={(e) => setPrivateJobForm((f) => ({ ...f, address: e.target.value }))}
+                  placeholder="e.g. 12 Example Street"
+                  className={inputCls}
+                />
+              </div>
+
+              {/* Contact + Phone */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-clay">Contact Name</label>
+                  <input
+                    value={privateJobForm.contactName}
+                    onChange={(e) => setPrivateJobForm((f) => ({ ...f, contactName: e.target.value }))}
+                    placeholder="e.g. Mum"
+                    className={inputCls}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-clay">Phone</label>
+                  <input
+                    value={privateJobForm.phone}
+                    onChange={(e) => setPrivateJobForm((f) => ({ ...f, phone: e.target.value }))}
+                    placeholder="0400 000 000"
+                    className={inputCls}
+                  />
+                </div>
+              </div>
+
+              {/* Price */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-clay">Amount <span className="text-stone-400 normal-case font-normal">(optional, admin reference only)</span></label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={privateJobForm.price}
+                  onChange={(e) => setPrivateJobForm((f) => ({ ...f, price: e.target.value }))}
+                  placeholder="e.g. 150"
+                  className={inputCls}
+                />
+              </div>
+
+              {/* Private notes */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-clay">
+                  Private Notes <span className="text-stone-400 normal-case font-normal">(admin only)</span>
+                </label>
+                <textarea
+                  value={privateJobForm.privateNotes}
+                  onChange={(e) => setPrivateJobForm((f) => ({ ...f, privateNotes: e.target.value }))}
+                  placeholder="Internal notes, access info, special requirements..."
+                  className="w-full min-h-[80px] rounded-xl border border-stone-300 px-3 py-2 text-sm focus:ring-2 focus:ring-deep-red outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 p-6 border-t border-stone-100">
+              <div>
+                {editingPrivateJobId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const j = privateJobs.find(j => j.id === editingPrivateJobId);
+                      if (j) delPrivateJob(j);
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-50 text-deep-red font-black uppercase text-xs tracking-widest hover:bg-red-100"
+                  >
+                    <Trash2 className="h-4 w-4" /> Delete
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setPrivateJobFormOpen(false)}
+                  disabled={savingPrivateJob}
+                  className="px-5 py-2.5 rounded-xl border border-stone-300 font-black uppercase text-xs tracking-widest hover:bg-stone-100 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingPrivateJob}
+                  className="px-5 py-2.5 rounded-xl bg-violet-700 text-white font-black uppercase text-xs tracking-widest hover:bg-violet-800 disabled:opacity-50 inline-flex items-center gap-2"
+                >
+                  {savingPrivateJob && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  {editingPrivateJobId ? 'Save Changes' : 'Save Private Job'}
                 </button>
               </div>
             </div>
