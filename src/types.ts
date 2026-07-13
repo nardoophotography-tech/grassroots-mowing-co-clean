@@ -5,8 +5,8 @@ export type ServicePackage = string;
 export type ServiceGrade = 'standard' | 'medium' | 'heavy' | 'extreme';
 export type BillingType = 'included' | 'extra' | 'quote-required' | 'standard';
 export type RecurringSchedule = 'weekly' | 'fortnightly' | 'monthly' | 'one-off';
-export type PaymentStatus = 'unpaid' | 'pending' | 'paid' | 'successful';
-export type PaymentMethod = 'stripe' | 'apple-pay' | 'google-pay' | 'cash' | 'bank-transfer';
+export type PaymentStatus = 'unpaid' | 'pending' | 'paid' | 'successful' | 'not_invoiced' | 'payment_pending' | 'partially_paid';
+export type PaymentMethod = 'stripe' | 'apple-pay' | 'google-pay' | 'cash' | 'bank-transfer' | 'payid' | 'eft' | 'other';
 export type AccountStatus = 'up-to-date' | 'payment-due' | 'overdue';
 
 export interface QueueItem {
@@ -130,7 +130,6 @@ export interface Job {
   suburb: string;
   status: JobStatus;
   scheduledDate: number;
-  completedAt?: number;
   timeSlot: TimeSlot;
   clientType: ClientType;
   servicePackage?: ServicePackage;
@@ -158,17 +157,45 @@ export interface Job {
   materials?: JobMaterial[];
   costing?: JobCosting;
   invoiceId?: string;
+  invoiceNumber?: string;
   paymentId?: string;
   paymentStatus?: PaymentStatus;
   paymentMethod?: PaymentMethod;
   paymentDate?: number;
   paymentLink?: string;
+  stripeCheckoutSessionId?: string;
+  stripePaymentIntentId?: string;
+  stripeSessionId?: string; // legacy alias
   createdAt: number;
   updatedAt: number;
   notificationSent?: boolean;
   finalActionProcessed?: boolean;
   workerId?: string; // UID of the assigned employee
   order?: number; // Position in the run (morning/afternoon)
+  // Workflow timestamps
+  onTheWayAt?: number;
+  invoicedAt?: number;
+  completedAt?: number;
+  paidAt?: number;
+  // Completion amounts
+  baseAmount?: number;
+  addOnsTotal?: number;
+  discountAmount?: number;
+  finalAmount?: number;
+  amountPaid?: number;
+  balanceDue?: number;
+  // Completion metadata
+  completionNotes?: string;
+  completedBy?: string;
+  onTheWayBy?: string;
+  manualPaymentMethod?: string;
+  manualPaymentReference?: string;
+  // Notification dedup IDs
+  onTheWayNotificationId?: string;
+  invoiceSmsId?: string;
+  invoiceEmailId?: string;
+  // Activity log
+  activityLog?: ActivityEntry[];
   // New Quote Fields
   quoteUrl?: string;
   quoteStatus?: 'draft' | 'sent' | 'approved' | 'rejected' | 'expired';
@@ -181,6 +208,15 @@ export interface Job {
   invoicePdfUrl?: string;
   receiptPdfUrl?: string;
   documents?: AppDocument[];
+}
+
+export interface ActivityEntry {
+  id: string;
+  timestamp: number;
+  action: string;
+  detail?: string;
+  by?: string;
+  status?: 'success' | 'failed' | 'pending';
 }
 
 export interface AppDocument {
@@ -361,8 +397,7 @@ export interface AppNotification {
   createdAt: number;
 }
 
-// ─── Booking Availability Settings ───────────────────────────────────────────
-
+// ─── Booking Availability Settings ────────────────
 export interface BookingTimeSlot {
   id: 'morning' | 'afternoon';
   label: string;
@@ -394,6 +429,11 @@ export interface BookingSettings {
     friday: boolean;
     saturday: boolean;
     sunday: boolean;
+  };
+  timeSlots: BookingTimeSlot[];
+  blockedDates: BookingBlockedDate[];
+  blockedSlots: BookingBlockedSlot[];
+}
   };
   timeSlots: BookingTimeSlot[];
   blockedDates: BookingBlockedDate[];

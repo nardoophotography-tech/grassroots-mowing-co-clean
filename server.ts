@@ -422,6 +422,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
         emailSubject = `Your Service Quote: GrassRoots Mowing`;
         emailContent = `Hi ${clientName},\n\nWe have prepared a quote for your service at ${job?.address || 'TBD'}.\n\n${quoteBreakdown}\n\nYou can view the full details and approve it here:\n${paymentLink}${pdfUrl ? `\n\nDownload PDF: ${pdfUrl}` : ''}\n\nThanks,\nGrassRoots Mowing Co.\nops@grassrootsmowing.co`;
         smsContent = `GrassRoots Mowing: Your quote of $${(job?.price || 0).toFixed(2)} is ready. Approve here: ${paymentLink}${pdfUrl ? `\nPDF: ${pdfUrl}` : ''}`;
+        adminSmsContent = `Quote sent to ${clientName}: $${(job?.price || 0).toFixed(2)} at ${job?.address || 'TBD'}`;
         break;
 
       case 'payment-successful':
@@ -692,6 +693,21 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
 
         console.log(`[Stripe Webhook]: Processing ${flowType || 'payment'} checkout. session=${session.id}, jobId=${jobId}, invoiceId=${invoiceId}`);
 
+        // ── IDEMPOTENCY CHECK — prevent double-processing same Stripe event ──
+        // Check if this session was already processed on the job or invoice
+        let alreadyProcessed = false;
+        if (invoiceId) {
+          const invCheck = await db.collection("invoices").doc(invoiceId).get();
+          if (invCheck.exists && (invCheck.data() as any)?.stripeSessionId === session.id && (invCheck.data() as any)?.status === 'paid') {
+            alreadyProcessed = true;
+          }
+        }
+        if (alreadyProcessed) {
+          console.log(`[Stripe Webhook] DUPLICATE event for session ${session.id} — skipping`);
+          res.json({ received: true, duplicate: true });
+          return;
+        }
+
         let clientEmail = session.customer_details?.email || session.customer_email || session.metadata?.clientEmail;
         let clientName = session.metadata?.clientName || session.customer_details?.name || "Valued Client";
         let amount = session.amount_total ? session.amount_total / 100 : 0;
@@ -704,20 +720,25 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
           const jobSnap = await jobRef.get();
           if (jobSnap.exists) {
             jobData = jobSnap.data();
-            
-            const nextStatus = flowType === 'final_invoice' ? 'paid' : 'scheduled';
-            
+
+            const invoiceNumber = jobData.invoiceNumber || invoiceId || jobId;
+            const activityEntry = { id: `stripe-${session.id.slice(-8)}`, timestamp: Date.now(), action: 'Payment received via Stripe', detail: `$${amount.toFixed(2)} — Invoice ${invoiceNumber}`, by: 'stripe', status: 'success' };
+
             batch.update(jobRef, {
-              paymentStatus: "successful",
-              status: nextStatus,
+              paymentStatus: "paid",
+              status: 'paid',
               stripeSessionId: session.id,
+              stripeCheckoutSessionId: session.id,
               amountPaid: amount,
+              balanceDue: 0,
               paymentMethod: 'stripe',
               paymentDate: Date.now(),
-              updatedAt: Date.now()
+              paidAt: Date.now(),
+              updatedAt: Date.now(),
+              activityLog: admin.firestore.FieldValue.arrayUnion(activityEntry),
             });
 
-            // Trigger Receipt Notification
+            // Receipt SMS + email
             await handleNotification({
               stage: 'payment-receipt',
               job: { ...jobData, id: jobId },
@@ -725,7 +746,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
               clientPhone: jobData.clientPhone,
               clientName,
               amount: amount.toFixed(2),
-              invoiceNumber: invoiceId || jobData.invoiceId
+              invoiceNumber,
             }).catch(e => console.error("[Webhook Notification Error]:", e));
           }
         }
@@ -735,13 +756,16 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
           batch.update(invoiceRef, {
             status: "paid",
             paidAt: Date.now(),
+            amountPaid: amount,
+            balanceDue: 0,
             stripeSessionId: session.id,
-            paymentMethod: 'stripe'
+            paymentMethod: 'stripe',
+            updatedAt: Date.now(),
           });
         }
 
-        // Add payment record
-        const paymentRef = db.collection("payments").doc();
+        // Payment record — deduplicated by session.id
+        const paymentRef = db.collection("payments").doc(`stripe-${session.id}`);
         batch.set(paymentRef, {
           jobId: jobId || null,
           invoiceId: invoiceId || null,
@@ -749,13 +773,14 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
           clientEmail: clientEmail || null,
           clientName: clientName || null,
           amount: amount,
+          method: 'stripe',
           status: "successful",
           stripeSessionId: session.id,
           createdAt: Date.now()
-        });
+        }, { merge: true });  // merge:true = idempotent on replay
 
         await batch.commit();
-        console.log(`[Stripe Webhook]: Firestore updates committed successfully for session ${session.id}`);
+        console.log(`[Stripe Webhook]: Firestore updates committed for session ${session.id}`);
 
         // Schedule Google Review SMS 15 minutes after Stripe payment
         if (jobData?.clientPhone) {
@@ -938,51 +963,195 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
     }
   });
 
-  // ONE-CLICK COMPLETE JOB ENDPOINT
+  // ─────────────────────────────────────────────────────────────────────────
+  // ON THE WAY — sets status, sends Twilio SMS + email, logs activity
+  // Idempotent: safe to call again (resend only adds a new activity entry)
+  // ─────────────────────────────────────────────────────────────────────────
+  app.post("/api/jobs/:jobId/on-the-way", async (req, res) => {
+    try {
+      const { jobId } = req.params;
+      const { triggeredBy, resend } = req.body || {};
+      const jobRef = db.collection("jobs").doc(jobId);
+      const jobSnap = await jobRef.get();
+      if (!jobSnap.exists) return res.status(404).json({ error: "Job not found" });
+      const job = jobSnap.data() as any;
+
+      const alreadySent = job.status === 'on-the-way' || !!job.onTheWayAt;
+
+      if (alreadySent && !resend) {
+        // Idempotent: already sent, return existing state
+        return res.json({ ok: true, alreadySent: true, status: job.status, onTheWayAt: job.onTheWayAt });
+      }
+
+      // Build SMS message
+      const firstName = (job.clientName || 'there').split(' ')[0];
+      const address = job.location?.address || job.address || 'your property';
+      const smsBody = `Hi ${firstName}, David from GrassRoots Mowing Co. is on the way and will be arriving soon for your service at ${address}.`;
+
+      let smsResult: any = { ok: false, error: 'No phone' };
+      let emailResult: any = { ok: false, error: 'No email' };
+      const notifId = `otw-${Date.now()}`;
+
+      if (job.clientPhone) {
+        smsResult = await sendSms(job.clientPhone, smsBody, 'on-the-way (client)');
+      }
+
+      if (job.clientEmail) {
+        try {
+          const sendEmail = async (to: string, subject: string, text: string) => {
+            if (!resend) {
+              const resendClient = process.env.RESEND_API_KEY ? new (await import('@resend/node' as any)).Resend(process.env.RESEND_API_KEY) : null;
+              if (!resendClient) throw new Error('Resend not configured');
+              const { error } = await resendClient.emails.send({ from: process.env.RESEND_FROM_EMAIL || 'ops@grassrootsmowing.co', to, subject, text });
+              if (error) throw new Error(JSON.stringify(error));
+            }
+          };
+          // Use the existing handleNotification for email (it has Resend wired in already)
+          const emailNotif = await handleNotification({
+            stage: 'team-en-route',
+            job: { ...job, id: jobId },
+            clientEmail: job.clientEmail,
+            clientPhone: null,  // SMS already sent above
+            clientName: job.clientName,
+            amount: job.price
+          });
+          emailResult = { ok: emailNotif?.email === 'sent', status: emailNotif?.email };
+        } catch (emailErr: any) {
+          emailResult = { ok: false, error: emailErr.message };
+        }
+      }
+
+      // Update job status (only if not already on-the-way)
+      const updateData: any = {
+        updatedAt: Date.now(),
+        onTheWayNotificationId: notifId,
+      };
+      if (!alreadySent) {
+        updateData.status = 'on-the-way';
+        updateData.onTheWayAt = Date.now();
+        if (triggeredBy) updateData.onTheWayBy = triggeredBy;
+      }
+
+      // Append activity log entry
+      const activityEntry = {
+        id: notifId,
+        timestamp: Date.now(),
+        action: resend ? 'On My Way message resent' : 'On My Way — message sent to client',
+        detail: smsResult.ok ? `SMS: ${smsResult.ok ? 'sent' : 'failed'}, Email: ${emailResult.ok ? 'sent' : 'failed'}` : 'SMS failed',
+        by: triggeredBy || 'system',
+        status: smsResult.ok ? 'success' : 'failed'
+      };
+      updateData.activityLog = admin.firestore.FieldValue.arrayUnion(activityEntry);
+
+      await jobRef.update(updateData);
+
+      console.log(`[OnTheWay] Job ${jobId}: SMS=${smsResult.ok}, Email=${emailResult.ok}, resend=${!!resend}`);
+      res.json({ ok: true, smsResult, emailResult, alreadySent, resent: !!resend });
+    } catch (err: any) {
+      console.error("[OnTheWay Error]:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // COMPLETE JOB + AUTO INVOICE — accepts completion panel data from frontend
+  // Idempotent: if finalActionProcessed is true, returns existing invoice data
+  // ─────────────────────────────────────────────────────────────────────────
   app.post("/api/jobs/:jobId/complete", async (req, res) => {
     try {
       const { jobId } = req.params;
+      const {
+        finalAmount: bodyFinalAmount,
+        addOns: bodyAddOns,     // [{ description, amount }]
+        discount: bodyDiscount, // number
+        notes: bodyNotes,
+        completedBy,
+      } = req.body || {};
+
       const jobRef = db.collection("jobs").doc(jobId);
       const jobSnap = await jobRef.get();
-      
       if (!jobSnap.exists) return res.status(404).json({ error: "Job not found" });
       const job = jobSnap.data() as any;
 
       // DEDUPLICATION: Check if already processed
-      if (job.finalActionProcessed) {
+      if (job.finalActionProcessed && job.invoiceId) {
         console.log(`[CompleteJob] ALREADY PROCESSED - Idempotent return for Job: ${jobId}`);
-        return res.json({ 
-          success: true, 
-          status: job.status, 
+        const existingInvoiceSnap = await db.collection("invoices").doc(job.invoiceId).get();
+        const existingInvoice = existingInvoiceSnap.exists ? existingInvoiceSnap.data() : {};
+        return res.json({
+          success: true,
+          alreadyProcessed: true,
+          status: job.status,
           invoiceId: job.invoiceId,
+          invoiceNumber: job.invoiceNumber || (existingInvoice as any)?.invoiceNumber,
           paymentLink: job.paymentLink,
-          alreadyProcessed: true
+          finalAmount: job.finalAmount || job.price,
+          stripeSetupFailed: !job.paymentLink,
         });
       }
 
-      console.log(`[CompleteJob] Processing initial automation for Job: ${jobId}`);
+      console.log(`[CompleteJob] Processing for Job: ${jobId}`);
 
-      // 1. Calculate Final Price
-      // In this system, 'price' is the final total from the pricing engine or manual override
-      const finalPrice = job.price || 0;
-      const amountInCents = Math.round(finalPrice * 100);
+      // 1. Calculate amounts
+      const baseAmount = job.price || 0;
+      const completionAddOns: { description: string; amount: number }[] = Array.isArray(bodyAddOns) ? bodyAddOns : [];
+      const addOnsTotal = completionAddOns.reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
+      const discountAmount = Number(bodyDiscount) || 0;
+      const finalAmount = bodyFinalAmount != null
+        ? Number(bodyFinalAmount)
+        : Math.max(0, baseAmount + addOnsTotal - discountAmount);
 
-      // 2. Create Invoice Document FIRST so we have the invoiceId for Stripe metadata
+      if (isNaN(finalAmount) || finalAmount < 0) {
+        return res.status(400).json({ error: `Invalid final amount: ${finalAmount}` });
+      }
+
+      const amountInCents = Math.round(finalAmount * 100);
       const invoiceNumber = `INV-${Date.now().toString().slice(-6)}`;
+
+      // 2. Build invoice line items
+      const lineItems: { description: string; amount: number }[] = [];
+      if (job.pricingSnapshot) {
+        lineItems.push({ description: `Base Service (${job.pricingSnapshot.packageName || job.servicePackage || 'Mowing'})`, amount: job.pricingSnapshot.basePrice || baseAmount });
+        if ((job.pricingSnapshot.tierAdjustment || 0) !== 0) lineItems.push({ description: `Client Tier Adjustment`, amount: job.pricingSnapshot.tierAdjustment });
+        if ((job.pricingSnapshot.gradeAdjustment || 0) !== 0) lineItems.push({ description: `Grade Adjustment`, amount: job.pricingSnapshot.gradeAdjustment });
+        if ((job.pricingSnapshot.conditionSurcharge || 0) !== 0) lineItems.push({ description: `Condition Surcharge`, amount: job.pricingSnapshot.conditionSurcharge });
+        if ((job.pricingSnapshot.urgencySurcharge || 0) > 0) lineItems.push({ description: `Urgency Surcharge`, amount: job.pricingSnapshot.urgencySurcharge });
+        (job.pricingSnapshot.addOns || []).forEach((a: any) => lineItems.push({ description: `Add-on: ${a.name}`, amount: a.price }));
+      } else {
+        lineItems.push({ description: `${job.servicePackage || 'Mowing Service'} — ${job.serviceGrade || 'Standard'} grade`, amount: baseAmount });
+        (job.addOns || []).filter((a: any) => a.selected).forEach((a: any) => lineItems.push({ description: `Add-on: ${a.name}`, amount: a.price }));
+      }
+      completionAddOns.forEach(a => lineItems.push({ description: a.description, amount: a.amount }));
+      if (discountAmount > 0) lineItems.push({ description: `Discount`, amount: -discountAmount });
+
+      // 3. PayID details
+      const payidEmail = process.env.PAYID_EMAIL || '';
+      const payidName = process.env.PAYID_NAME || 'GrassRoots Mowing Co.';
+
+      // 4. Create invoice document FIRST (needed for Stripe metadata)
       const invoiceData: any = {
         invoiceNumber,
         jobId,
         clientId: job.clientId || null,
         clientName: job.clientName,
-        clientAddress: job.address,
-        items: [
-           { description: `Standard Mowing Service (${job.servicePackage})`, amount: job.basePrice || 0 },
-           ...(job.addOns || []).filter((a: any) => a.selected).map((a: any) => ({ description: a.name, amount: a.price }))
-        ],
-        totalAmount: finalPrice,
+        clientEmail: job.clientEmail || null,
+        clientPhone: job.clientPhone || null,
+        clientAddress: job.address || job.suburb || '',
+        scheduledDate: job.scheduledDate || null,
+        items: lineItems,
+        totalAmount: finalAmount,
+        amountPaid: 0,
+        balanceDue: finalAmount,
+        baseAmount,
+        addOnsTotal,
+        discountAmount,
         pricingSnapshot: job.pricingSnapshot || null,
         status: 'sent',
-        paymentLink: '',       // will be updated after Stripe session is created
+        paymentLink: '',
+        payidEmail,
+        payidName,
+        completionNotes: bodyNotes || '',
+        dueDate: Date.now() + (7 * 24 * 60 * 60 * 1000),
         createdAt: Date.now(),
         updatedAt: Date.now()
       };
@@ -990,87 +1159,323 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
       const invoiceRef = await db.collection("invoices").add(invoiceData);
       const invoiceId = invoiceRef.id;
 
-      // 3. Create Stripe Payment Session — now we can include invoiceId in metadata
-      let paymentLink = job.paymentLink;
+      // 5. Create Stripe Checkout session
+      let paymentLink = '';
+      let stripeCheckoutSessionId = '';
+      let stripeSetupFailed = false;
+
       if (stripe && amountInCents > 0) {
-        const session = await stripe.checkout.sessions.create({
-          payment_method_types: ["card"],
-          line_items: [
-            {
+        try {
+          const baseUrl = process.env.APP_URL || process.env.VITE_APP_URL || 'http://localhost:3000';
+          const session = await stripe.checkout.sessions.create({
+            payment_method_types: ["card"],
+            line_items: [{
               price_data: {
                 currency: "aud",
                 product_data: {
-                  name: `Professional Mowing - Final Invoice (${job.address})`,
-                  description: `Service breakdown: ${job.servicePackage}, ${job.serviceGrade} grade. Includes selected add-ons.`,
+                  name: `GrassRoots Mowing — Invoice ${invoiceNumber}`,
+                  description: `Service at ${job.address || 'your property'}. Ref: ${invoiceNumber}`,
                 },
                 unit_amount: amountInCents,
               },
               quantity: 1,
+            }],
+            mode: "payment",
+            customer_email: job.clientEmail || undefined,
+            success_url: `${baseUrl}/invoices?success=true&invoiceId=${invoiceId}`,
+            cancel_url: `${baseUrl}/jobs/${jobId}`,
+            metadata: {
+              jobId,
+              invoiceId,
+              invoiceNumber,
+              flowType: 'final_invoice',
+              clientEmail: job.clientEmail || '',
+              clientName: job.clientName || '',
+              clientId: job.clientId || '',
+              serviceAddress: job.address || '',
             },
-          ],
-          mode: "payment",
-          success_url: `${process.env.APP_URL || process.env.VITE_APP_URL || 'http://localhost:3000'}/invoices?success=true&invoiceId=${invoiceId}`,
-          cancel_url: `${process.env.APP_URL || process.env.VITE_APP_URL || 'http://localhost:3000'}/jobs/${jobId}`,
-          metadata: {
-            jobId,
-            invoiceId,
-            flowType: 'final_invoice',
-            clientEmail: job.clientEmail || '',
-            clientName: job.clientName || '',
-            invoiceNumber
-          },
-        });
-        paymentLink = session.url;
-        // Update invoice with the now-known paymentLink
-        await invoiceRef.update({ paymentLink: paymentLink || '', updatedAt: Date.now() });
+          });
+          paymentLink = session.url || '';
+          stripeCheckoutSessionId = session.id;
+          await invoiceRef.update({ paymentLink, stripeCheckoutSessionId, updatedAt: Date.now() });
+        } catch (stripeErr: any) {
+          console.error(`[CompleteJob] Stripe session failed: ${stripeErr.message}`);
+          stripeSetupFailed = true;
+        }
+      } else if (!stripe) {
+        console.warn('[CompleteJob] Stripe not initialised — STRIPE_SECRET_KEY missing');
+        stripeSetupFailed = true;
       }
 
-      // 4. Update Job Status & Mark Processed
+      // 6. Update job — mark completed + store all amounts
+      const activityEntry = {
+        id: `complete-${Date.now()}`,
+        timestamp: Date.now(),
+        action: 'Job completed — invoice created',
+        detail: `Invoice ${invoiceNumber} for $${finalAmount.toFixed(2)}`,
+        by: completedBy || 'system',
+        status: 'success'
+      };
+
       await jobRef.update({
         status: 'invoiced_final',
         completedAt: Date.now(),
+        completedBy: completedBy || null,
+        completionNotes: bodyNotes || null,
         invoiceId,
-        paymentLink: paymentLink || '',
-        finalActionProcessed: true,
-        updatedAt: Date.now()
-      });
-
-      // 5. Trigger Final Notifications (Email + SMS)
-      await handleNotification({
-        stage: 'invoice-sent',
-        job: { ...job, id: jobId, paymentLink, invoiceId },
-        clientEmail: job.clientEmail,
-        clientPhone: job.clientPhone,
-        clientName: job.clientName,
-        amount: finalPrice.toFixed(2),
         invoiceNumber,
-        invoiceLink: paymentLink
+        invoicedAt: Date.now(),
+        paymentLink: paymentLink || '',
+        stripeCheckoutSessionId: stripeCheckoutSessionId || null,
+        finalActionProcessed: true,
+        finalAmount,
+        baseAmount,
+        addOnsTotal,
+        discountAmount,
+        amountPaid: 0,
+        balanceDue: finalAmount,
+        paymentStatus: 'payment_pending',
+        updatedAt: Date.now(),
+        activityLog: admin.firestore.FieldValue.arrayUnion(activityEntry),
       });
 
-      // 6. Log automation event to Firestore (Zero-Touch Invoicing)
+      // 7. Build customer SMS — includes Stripe link + PayID
+      let smsResult: any = { ok: false, error: 'No phone' };
+      let emailResult: any = { ok: false, error: 'No email' };
+
+      const firstName = (job.clientName || 'there').split(' ')[0];
+      const address = job.location?.address || job.address || 'your property';
+
+      if (job.clientPhone) {
+        const invoiceSms = payidEmail
+          ? `Hi ${firstName}, your GrassRoots Mowing Co. service at ${address} is complete. Invoice ${invoiceNumber} for $${finalAmount.toFixed(2)} is ready.${paymentLink ? ` Pay by card: ${paymentLink}` : ''} Or pay by PayID: ${payidEmail} (ref: ${invoiceNumber}). Thank you.`
+          : `Hi ${firstName}, your GrassRoots Mowing Co. service at ${address} is complete. Invoice ${invoiceNumber} for $${finalAmount.toFixed(2)} is ready.${paymentLink ? ` Pay securely: ${paymentLink}` : ''} Thank you.`;
+        smsResult = await sendSms(job.clientPhone, invoiceSms, 'invoice-sent (client)');
+        if (smsResult.ok) await jobRef.update({ invoiceSmsId: smsResult.sid });
+      }
+
+      // 8. Send invoice email via existing notify system
+      try {
+        const notifyResult = await handleNotification({
+          stage: 'invoice-sent',
+          job: { ...job, id: jobId, paymentLink, invoiceId, invoiceNumber, payidEmail, payidName },
+          clientEmail: job.clientEmail,
+          clientPhone: null,   // SMS already sent
+          clientName: job.clientName,
+          amount: finalAmount,
+          invoiceNumber,
+          invoiceLink: paymentLink,
+        });
+        emailResult = { ok: notifyResult?.email === 'sent', status: notifyResult?.email };
+        const adminSmsStatus = notifyResult?.adminSms;
+        console.log(`[CompleteJob] Email=${notifyResult?.email}, AdminSMS=${adminSmsStatus}`);
+      } catch (notifyErr: any) {
+        console.error('[CompleteJob] Notification error:', notifyErr.message);
+        emailResult = { ok: false, error: notifyErr.message };
+      }
+
+      // 9. Automation log
       try {
         await db.collection('automationLogs').add({
-          automationId: 'auto_bill',
-          event: 'invoice_generated',
-          jobId,
-          clientName: job.clientName || '',
-          amount: finalPrice,
-          invoiceNumber,
-          createdAt: Date.now(),
+          automationId: 'auto_bill', event: 'invoice_generated',
+          jobId, clientName: job.clientName || '', amount: finalAmount, invoiceNumber, createdAt: Date.now(),
         });
-      } catch (logErr: any) {
-        console.warn('[AutomationLog] Failed to write log entry:', logErr.message);
-      }
+      } catch (_) {}
 
       res.json({
         success: true,
         status: 'invoiced_final',
         invoiceId,
-        paymentLink
+        invoiceNumber,
+        finalAmount,
+        paymentLink: paymentLink || null,
+        stripeSetupFailed,
+        smsResult,
+        emailResult,
       });
 
     } catch (err: any) {
       console.error("[CompleteJob Error]:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // RESEND INVOICE — resends SMS + email for existing invoice
+  // ─────────────────────────────────────────────────────────────────────────
+  app.post("/api/jobs/:jobId/resend-invoice", async (req, res) => {
+    try {
+      const { jobId } = req.params;
+      const jobSnap = await db.collection("jobs").doc(jobId).get();
+      if (!jobSnap.exists) return res.status(404).json({ error: "Job not found" });
+      const job = jobSnap.data() as any;
+
+      if (!job.invoiceId) return res.status(400).json({ error: "No invoice found for this job" });
+
+      const invoiceSnap = await db.collection("invoices").doc(job.invoiceId).get();
+      const invoice = invoiceSnap.exists ? invoiceSnap.data() as any : {};
+
+      const finalAmount = job.finalAmount || job.price || 0;
+      const invoiceNumber = job.invoiceNumber || invoice.invoiceNumber || job.invoiceId;
+      const paymentLink = job.paymentLink || invoice.paymentLink || '';
+      const payidEmail = process.env.PAYID_EMAIL || '';
+      const firstName = (job.clientName || 'there').split(' ')[0];
+      const address = job.location?.address || job.address || 'your property';
+
+      let smsResult: any = { ok: false, error: 'No phone' };
+      let emailResult: any = { ok: false, error: 'No email' };
+
+      if (job.clientPhone) {
+        const invoiceSms = payidEmail
+          ? `GrassRoots Mowing: Reminder — Invoice ${invoiceNumber} for $${finalAmount.toFixed(2)} is outstanding. Pay by card: ${paymentLink} or PayID: ${payidEmail} ref: ${invoiceNumber}.`
+          : `GrassRoots Mowing: Reminder — Invoice ${invoiceNumber} for $${finalAmount.toFixed(2)} is outstanding. Pay here: ${paymentLink}.`;
+        smsResult = await sendSms(job.clientPhone, invoiceSms, 'invoice-resend (client)');
+      }
+
+      const notifyResult = await handleNotification({
+        stage: 'payment-reminder',
+        job: { ...job, id: jobId, paymentLink, invoiceId: job.invoiceId },
+        clientEmail: job.clientEmail,
+        clientPhone: null,
+        clientName: job.clientName,
+        amount: finalAmount,
+        invoiceNumber,
+        invoiceLink: paymentLink,
+      }).catch(() => null);
+      emailResult = { ok: notifyResult?.email === 'sent', status: notifyResult?.email };
+
+      const activityEntry = { id: `resend-${Date.now()}`, timestamp: Date.now(), action: 'Invoice resent', detail: `SMS=${smsResult.ok}, Email=${emailResult.ok}`, by: 'admin', status: smsResult.ok || emailResult.ok ? 'success' : 'failed' };
+      await db.collection("jobs").doc(jobId).update({ activityLog: admin.firestore.FieldValue.arrayUnion(activityEntry), updatedAt: Date.now() });
+
+      res.json({ ok: true, smsResult, emailResult });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // MANUAL PAYMENT — records PayID / cash / EFT / other payment
+  // Creates payment record, updates invoice, sends receipt SMS + email
+  // ─────────────────────────────────────────────────────────────────────────
+  app.post("/api/jobs/:jobId/manual-payment", async (req, res) => {
+    try {
+      const { jobId } = req.params;
+      const { method, amount: rawAmount, date, reference, notes, recordedBy } = req.body || {};
+
+      if (!method) return res.status(400).json({ error: "Payment method is required" });
+      const amount = Number(rawAmount);
+      if (isNaN(amount) || amount <= 0) return res.status(400).json({ error: "Valid payment amount is required" });
+
+      const jobRef = db.collection("jobs").doc(jobId);
+      const jobSnap = await jobRef.get();
+      if (!jobSnap.exists) return res.status(404).json({ error: "Job not found" });
+      const job = jobSnap.data() as any;
+
+      if (!job.invoiceId) return res.status(400).json({ error: "No invoice found for this job. Complete the job first." });
+
+      const invoiceRef = db.collection("invoices").doc(job.invoiceId);
+      const invoiceSnap = await invoiceRef.get();
+      if (!invoiceSnap.exists) return res.status(404).json({ error: "Invoice not found" });
+      const invoice = invoiceSnap.data() as any;
+
+      const invoiceNumber = invoice.invoiceNumber || job.invoiceNumber || job.invoiceId;
+      const totalAmount = invoice.totalAmount || job.finalAmount || job.price || 0;
+      const prevAmountPaid = invoice.amountPaid || 0;
+      const newAmountPaid = Math.min(prevAmountPaid + amount, totalAmount);
+      const newBalanceDue = Math.max(0, totalAmount - newAmountPaid);
+      const isPaid = newBalanceDue === 0;
+      const newInvoiceStatus = isPaid ? 'paid' : 'sent';
+
+      const paymentId = `pay-${Date.now()}`;
+
+      const batch = db.batch();
+
+      // Payment record
+      const paymentRef = db.collection("payments").doc(paymentId);
+      batch.set(paymentRef, {
+        jobId,
+        invoiceId: job.invoiceId,
+        invoiceNumber,
+        clientId: job.clientId || null,
+        clientName: job.clientName || null,
+        amount,
+        method,
+        reference: reference || invoiceNumber,
+        notes: notes || null,
+        recordedBy: recordedBy || null,
+        paymentDate: date ? new Date(date).getTime() : Date.now(),
+        status: 'successful',
+        createdAt: Date.now(),
+      });
+
+      // Invoice update
+      const invoiceUpdateData: any = {
+        amountPaid: newAmountPaid,
+        balanceDue: newBalanceDue,
+        status: newInvoiceStatus,
+        paymentMethod: method,
+        updatedAt: Date.now(),
+      };
+      if (isPaid) {
+        invoiceUpdateData.paidAt = Date.now();
+        invoiceUpdateData.manualPaymentReference = reference || invoiceNumber;
+      }
+      batch.update(invoiceRef, invoiceUpdateData);
+
+      // Job update
+      const jobUpdateData: any = {
+        paymentStatus: isPaid ? 'paid' : 'partially_paid',
+        amountPaid: newAmountPaid,
+        balanceDue: newBalanceDue,
+        manualPaymentMethod: method,
+        manualPaymentReference: reference || invoiceNumber,
+        updatedAt: Date.now(),
+      };
+      if (isPaid) {
+        jobUpdateData.status = 'paid';
+        jobUpdateData.paidAt = Date.now();
+      }
+      const manualPaymentActivity = { id: paymentId, timestamp: Date.now(), action: `Manual payment recorded — ${method}`, detail: `$${amount.toFixed(2)} via ${method}. Ref: ${reference || invoiceNumber}`, by: recordedBy || 'admin', status: 'success' };
+      jobUpdateData.activityLog = admin.firestore.FieldValue.arrayUnion(manualPaymentActivity);
+      batch.update(jobRef, jobUpdateData);
+
+      await batch.commit();
+
+      // Receipt notifications
+      let smsResult: any = { ok: false, error: 'No phone' };
+      let emailResult: any = { ok: false, error: 'No email' };
+
+      if (isPaid && job.clientPhone) {
+        const receiptSms = `Payment received. Thank you for choosing GrassRoots Mowing Co. Invoice ${invoiceNumber} has been paid.`;
+        smsResult = await sendSms(job.clientPhone, receiptSms, 'receipt (manual payment)');
+      }
+
+      if (isPaid) {
+        const notifyResult = await handleNotification({
+          stage: 'payment-receipt',
+          job: { ...job, id: jobId },
+          clientEmail: job.clientEmail,
+          clientPhone: null,
+          clientName: job.clientName,
+          amount,
+          invoiceNumber,
+          invoiceLink: job.paymentLink || '',
+        }).catch(() => null);
+        emailResult = { ok: notifyResult?.email === 'sent' };
+      }
+
+      res.json({
+        ok: true,
+        paymentId,
+        amountPaid: newAmountPaid,
+        balanceDue: newBalanceDue,
+        status: newInvoiceStatus,
+        isPaid,
+        smsResult,
+        emailResult,
+      });
+    } catch (err: any) {
+      console.error("[ManualPayment Error]:", err.message);
       res.status(500).json({ error: err.message });
     }
   });
