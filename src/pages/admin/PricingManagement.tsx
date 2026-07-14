@@ -501,7 +501,7 @@ export const PricingManagement = () => {
                           
                           <div className="flex items-center gap-4">
                             <div className="flex-1">
-                              <Label className="text-[9px] font-black text-clay/40 uppercase tracking-[0.2em] mb-1.5 block">Price Point</Label>
+                              <Label className="text-[9px] font-black text-clay/40 uppercase tracking-[0.2em] mb-1.5 block">CUSTOMER PRICE — GST INCLUDED</Label>
                               <div className="relative">
                                 <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary/40" />
                                 <Input 
@@ -511,6 +511,7 @@ export const PricingManagement = () => {
                                   className="pl-9 h-11 rounded-xl bg-white border-border font-black text-charcoal focus:ring-primary/20"
                                 />
                               </div>
+                              <p className="text-[9px] text-clay/60 italic mt-1 font-medium">Includes 10% GST</p>
                             </div>
                             {detail?.category && (
                               <div className="pt-5 flex flex-col items-end">

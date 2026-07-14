@@ -1,5 +1,5 @@
 import { PricingRules, ConditionFactors, AddOn, ClientType, ServicePackage, ServiceGrade, PricingSnapshot, BillingType } from '../types';
-import { GST_RATE, computeGst } from '../utils/money';
+import { GST_RATE, deriveGstFromInclusive } from '../utils/money';
 
 export const calculateServicePrice = (
   rules: PricingRules,
@@ -58,8 +58,8 @@ export const calculateServicePrice = (
   const addOnTotal = addOnItems.reduce((sum, item) => sum + item.price, 0);
 
   // 7. Standardized Pricing Logic — GST via the shared money util (rounded to cents)
-  const rawSubtotal = basePrice + tierAdjustment + gradeAdjustment + conditionSurcharge + urgencySurcharge + addOnTotal;
-  const { subtotal, gstAmount: gst, totalIncludingGst: total } = computeGst(rawSubtotal);
+  const rawTotal = basePrice + tierAdjustment + gradeAdjustment + conditionSurcharge + urgencySurcharge + addOnTotal;
+  const { subtotal, gstAmount: gst, totalIncludingGst: total } = deriveGstFromInclusive(rawTotal);
 
   // 8. Quote Requirement Checks
   const isQuoteRequired = grade === 'extreme' || billingType === 'quote-required' || servicePackage === 'custom_quote' || total <= 0;
@@ -101,7 +101,7 @@ export const validateQuotePricing = (pricing: PricingSnapshot): { valid: boolean
 export const getDefaultPricingRules = (currentPricing?: PricingRules): PricingRules => {
   return currentPricing || {
     base: {
-      'town_block': 100,
+      'town_block': 90,
       'standard_yard': 100,
       'corner_blocks': 110,
       'large_lot_acreage': 150,

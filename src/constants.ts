@@ -37,7 +37,7 @@ export const TIME_SLOT_LABELS: Record<string, string> = {
 
 export const PRICING_RULES = {
   base: {
-    'town_block': 100,
+    'town_block': 90,
     'standard_yard': 100,
     'corner_blocks': 110,
     'large_lot_acreage': 150,
