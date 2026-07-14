@@ -1,4 +1,4 @@
-﻿import * as React from 'react';
+import * as React from 'react';
 import { useForm, useWatch, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -143,7 +143,7 @@ export const NewJob = () => {
     defaultValues: {
       clientType: initialClientId ? 'returning' : 'one_off',
       clientId: initialClientId || '',
-      servicePackage: 'residential_standard',
+      servicePackage: 'standard_yard',
       serviceGrade: 'standard',
       billingType: 'extra',
       recurringSchedule: 'one-off',
@@ -206,7 +206,7 @@ export const NewJob = () => {
 
     const snapshot = calculateServicePrice(
       rules,
-      watchedValues.servicePackage || 'residential_standard',
+      watchedValues.servicePackage || 'standard_yard',
       watchedValues.clientType || 'one_off',
       watchedValues.serviceGrade || 'standard',
       watchedValues.conditionFactors || {
@@ -281,7 +281,7 @@ export const NewJob = () => {
         scheduledDate: new Date(data.scheduledDate).getTime(),
         timeSlot: data.timeSlot,
         clientType: data.clientType,
-        servicePackage: data.servicePackage || 'residential_standard',
+        servicePackage: data.servicePackage || 'standard_yard',
         serviceGrade: data.serviceGrade,
         conditionFactors: data.conditionFactors,
         addOns: data.addOns.filter(a => a.selected).map(a => ({ id: a.id, name: a.name, price: a.price, selected: true })),
@@ -519,11 +519,12 @@ export const NewJob = () => {
                     <div className="space-y-2">
                       <Label>Service Package</Label>
                       <Select {...register('servicePackage')}>
-                        {Object.entries(settings?.pricing?.base || PRICING_RULES.base)
-                          .sort((a, b) => (settings?.pricing?.packageDetails?.[a[0]]?.displayOrder || 0) - (settings?.pricing?.packageDetails?.[b[0]]?.displayOrder || 0))
-                          .map(([id, price]) => {
-                            const detail = settings?.pricing?.packageDetails?.[id];
-                            const label = detail?.name || id.replace(/_/g, ' ');
+                        {Object.entries(settings?.pricing?.packageDetails || {})
+                          .filter(([_, pkg]: [string, any]) => pkg.active)
+                          .sort((a: any, b: any) => (a[1].displayOrder || 0) - (b[1].displayOrder || 0))
+                          .map(([id, detail]: [string, any]) => {
+                            const price = settings?.pricing?.base?.[id] || 0;
+                            const label = detail.name || id.replace(/_/g, ' ');
                             return (
                               <option key={id} value={id}>
                                 {label} (${price} min)

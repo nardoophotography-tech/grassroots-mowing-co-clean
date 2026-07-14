@@ -140,7 +140,7 @@ export function calculateBookingPrice(
       estimatedTotal: 0,
       snapshot,
       isQuoteRequired: true,
-      explanation: servicePackage === 'custom'
+      explanation: servicePackage === 'custom_quote'
         ? 'Custom quote required'
         : options?.serviceGrade === 'extreme'
           ? 'Quote required for extreme conditions'

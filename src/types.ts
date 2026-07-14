@@ -283,10 +283,17 @@ export interface PricingRules {
   packageDetails?: Record<string, {
     name: string;
     description?: string;
+    publicDescription?: string;
     category?: string;
     active: boolean;
+    publicEnabled?: boolean;
     displayOrder: number;
     image?: string;
+    includedServices?: string[];
+    optionalAddOns?: string[];
+    excludedServices?: string[];
+    bestFor?: string[];
+    serviceNotes?: string[];
   }>;
 }
 

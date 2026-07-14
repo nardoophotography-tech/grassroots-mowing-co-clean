@@ -41,6 +41,11 @@ import {
   History
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { Navbar } from '@/components/Navbar';
+import { Hero } from '@/components/Hero';
+import { Features } from '@/components/Features';
+import { PackagesOverview } from '@/components/PackagesOverview';
+import { TestimonialCarousel } from '@/components/TestimonialCarousel';
 import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/lib/utils';
 import AppLogo from '@/components/AppLogo';
@@ -449,37 +454,14 @@ export const LandingPage = () => {
         </div>
       </section>
 
+      <PackagesOverview />
+
       {/* Services hub */}
       <section className="py-8 bg-[#FDFCFB] cultural-pattern relative overflow-hidden">
         {/* Subtle rock-art impression behind the services area (not over any form) */}
         <div className="absolute inset-0 rock-impression-soft" style={{ backgroundImage: "url('/cultural/rock-impression-set-transparent.png')", backgroundSize: 'cover' }} aria-hidden="true" />
         <div className="max-w-7xl mx-auto px-6 relative z-10">
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {/* Total Care List */}
-            <div className="lg:col-span-1">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-1 h-4 bg-secondary rounded-full" />
-                <h2 className="text-[9px] font-black text-slate-900 uppercase tracking-[0.2em] italic">Total Care Matrix (Gold)</h2>
-              </div>
-              <div className="earth-card p-4 relative overflow-hidden">
-                <div className="rock-impression-soft absolute bottom-1 right-1 w-16 h-20 z-0" style={{ backgroundImage: "url('/cultural/rock-impression-figure-1.png')" }} aria-hidden="true" />
-                <div className="grid grid-cols-2 gap-y-1.5 gap-x-4 relative z-10">
-                  {goldPackageInclusions.map((item) => (
-                    <div key={item} className="flex items-center gap-1.5 text-[8px] font-bold text-clay uppercase tracking-tight truncate">
-                      <CheckCircle2 size={10} className="text-secondary shrink-0" />
-                      {item}
-                    </div>
-                  ))}
-                </div>
-                <Button 
-                   onClick={() => navigate('/booking?type=ultimate-gold')}
-                   className="mt-4 w-full h-8 bg-secondary/5 text-secondary hover:bg-secondary/10 text-[8px] font-black uppercase tracking-widest rounded-lg border border-secondary/10"
-                >
-                  Join Gold Protocol
-                </Button>
-              </div>
-            </div>
-
+          <div className="grid md:grid-cols-2 lg:grid-cols-2 gap-8">
             {/* Operational Add-Ons */}
             <div className="lg:col-span-1">
               <div className="flex items-center gap-2 mb-4">

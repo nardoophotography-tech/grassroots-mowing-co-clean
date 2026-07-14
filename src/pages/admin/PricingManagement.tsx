@@ -99,7 +99,13 @@ export const PricingManagement = () => {
     description: '',
     category: '',
     active: true,
-    displayOrder: 0
+    displayOrder: 0,
+    publicEnabled: true,
+    publicDescription: '',
+    bestFor: '',
+    includedServices: '',
+    optionalAddOns: '',
+    serviceNotes: ''
   });
 
   // Sync snapshot
@@ -143,9 +149,15 @@ export const PricingManagement = () => {
         [id]: {
           name: packageForm.name,
           description: packageForm.description,
+          publicDescription: packageForm.publicDescription,
           category: packageForm.category,
           active: packageForm.active,
-          displayOrder: packageForm.displayOrder || (Object.keys(newRules.base).length)
+          publicEnabled: packageForm.publicEnabled,
+          displayOrder: packageForm.displayOrder || (Object.keys(newRules.base).length),
+          bestFor: packageForm.bestFor.split(',').map(s => s.trim()).filter(Boolean),
+          includedServices: packageForm.includedServices.split(',').map(s => s.trim()).filter(Boolean),
+          optionalAddOns: packageForm.optionalAddOns.split(',').map(s => s.trim()).filter(Boolean),
+          serviceNotes: packageForm.serviceNotes.split(',').map(s => s.trim()).filter(Boolean),
         }
       };
       return newRules;
@@ -154,7 +166,7 @@ export const PricingManagement = () => {
     setIsLive(false);
     setIsPackageModalOpen(false);
     setEditingPackageId(null);
-    setPackageForm({ name: '', price: 0, description: '', category: '', active: true, displayOrder: 0 });
+    setPackageForm({ name: '', price: 0, description: '', category: '', active: true, displayOrder: 0, publicEnabled: true, publicDescription: '', bestFor: '', includedServices: '', optionalAddOns: '', serviceNotes: '' });
     toast.success(editingPackageId ? 'Package updated locally' : 'Package created locally');
   };
 
@@ -189,7 +201,13 @@ export const PricingManagement = () => {
       description: detail?.description || '',
       category: detail?.category || '',
       active: detail?.active ?? true,
-      displayOrder: detail?.displayOrder || 0
+      displayOrder: detail?.displayOrder || 0,
+      publicEnabled: detail?.publicEnabled ?? true,
+      publicDescription: detail?.publicDescription || '',
+      bestFor: detail?.bestFor?.join(', ') || '',
+      includedServices: detail?.includedServices?.join(', ') || '',
+      optionalAddOns: detail?.optionalAddOns?.join(', ') || '',
+      serviceNotes: detail?.serviceNotes?.join(', ') || '',
     });
     setIsPackageModalOpen(true);
   };
@@ -444,7 +462,7 @@ export const PricingManagement = () => {
                     <Button 
                       onClick={() => {
                         setEditingPackageId(null);
-                        setPackageForm({ name: '', price: 0, description: '', category: '', active: true, displayOrder: 0 });
+                        setPackageForm({ name: '', price: 0, description: '', category: '', active: true, displayOrder: 0, publicEnabled: true, publicDescription: '', bestFor: '', includedServices: '', optionalAddOns: '', serviceNotes: '' });
                         setIsPackageModalOpen(true);
                       }}
                       className="bg-secondary text-white hover:bg-secondary-hover rounded-xl font-black uppercase tracking-widest h-10 px-4 shadow-premium transition-all"
@@ -896,6 +914,56 @@ export const PricingManagement = () => {
             />
           </div>
 
+          <div className="space-y-2">
+            <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-clay/40">Public Web Description</Label>
+            <Textarea 
+              value={packageForm.publicDescription}
+              onChange={(e) => setPackageForm(prev => ({ ...prev, publicDescription: e.target.value }))}
+              placeholder="Appears on the public package cards..."
+              className="rounded-xl border-border min-h-[60px] resize-none bg-background focus:ring-primary/20 font-medium text-charcoal"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-clay/40">Best For (Comma Separated)</Label>
+            <Textarea 
+              value={packageForm.bestFor}
+              onChange={(e) => setPackageForm(prev => ({ ...prev, bestFor: e.target.value }))}
+              placeholder="e.g. Small residential blocks, Regularly maintained lawns"
+              className="rounded-xl border-border min-h-[60px] resize-none bg-background focus:ring-primary/20 font-medium text-charcoal"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-clay/40">Included Services (Comma Separated)</Label>
+            <Textarea 
+              value={packageForm.includedServices}
+              onChange={(e) => setPackageForm(prev => ({ ...prev, includedServices: e.target.value }))}
+              placeholder="e.g. Lawn mowing, Standard edging, Whipper snipping"
+              className="rounded-xl border-border min-h-[80px] resize-none bg-background focus:ring-primary/20 font-medium text-charcoal"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-clay/40">Optional Add-ons (Comma Separated)</Label>
+            <Textarea 
+              value={packageForm.optionalAddOns}
+              onChange={(e) => setPackageForm(prev => ({ ...prev, optionalAddOns: e.target.value }))}
+              placeholder="e.g. Green waste removal, Weed treatment"
+              className="rounded-xl border-border min-h-[60px] resize-none bg-background focus:ring-primary/20 font-medium text-charcoal"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-clay/40">Service Notes (Comma Separated)</Label>
+            <Textarea 
+              value={packageForm.serviceNotes}
+              onChange={(e) => setPackageForm(prev => ({ ...prev, serviceNotes: e.target.value }))}
+              placeholder="e.g. Final price may require inspection."
+              className="rounded-xl border-border min-h-[60px] resize-none bg-background focus:ring-primary/20 font-medium text-charcoal"
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-clay/40">Tag / Category</Label>
@@ -920,12 +988,23 @@ export const PricingManagement = () => {
 
           <div className="flex items-center justify-between p-5 bg-ochre/5 rounded-3xl border border-ochre/10">
             <div className="space-y-1">
-              <p className="text-xs font-black text-charcoal uppercase tracking-tight italic">Active Visibility</p>
-              <p className="text-[10px] text-clay/60 font-medium tracking-tight">If disabled, this package is hidden from new bookings.</p>
+              <p className="text-xs font-black text-charcoal uppercase tracking-tight italic">Active Visibility (System)</p>
+              <p className="text-[10px] text-clay/60 font-medium tracking-tight">If disabled, this package is completely hidden from new bookings.</p>
             </div>
             <Switch 
               checked={packageForm.active}
               onCheckedChange={(checked) => setPackageForm(prev => ({ ...prev, active: checked }))}
+            />
+          </div>
+
+          <div className="flex items-center justify-between p-5 bg-primary/5 rounded-3xl border border-primary/10">
+            <div className="space-y-1">
+              <p className="text-xs font-black text-charcoal uppercase tracking-tight italic">Public Website Visibility</p>
+              <p className="text-[10px] text-clay/60 font-medium tracking-tight">If disabled, it will not appear on the landing page matrix.</p>
+            </div>
+            <Switch 
+              checked={packageForm.publicEnabled}
+              onCheckedChange={(checked) => setPackageForm(prev => ({ ...prev, publicEnabled: checked }))}
             />
           </div>
 

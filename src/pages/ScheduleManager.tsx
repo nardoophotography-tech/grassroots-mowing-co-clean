@@ -465,8 +465,8 @@ export const ScheduleManager = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {[
               { key: 'town_block' as keyof ImageConfig, label: 'Town Block Service' },
-              { key: 'residential_standard' as keyof ImageConfig, label: 'Residential Standard' },
-              { key: 'premium_estate' as keyof ImageConfig, label: 'Premium Estate' },
+              { key: 'standard_yard' as keyof ImageConfig, label: 'Standard Yard' },
+              { key: 'corner_block' as keyof ImageConfig, label: 'Corner Block' },
               { key: 'acreage' as keyof ImageConfig, label: 'Large Lot / Acreage' },
               { key: 'placeholder' as keyof ImageConfig, label: 'Global Placeholder Image' }
             ].map((img) => (

@@ -109,7 +109,7 @@ export const Booking = () => {
       timeSlot: 'morning',
       runType: 'Morning Run',
       clientType: (searchParams.get('type') as any) || 'one_off',
-      serviceType: (searchParams.get('package') as any) || 'residential_standard',
+      serviceType: (searchParams.get('package') as any) || 'standard_yard',
       serviceGrade: 'standard',
       squareFootage: 0,
       addOns: Object.entries(settings?.pricing?.addOns || {}).map(([id, price]) => {
@@ -157,7 +157,7 @@ export const Booking = () => {
     const rules = settings?.pricing || { base: {}, addOns: {} };
     return calculateServicePrice(
       rules,
-      watchedValues.serviceType || 'residential_standard',
+      watchedValues.serviceType || 'standard_yard',
       watchedValues.clientType,
       watchedValues.serviceGrade,
       watchedValues.conditionFactors,
@@ -224,7 +224,7 @@ export const Booking = () => {
         timeSlot: data.timeSlot,
         runType: data.runType, 
         clientType: data.clientType,
-        servicePackage: (data.serviceType || 'residential_standard') as any,
+        servicePackage: (data.serviceType || 'standard_yard') as any,
         serviceType: data.serviceType,
         service: data.serviceType,
         jobType: data.serviceType,
@@ -503,20 +503,16 @@ export const Booking = () => {
               </CardHeader>
               <CardContent className="space-y-4 pt-4 px-4 pb-6">
                 <div className="grid grid-cols-2 gap-2">
-                  {Object.entries(settings?.pricing?.base || {})
-                    .filter(([id]) => id !== 'custom')
-                    .map(([id]) => {
-                      const detail = settings?.pricing?.packageDetails?.[id];
+                  {Object.entries(settings?.pricing?.packageDetails || {})
+                    .filter(([id, pkg]: [string, any]) => id !== 'custom_quote' && pkg.active && pkg.publicEnabled)
+                    .sort((a: any, b: any) => (a[1].displayOrder || 0) - (b[1].displayOrder || 0))
+                    .map(([id, detail]: [string, any]) => {
                       const priceResult = calculateBookingPrice(
                         id,
                         watchedValues.clientType || 'one_off',
                         settings?.pricing
                       );
-                      const priceLabel = priceResult.pricingStatus === 'calculated'
-                        ? `$${priceResult.estimatedTotal.toFixed(0)}`
-                        : priceResult.pricingStatus === 'quote_required'
-                          ? 'Quote required'
-                          : `$${(settings?.pricing?.base as any)?.[id] ?? 0}`;
+                      const isCalculated = priceResult.pricingStatus === 'calculated';
                       return (
                         <button
                           key={id}
@@ -524,9 +520,16 @@ export const Booking = () => {
                           onClick={() => setValue('serviceType', id as any)}
                           className={cn("flex flex-col p-3 rounded-2xl border-2 text-left h-32 relative", watchedValues.serviceType === id ? "border-secondary bg-secondary/5" : "border-border bg-background")}
                         >
-                          <span className="font-black text-[10px] uppercase tracking-tight italic">{detail?.name || id.replace('_', ' ')}</span>
-                          <span className="text-[9px] text-clay font-bold mt-1 line-clamp-2">{detail?.description}</span>
-                          <span className="mt-auto text-xs font-black text-primary">{priceLabel}</span>
+                          <span className="font-black text-[10px] uppercase tracking-tight italic">{detail.name}</span>
+                          <span className="text-[9px] text-clay font-bold mt-1 line-clamp-2">{detail.publicDescription || detail.description}</span>
+                          
+                          <div className="mt-auto flex flex-col">
+                            {isCalculated ? (
+                              <span className="text-xs font-black text-primary">From ${priceResult.estimatedTotal.toFixed(0)} incl. GST</span>
+                            ) : (
+                              <span className="text-xs font-black text-primary">Quote required</span>
+                            )}
+                          </div>
                         </button>
                       );
                     })}
@@ -600,7 +603,14 @@ export const Booking = () => {
                   </div>
                 ) : (
                   <Button type="submit" className="w-full bg-secondary hover:bg-secondary-hover text-white h-14 rounded-full font-black uppercase tracking-[0.2em] text-[11px] shadow-premium italic" isLoading={isSubmitting}>
-                    Confirm Booking <Zap size={16} className="ml-2" />
+                    {(() => {
+                      const est = calculateEstimate();
+                      return est.isQuoteRequired ? "Request A Quote" : "Confirm Booking";
+                    })()} 
+                    {(() => {
+                      const est = calculateEstimate();
+                      return !est.isQuoteRequired && <Zap size={16} className="ml-2" />;
+                    })()}
                   </Button>
                 )}
               </CardContent>

@@ -37,26 +37,26 @@ export const TIME_SLOT_LABELS: Record<string, string> = {
 
 export const PRICING_RULES = {
   base: {
-    'town_block': 110,
-    'residential_standard': 150,
-    'premium_estate': 200,
-    'acreage': 320,
-    'ultimate': 550,
-    'custom': 0,
+    'town_block': 100,
+    'standard_yard': 100,
+    'corner_blocks': 110,
+    'large_lot_acreage': 150,
+    'ultimate_property_gold': 170,
+    'custom_quote': 0,
   },
   clientType: {
-    'one_off': 1.15, 
+    'one_off': 1.0, 
     'returning': 1.0,
     'premium': 1.25, 
     'asset_management': 1.15,
   },
   packageDetails: {
     'town_block': { name: 'Town Block', description: 'Standard small town block', active: true, displayOrder: 1, category: 'Small' },
-    'residential_standard': { name: 'Residential Standard', description: 'Popular family choice', active: true, displayOrder: 2, category: 'Medium' },
-    'premium_estate': { name: 'Large Corner Block', description: 'Full care for larger properties', active: true, displayOrder: 3, category: 'Large' },
-    'acreage': { name: 'Acreage & Paddock', description: 'For big open spaces', active: true, displayOrder: 4, category: 'XL' },
-    'premium': { name: 'Full Property Care (Gold)', description: 'The absolute premium service', active: true, displayOrder: 5, category: 'Premium' },
-    'custom': { name: 'Custom Quote', description: 'Tailored pricing for unique needs', active: true, displayOrder: 6, category: 'Special' },
+    'standard_yard': { name: 'Standard Yard', description: 'Popular family choice', active: true, displayOrder: 2, category: 'Medium' },
+    'corner_blocks': { name: 'Corner Blocks', description: 'Full care for larger properties', active: true, displayOrder: 3, category: 'Large' },
+    'large_lot_acreage': { name: 'Large Lot / Acreage', description: 'For big open spaces', active: true, displayOrder: 4, category: 'XL' },
+    'ultimate_property_gold': { name: 'Ultimate Property Gold', description: 'The absolute premium service', active: true, displayOrder: 5, category: 'Premium' },
+    'custom_quote': { name: 'Custom Quote', description: 'Tailored pricing for unique needs', active: true, displayOrder: 6, category: 'Special' },
   },
   grade: {
     'standard': 0,

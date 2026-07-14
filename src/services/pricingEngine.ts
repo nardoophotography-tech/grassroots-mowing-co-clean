@@ -16,8 +16,8 @@ export const calculateServicePrice = (
   
   if (squareFootage && rules.basePerSquareMetre) {
     const sqmPrice = squareFootage * rules.basePerSquareMetre;
-    // Use sqm price if it's higher than base, or if package is "custom"
-    if (servicePackage === 'custom' || sqmPrice > basePrice) {
+    // Use sqm price if it's higher than base, or if package is "custom_quote"
+    if (servicePackage === 'custom_quote' || sqmPrice > basePrice) {
       basePrice = sqmPrice;
     }
   }
@@ -62,7 +62,7 @@ export const calculateServicePrice = (
   const { subtotal, gstAmount: gst, totalIncludingGst: total } = computeGst(rawSubtotal);
 
   // 8. Quote Requirement Checks
-  const isQuoteRequired = grade === 'extreme' || billingType === 'quote-required' || servicePackage === 'custom' || total <= 0;
+  const isQuoteRequired = grade === 'extreme' || billingType === 'quote-required' || servicePackage === 'custom_quote' || total <= 0;
 
   return {
     basePrice,
@@ -101,15 +101,15 @@ export const validateQuotePricing = (pricing: PricingSnapshot): { valid: boolean
 export const getDefaultPricingRules = (currentPricing?: PricingRules): PricingRules => {
   return currentPricing || {
     base: {
-      'town_block': 110,
-      'residential_standard': 150,
-      'premium_estate': 200,
-      'acreage': 320,
-      'ultimate': 550,
-      'custom': 0,
+      'town_block': 100,
+      'standard_yard': 100,
+      'corner_blocks': 110,
+      'large_lot_acreage': 150,
+      'ultimate_property_gold': 170,
+      'custom_quote': 0,
     },
     clientType: {
-      'one_off': 1.15,
+      'one_off': 1.0,
       'returning': 1.0,
       'premium': 1.25,
       'asset_management': 1.15,
@@ -175,11 +175,11 @@ export const getDefaultPricingRules = (currentPricing?: PricingRules): PricingRu
     },
     packageDetails: {
       'town_block': { name: 'Town Block', description: 'Standard small town block', active: true, displayOrder: 1, category: 'Small' },
-      'residential_standard': { name: 'Residential Standard', description: 'Popular family choice', active: true, displayOrder: 2, category: 'Medium' },
-      'premium_estate': { name: 'Premium Estate', description: 'Full care for larger properties', active: true, displayOrder: 3, category: 'Large' },
-      'acreage': { name: 'Large Lot / Acreage', description: 'For big open spaces', active: true, displayOrder: 4, category: 'XL' },
-      'ultimate': { name: 'Ultimate Property Gold', description: 'The absolute premium service', active: true, displayOrder: 5, category: 'Premium' },
-      'custom': { name: 'Custom Quote', description: 'Tailored pricing for unique needs', active: true, displayOrder: 6, category: 'Special' },
+      'standard_yard': { name: 'Standard Yard', description: 'Popular family choice', active: true, displayOrder: 2, category: 'Medium' },
+      'corner_blocks': { name: 'Corner Blocks', description: 'Full care for larger properties', active: true, displayOrder: 3, category: 'Large' },
+      'large_lot_acreage': { name: 'Large Lot / Acreage', description: 'For big open spaces', active: true, displayOrder: 4, category: 'XL' },
+      'ultimate_property_gold': { name: 'Ultimate Property Gold', description: 'The absolute premium service', active: true, displayOrder: 5, category: 'Premium' },
+      'custom_quote': { name: 'Custom Quote', description: 'Tailored pricing for unique needs', active: true, displayOrder: 6, category: 'Special' },
     }
   };
 };

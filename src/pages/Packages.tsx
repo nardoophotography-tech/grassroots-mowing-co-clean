@@ -37,9 +37,9 @@ export const Packages = () => {
       image: getPkgImage('town_block', settings?.images?.town_block || '')
     },
     {
-      id: 'residential_standard',
-      name: 'Residential Standard',
-      price: pricing.base['residential_standard'],
+      id: 'standard_yard',
+      name: 'Standard Yard',
+      price: pricing.base['standard_yard'],
       description: 'Our most popular choice for mid-sized family homes and typical residential lots.',
       features: [
         'Lawn Mowing',
@@ -50,12 +50,12 @@ export const Packages = () => {
       ],
       color: 'border-deep-red/50',
       featured: true,
-      image: getPkgImage('residential_standard', settings?.images?.residential_standard || '')
+      image: getPkgImage('standard_yard', settings?.images?.standard_yard || '')
     },
     {
-      id: 'premium_estate',
-      name: 'Premium Estate',
-      price: pricing.base['premium_estate'],
+      id: 'corner_block',
+      name: 'Corner Block',
+      price: pricing.base['corner_block'],
       description: 'The gold standard for corner blocks and larger residential properties.',
       features: [
         'All Standard Features',
@@ -65,7 +65,7 @@ export const Packages = () => {
         'Detailed Property Report'
       ],
       color: 'border-ochre',
-      image: getPkgImage('premium_estate', settings?.images?.premium_estate || '')
+      image: getPkgImage('corner_block', settings?.images?.corner_block || '')
     },
     {
       id: 'acreage',

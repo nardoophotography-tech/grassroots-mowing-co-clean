@@ -121,7 +121,7 @@ const AdminDashboard = () => {
   const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
   const [quickBookForm, setQuickBookForm] = React.useState({
     name: '', phone: '', address: '', date: tomorrow,
-    service: 'residential_standard', clientType: 'one_off',
+    service: 'standard_yard', clientType: 'one_off',
     timeSlot: 'morning', notes: '', price: '',
   });
   const [quickBookAutoPrice, setQuickBookAutoPrice] = React.useState<number>(0);
@@ -241,7 +241,7 @@ const AdminDashboard = () => {
       console.info('[AdminDashboard] Quick-book write confirmed. Job ID:', newJobId);
       setShowQuickBook(false);
       const newTomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
-      setQuickBookForm({ name: '', phone: '', address: '', date: newTomorrow, service: 'residential_standard', clientType: 'one_off', timeSlot: 'morning', notes: '', price: '' });
+      setQuickBookForm({ name: '', phone: '', address: '', date: newTomorrow, service: 'standard_yard', clientType: 'one_off', timeSlot: 'morning', notes: '', price: '' });
       setQuickBookPriceOverride(false);
       setQuickBookAdjustReason('');
     } catch (err: any) {
@@ -863,11 +863,9 @@ const AdminDashboard = () => {
               <div>
                 <Label className="text-[9px] font-black uppercase tracking-widest text-clay">Service</Label>
                 <select value={quickBookForm.service} onChange={e => setQuickBookForm(f => ({ ...f, service: e.target.value }))} className="mt-1 w-full h-10 px-3 rounded-md border border-border text-xs font-bold bg-background text-charcoal focus:outline-none focus:ring-2 focus:ring-primary">
-                  <option value="town_block">Town Block</option>
-                  <option value="residential_standard">Residential Standard</option>
-                  <option value="premium_estate">Large Corner Block</option>
-                  <option value="acreage">Acreage & Paddock</option>
-                  <option value="premium">Full Property Care (Gold)</option>
+                  {Object.keys(settings?.pricing?.base || {}).map(pkg => (
+                    <option key={pkg} value={pkg}>{settings?.pricing?.packageDetails?.[pkg]?.name || pkg}</option>
+                  ))}
                 </select>
               </div>
               <div>
