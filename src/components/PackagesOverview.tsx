@@ -14,7 +14,10 @@ export const PackagesOverview = () => {
 
   // Filter and sort active public packages
   const packages = Object.entries(settings?.pricing?.packageDetails || {})
-    .filter(([_, pkg]: [string, any]) => pkg.active && (pkg.publicEnabled !== false))
+    .filter(([_, pkg]: [string, any]) => {
+      const isPublic = pkg.publicEnabled ?? pkg.active ?? pkg.enabled ?? true;
+      return isPublic && pkg.active !== false;
+    })
     .sort((a: any, b: any) => (a[1].displayOrder || 0) - (b[1].displayOrder || 0));
 
   // Determine all unique included services across all packages for the comparison table

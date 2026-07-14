@@ -502,40 +502,65 @@ export const Booking = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 pt-4 px-4 pb-6">
-                <div className="grid grid-cols-2 gap-2">
-                  {Object.entries(settings?.pricing?.packageDetails || {})
-                    .filter(([id, pkg]: [string, any]) => id !== 'custom_quote' && pkg.active && pkg.publicEnabled)
-                    .sort((a: any, b: any) => (a[1].displayOrder || 0) - (b[1].displayOrder || 0))
-                    .map(([id, detail]: [string, any]) => {
-                      const priceResult = calculateBookingPrice(
-                        id,
-                        watchedValues.clientType || 'one_off',
-                        settings?.pricing
-                      );
-                      const isCalculated = priceResult.pricingStatus === 'calculated';
-                      return (
-                        <button
-                          key={id}
-                          type="button"
-                          onClick={() => setValue('serviceType', id as any)}
-                          className={cn("flex flex-col p-3 rounded-2xl border-2 text-left h-32 relative", watchedValues.serviceType === id ? "border-secondary bg-secondary/5" : "border-border bg-background")}
-                        >
-                          <span className="font-black text-[10px] uppercase tracking-tight italic">{detail.name}</span>
-                          <span className="text-[9px] text-clay font-bold mt-1 line-clamp-2">{detail.publicDescription || detail.description}</span>
-                          
-                          <div className="mt-auto flex flex-col">
-                            {isCalculated ? (
-                              <span className="text-xs font-black text-primary">From ${priceResult.estimatedTotal.toFixed(0)} incl. GST</span>
-                            ) : (
-                              <span className="text-xs font-black text-primary">Quote required</span>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })}
-                </div>
-                <Button type="button" onClick={nextStep} className="w-full bg-primary h-12 rounded-full font-black uppercase tracking-widest text-[10px] shadow-premium">
-                  Review & Confirm <ChevronRight className="h-4 w-4 ml-1" />
+                {settingsLoading ? (
+                  <div className="p-4 text-center rounded-xl bg-gray-50 border border-gray-100">
+                    <p className="text-sm font-bold text-gray-500">Loading services...</p>
+                  </div>
+                ) : !settings?.pricing ? (
+                  <div className="p-4 text-center rounded-xl bg-red-50 border border-red-100">
+                    <p className="text-sm font-bold text-red-600">Services could not be loaded.<br/>Please refresh or contact GrassRoots Mowing Co.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    {Object.entries(settings.pricing.packageDetails || {})
+                      .filter(([id, pkg]: [string, any]) => {
+                        const isPublic = pkg.publicEnabled ?? pkg.active ?? pkg.enabled ?? true;
+                        return isPublic && pkg.active !== false;
+                      })
+                      .sort((a: any, b: any) => (a[1].displayOrder || 0) - (b[1].displayOrder || 0))
+                      .map(([id, detail]: [string, any]) => {
+                        const priceResult = calculateBookingPrice(
+                          id,
+                          watchedValues.clientType || 'one_off',
+                          settings.pricing
+                        );
+                        const isCalculated = priceResult.pricingStatus === 'calculated';
+                        return (
+                          <button
+                            key={id}
+                            type="button"
+                            onClick={() => setValue('serviceType', id as any)}
+                            className={cn("flex flex-col p-3 rounded-2xl border-2 text-left h-32 relative transition-colors", watchedValues.serviceType === id ? "border-secondary bg-secondary/5 ring-1 ring-secondary" : "border-border bg-background hover:border-secondary/50")}
+                          >
+                            <span className="font-black text-[10px] uppercase tracking-tight italic">{detail.name}</span>
+                            <span className="text-[9px] text-clay font-bold mt-1 line-clamp-2">{detail.publicDescription || detail.description}</span>
+                            
+                            <div className="mt-auto flex flex-col">
+                              {isCalculated ? (
+                                <span className="text-xs font-black text-primary">${priceResult.estimatedTotal.toFixed(0)} incl. GST</span>
+                              ) : (
+                                <span className="text-xs font-black text-primary">Quote required</span>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                  </div>
+                )}
+                
+                {!settingsLoading && settings?.pricing && Object.entries(settings.pricing.packageDetails || {}).filter(([id, pkg]: [string, any]) => (pkg.publicEnabled ?? pkg.active ?? pkg.enabled ?? true) && pkg.active !== false).length === 0 && (
+                  <div className="p-4 text-center rounded-xl bg-gray-50 border border-gray-100">
+                    <p className="text-sm font-bold text-gray-500">No booking packages are currently available.<br/>Please contact GrassRoots Mowing Co.</p>
+                  </div>
+                )}
+
+                <Button 
+                  type="button" 
+                  onClick={nextStep} 
+                  disabled={!watchedValues.serviceType}
+                  className="w-full bg-primary h-12 rounded-full font-black uppercase tracking-widest text-[10px] shadow-premium disabled:opacity-50"
+                >
+                  {watchedValues.serviceType === 'custom_quote' ? 'REQUEST A QUOTE' : 'Review & Confirm'} <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>
               </CardContent>
             </Card>

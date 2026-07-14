@@ -71,11 +71,13 @@ describe('deriveGstFromInclusive (historical / stored-inclusive totals)', () => 
 });
 
 describe('pricing engine uses the shared, rounded GST', () => {
-  it('residential_standard / returning -> subtotal 150, gst 15, total 165', () => {
-    const s = calculateServicePrice(PRICING_RULES as any, 'residential_standard', 'returning', 'standard', DEFAULT_CONDITIONS, []);
-    expect(s.subtotal).toBe(150);
-    expect(s.gst).toBe(15);
-    expect(s.total).toBe(165);
+  it('standard_yard / returning -> subtotal 90.91, gst 9.09, total 100.00', () => {
+    const s = calculateServicePrice(PRICING_RULES as any, 'standard_yard', 'returning', 'standard', {
+      timeSinceLastMow: 'under-2-weeks', grassHeight: 'short', thickness: 'light', obstacles: 'low', urgency: 'normal'
+    } as any, []);
+    expect(s.subtotal).toBe(90.91);
+    expect(s.gst).toBe(9.09);
+    expect(s.total).toBe(100.00);
     expect(s.gstRate).toBe(0.10);
   });
   it('snapshot rows always add up: subtotal + gst == total', () => {
