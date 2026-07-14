@@ -1,4 +1,4 @@
-﻿import * as React from 'react';
+import * as React from 'react';
 import { toast } from 'react-hot-toast';
 import { 
    collection, 
@@ -435,11 +435,11 @@ export function useInvoices() {
     }
 
     const path = 'invoices';
-    let q = query(collection(db, path), orderBy('createdAt', 'desc'));
+    let q = query(collection(db, path));
 
     if (profile?.role === 'client') {
       const effectiveClientId = profile.agencyId || user.uid;
-      q = query(collection(db, path), where('clientId', '==', effectiveClientId), orderBy('createdAt', 'desc'));
+      q = query(collection(db, path), where('clientId', '==', effectiveClientId));
     }
 
     const unsubscribe = safeOnSnapshot(q, (snapshot) => {

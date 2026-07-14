@@ -145,11 +145,11 @@ export const InvoiceList = () => {
   };
 
   const filteredInvoices = invoices.filter(inv => {
-    const matchesSearch = inv.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (inv.clientName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (inv.invoiceNumber || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || inv.status === statusFilter;
     return matchesSearch && matchesStatus;
-  }).sort((a, b) => b.createdAt - a.createdAt);
+  }).sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
 
   if (loading) {
     return (
