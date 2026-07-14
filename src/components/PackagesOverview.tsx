@@ -4,7 +4,7 @@ import { useSettings } from '@/hooks/useFirebase';
 import { computeGst } from '@/utils/money';
 import { Button } from '@/components/ui/Button';
 import { CheckCircle2, Plus, ArrowRight, Info } from 'lucide-react';
-import { cn } from '@/utils/cn';
+import { cn } from '@/lib/utils';
 
 export const PackagesOverview = () => {
   const { settings } = useSettings();
