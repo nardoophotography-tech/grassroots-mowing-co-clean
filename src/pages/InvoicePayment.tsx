@@ -9,6 +9,7 @@ import { GrassRootsLogo } from '../components/GrassRootsLogo';
 import { CheckCircle2, ShieldCheck, CreditCard, ArrowLeft, Home } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'react-hot-toast';
+import { deriveGstFromInclusive } from '../utils/money';
 
 export const InvoicePayment = () => {
   const { id } = useParams<{ id: string }>();
@@ -199,10 +200,44 @@ export const InvoicePayment = () => {
                   <span className="font-bold text-charcoal">${(item.amount || 0).toFixed(2)}</span>
                 </div>
               ))}
-              <div className="flex justify-between pt-4 mt-4 border-t border-ochre/20">
-                <span className="font-black text-charcoal uppercase text-xs tracking-widest">Total AUD</span>
-                <span className="text-xl font-black text-deep-red">${(invoice.totalAmount || 0).toFixed(2)}</span>
-              </div>
+              {(() => {
+                // Prices are stored GST-inclusive; derive the split so the visible
+                // rows always add up to the amount charged. Prefer stored fields.
+                const total = invoice.totalIncludingGst ?? invoice.totalAmount ?? 0;
+                const d = deriveGstFromInclusive(total);
+                const subtotal = invoice.subtotal ?? d.subtotal;
+                const gstAmount = invoice.gstAmount ?? d.gstAmount;
+                const amountPaid = invoice.amountPaid || 0;
+                const balanceDue = invoice.balanceDue != null ? invoice.balanceDue : Math.max(0, total - amountPaid);
+                return (
+                  <>
+                    <div className="flex justify-between pt-4 mt-4 border-t border-ochre/20 text-sm">
+                      <span className="text-charcoal/70">Subtotal (excl. GST)</span>
+                      <span className="font-bold text-charcoal">${subtotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-charcoal/70">GST (10%)</span>
+                      <span className="font-bold text-charcoal">${gstAmount.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between pt-3 mt-1 border-t border-ochre/20">
+                      <span className="font-black text-charcoal uppercase text-xs tracking-widest">Total AUD (inc. GST)</span>
+                      <span className="text-xl font-black text-deep-red">${total.toFixed(2)}</span>
+                    </div>
+                    {amountPaid > 0 && (
+                      <>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-charcoal/70">Amount Paid</span>
+                          <span className="font-bold text-green-600">-${amountPaid.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="font-black text-charcoal uppercase text-xs tracking-widest">Balance Due</span>
+                          <span className="text-lg font-black text-deep-red">${balanceDue.toFixed(2)}</span>
+                        </div>
+                      </>
+                    )}
+                  </>
+                );
+              })()}
             </div>
 
             <div className="pt-8 space-y-4">

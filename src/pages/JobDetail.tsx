@@ -48,6 +48,7 @@ import { PaymentMethod, AddOn, JobIssue, ActivityEntry } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { PasscodeModal } from '@/components/PasscodeModal';
 import { PRICING_RULES } from '@/constants';
+import { computeGst } from '@/utils/money';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { InvoiceDownloadButton } from '@/components/InvoiceDownloadButton';
 import { PhotoUpload } from '@/components/PhotoUpload';
@@ -659,9 +660,25 @@ export const JobDetail = () => {
                   <span className="font-bold">-${completionDiscountAmount.toFixed(2)}</span>
                 </div>
               )}
+              {(() => {
+                // Calculate GST explicitly on top of the subtotal
+                const g = computeGst(completionFinalTotal);
+                return (
+                  <>
+                    <div className="flex justify-between text-sm pt-2 border-t border-ochre/10">
+                      <span className="text-charcoal/60 font-bold uppercase tracking-widest text-[10px]">Subtotal (excl. GST)</span>
+                      <span className="font-bold">${g.subtotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-charcoal/60 font-bold uppercase tracking-widest text-[10px]">GST (10%)</span>
+                      <span className="font-bold">${g.gstAmount.toFixed(2)}</span>
+                    </div>
+                  </>
+                );
+              })()}
               <div className="flex justify-between pt-2 border-t border-ochre/20">
-                <span className="font-serif font-bold text-deep-red">Final Total</span>
-                <span className="font-black text-deep-red text-xl">${completionFinalTotal.toFixed(2)}</span>
+                <span className="font-serif font-bold text-deep-red">Final Total (inc. GST)</span>
+                <span className="font-black text-deep-red text-xl">${computeGst(completionFinalTotal).totalIncludingGst.toFixed(2)}</span>
               </div>
             </div>
 

@@ -95,7 +95,21 @@ const AdminDashboard = () => {
   const currentMonth = new Date().getMonth();
   const currentYear = new Date().getFullYear();
   const jobIds = new Set(jobs.map(j => j.id));
-  const monthRevenue = 0;
+  // Monthly Revenue: successful payments in the current month, summed from the
+  // payments collection (written only by the backend Admin SDK, so it cannot be
+  // forged by clients). Orphaned records — a jobId that no longer maps to a real
+  // job — are excluded; invoice-only payments (no jobId) are still counted.
+  const monthRevenue = payments
+    .filter(p => {
+      const status = (p.status as string) || '';
+      if (status !== 'successful' && status !== 'paid') return false;
+      if (!p.createdAt) return false;
+      const d = new Date(p.createdAt);
+      if (d.getMonth() !== currentMonth || d.getFullYear() !== currentYear) return false;
+      if (p.jobId && !jobIds.has(p.jobId)) return false;
+      return true;
+    })
+    .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
 
 
   const [isDiagnosticRunning, setIsDiagnosticRunning] = React.useState(false);

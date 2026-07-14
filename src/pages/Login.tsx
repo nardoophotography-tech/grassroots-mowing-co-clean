@@ -289,20 +289,6 @@ export const Login = () => {
             </div>
           </button>
 
-          {/* Recurring Client */}
-          <button
-            onClick={() => navigate('/login?intendedRole=client')}
-            className="w-full flex items-center gap-4 p-5 bg-ochre text-charcoal rounded-2xl hover:brightness-105 active:scale-95 transition-all shadow-lg text-left"
-          >
-            <div className="w-10 h-10 bg-black/10 rounded-xl flex items-center justify-center flex-shrink-0">
-              <ClipboardList className="h-5 w-5" />
-            </div>
-            <div className="flex-1">
-              <p className="font-black uppercase tracking-widest text-sm">Recurring Client Login</p>
-              <p className="text-xs opacity-70 mt-0.5">Scheduled mowing &amp; property care</p>
-            </div>
-          </button>
-
           {/* Guest / Quick Booking */}
           <button
             onClick={() => navigate('/booking?type=one_off')}

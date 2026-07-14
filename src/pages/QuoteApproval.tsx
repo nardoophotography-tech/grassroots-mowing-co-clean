@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useJob, useSettings } from '@/hooks/useFirebase';
+import { deriveGstFromInclusive } from '@/utils/money';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/Card';
 import { CheckCircle2, XCircle, Info, MapPin, Calendar, Clock, ClipboardList, TrendingUp, CreditCard, DollarSign, Home, ArrowLeft } from 'lucide-react';
@@ -293,8 +294,26 @@ export const QuoteApproval = () => {
                         <span className="font-bold text-deep-red">+${(snapshot.addOnTotal || 0).toFixed(2)}</span>
                       </div>
                     )}
+                    {(() => {
+                      // Always show Subtotal + GST. Fall back to deriving from an
+                      // inclusive total for historical snapshots without gst fields.
+                      const sub = snapshot.subtotal ?? deriveGstFromInclusive(snapshot.total || 0).subtotal;
+                      const gst = snapshot.gst ?? deriveGstFromInclusive(snapshot.total || 0).gstAmount;
+                      return (
+                        <>
+                          <div className="pt-3 border-t border-ochre/10 flex justify-between text-xs">
+                            <span className="text-charcoal/60">Subtotal (excl. GST)</span>
+                            <span className="font-bold text-charcoal">${sub.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-charcoal/60">GST (10%)</span>
+                            <span className="font-bold text-charcoal">${gst.toFixed(2)}</span>
+                          </div>
+                        </>
+                      );
+                    })()}
                     <div className="pt-4 border-t border-ochre/20 flex justify-between items-center">
-                      <span className="text-sm font-black text-charcoal uppercase tracking-widest">Total Quote</span>
+                      <span className="text-sm font-black text-charcoal uppercase tracking-widest">Total Quote (inc. GST)</span>
                       <span className="text-2xl font-black text-deep-red">${(snapshot.total || 0).toFixed(2)}</span>
                     </div>
                   </div>

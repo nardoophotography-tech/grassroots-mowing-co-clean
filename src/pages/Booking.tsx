@@ -505,7 +505,6 @@ export const Booking = () => {
                 <div className="grid grid-cols-2 gap-2">
                   {Object.entries(settings?.pricing?.base || {})
                     .filter(([id]) => id !== 'custom')
-                    .slice(0, 4)
                     .map(([id]) => {
                       const detail = settings?.pricing?.packageDetails?.[id];
                       const priceResult = calculateBookingPrice(

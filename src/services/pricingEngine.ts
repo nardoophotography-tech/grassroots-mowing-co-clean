@@ -1,4 +1,5 @@
 import { PricingRules, ConditionFactors, AddOn, ClientType, ServicePackage, ServiceGrade, PricingSnapshot, BillingType } from '../types';
+import { GST_RATE, computeGst } from '../utils/money';
 
 export const calculateServicePrice = (
   rules: PricingRules,
@@ -56,10 +57,9 @@ export const calculateServicePrice = (
   }));
   const addOnTotal = addOnItems.reduce((sum, item) => sum + item.price, 0);
 
-  // 7. Standardized Pricing Logic
-  const subtotal = basePrice + tierAdjustment + gradeAdjustment + conditionSurcharge + urgencySurcharge + addOnTotal;
-  const gst = subtotal * 0.1; // Standard 10% GST
-  const total = subtotal + gst;
+  // 7. Standardized Pricing Logic — GST via the shared money util (rounded to cents)
+  const rawSubtotal = basePrice + tierAdjustment + gradeAdjustment + conditionSurcharge + urgencySurcharge + addOnTotal;
+  const { subtotal, gstAmount: gst, totalIncludingGst: total } = computeGst(rawSubtotal);
 
   // 8. Quote Requirement Checks
   const isQuoteRequired = grade === 'extreme' || billingType === 'quote-required' || servicePackage === 'custom' || total <= 0;
@@ -75,9 +75,10 @@ export const calculateServicePrice = (
     addOns: addOnItems,
     tierAdjustment,
     tierName,
-    discount: 0, 
+    discount: 0,
     subtotal,
     gst,
+    gstRate: GST_RATE,
     total,
     squareFootage,
     isQuoteRequired

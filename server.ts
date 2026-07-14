@@ -11,16 +11,19 @@ import admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
 import fs from "fs";
 import { generateInvoicePDF, generateReceiptPDF, generateQuotePDF, generateBookingPDF, generateServiceReportPDF } from "./src/services/pdfGenerator.js";
+import { toE164 } from "./src/utils/phone.js";
+import { computeFinalAmount, applyManualPayment } from "./src/utils/invoicing.js";
+import { computeGst, deriveGstFromInclusive } from "./src/utils/money.js";
 
 dotenv.config();
 
-// Startup diagnostic — safe logging only (no key values printed)
+// Startup diagnostic ΓÇö safe logging only (no key values printed)
 console.log(`[Startup] RESEND_API_KEY present=${!!process.env.RESEND_API_KEY}, prefix=${process.env.RESEND_API_KEY?.slice(0, 3) ?? 'n/a'}`);
 console.log(`[Startup] RESEND_FROM_EMAIL=${process.env.RESEND_FROM_EMAIL ?? '(unset - will use fallback admin@grassrootsmowing.co)'}`);
-console.log(`[Startup] RENDER env flag=${process.env.RENDER ?? '(not set — likely local)'}`);
+console.log(`[Startup] RENDER env flag=${process.env.RENDER ?? '(not set ΓÇö likely local)'}`);
 console.log(`[Startup] STRIPE_SECRET_KEY present=${!!process.env.STRIPE_SECRET_KEY}, mode=${process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_') ? 'LIVE' : (process.env.STRIPE_SECRET_KEY?.startsWith('sk_test_') ? 'TEST' : 'not set')}`);
 console.log(`[Startup] STRIPE_WEBHOOK_SECRET present=${!!process.env.STRIPE_WEBHOOK_SECRET}`);
-console.log(`[Startup] APP_URL=${process.env.APP_URL ? 'set' : '(unset — Stripe redirects fall back to VITE_APP_URL or localhost)'}`);
+console.log(`[Startup] APP_URL=${process.env.APP_URL ? 'set' : '(unset ΓÇö Stripe redirects fall back to VITE_APP_URL or localhost)'}`);
 if (!process.env.APP_URL && process.env.RENDER) {
   console.warn('[Startup] WARNING: APP_URL not set on Render. Set APP_URL=https://grassroots-mowing-co-au.onrender.com to fix Stripe post-payment redirects.');
 }
@@ -32,7 +35,7 @@ try {
     adminAppConfig = JSON.parse(fs.readFileSync("./firebase-applet-config.json", "utf-8"));
   }
 } catch (err) {
-  console.error("🔴 Failed to read firebase-applet-config.json");
+  console.error("≡ƒö┤ Failed to read firebase-applet-config.json");
 }
 
 const dbId = adminAppConfig.firestoreDatabaseId || "(default)";
@@ -103,17 +106,8 @@ async function verifyConnectivity() {
 
 const bucket = admin.app().options.storageBucket ? admin.storage().bucket() : null;
 
-// Helper for E.164 phone formatting
-const toE164 = (phone: string): string => {
-  if (!phone) return '';
-  let cleaned = phone.replace(/\D/g, '');
-  if (cleaned.startsWith('0') && cleaned.length === 10) {
-    cleaned = '61' + cleaned.substring(1);
-  } else if (cleaned.length === 9 && (cleaned.startsWith('4') || cleaned.startsWith('5'))) {
-    cleaned = '61' + cleaned;
-  }
-  return '+' + cleaned;
-};
+// E.164 phone formatting is provided by src/utils/phone.ts (imported above) so the
+// exact production logic is unit-tested.
 
 const isESM = typeof import.meta !== 'undefined' && import.meta.url;
 const _filename = isESM ? fileURLToPath(import.meta.url) : (typeof __filename !== 'undefined' ? __filename : '');
@@ -225,7 +219,7 @@ async function startServer() {
       stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
     }
   } catch (err: any) {
-    console.error("🔴 Failed to initialize Stripe client:", err.message);
+    console.error("≡ƒö┤ Failed to initialize Stripe client:", err.message);
   }
 
   // Resend initialization
@@ -433,7 +427,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
         smsContent = `GrassRoots Mowing: Payment of $${(amount || 0)} received. Thank you! Receipt: ${paymentLink}${pdfUrl ? `\nPDF: ${pdfUrl}` : ''}`;
         adminEmailSubject = `PAYMENT RECEIVED: $${(amount || 0)} from ${clientName}`;
         adminEmailContent = `Payment of $${(amount || 0)} has been received for job ${job?.id || 'N/A'}. Invoice: ${invoiceNumber || 'N/A'}`;
-        adminSmsContent = `✅ Payment received: $${(amount || 0)} from ${clientName}. Job: ${job?.id || invoiceNumber || 'N/A'}`;
+        adminSmsContent = `Γ£à Payment received: $${(amount || 0)} from ${clientName}. Job: ${job?.id || invoiceNumber || 'N/A'}`;
         break;
 
       case 'job-scheduled':
@@ -456,27 +450,29 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
           : `Service completed at ${job?.address || 'TBD'}. Download report: ${pdfUrl || paymentLink}`;
         break;
 
-      case 'invoice-sent':
+      case 'invoice-sent': {
+        const inv = deriveGstFromInclusive(Number(amount || job?.price || 0));
         emailSubject = `Final Invoice: ${invoiceNumber || 'Your Service'} - GrassRoots Mowing Co.`;
-        emailContent = `Hi ${clientName},\n\nYour service at ${job?.address || 'TBD'} is complete. We've generated your final invoice.\n\nAmount Due: $${(amount || job?.price || 0)}\n\nPlease pay using this secure link:\n${paymentLink}${pdfUrl ? `\n\nDownload PDF Invoice: ${pdfUrl}` : ''}\n\nThanks for choosing GrassRoots Mowing Co.\nGrassRoots Team\nops@grassrootsmowing.co`;
-        smsContent = `GrassRoots Mowing: Service complete! Final invoice of $${(amount || job?.price || 0)} is ready. Pay here: ${paymentLink}${pdfUrl ? `\nPDF: ${pdfUrl}` : ''}`;
+        emailContent = `Hi ${clientName},\n\nYour service at ${job?.address || 'TBD'} is complete. We've generated your final invoice.\n\nSubtotal (excl. GST): $${inv.subtotal.toFixed(2)}\nGST (10%): $${inv.gstAmount.toFixed(2)}\nAmount Due (inc. GST): $${inv.totalIncludingGst.toFixed(2)}\n\nPlease pay using this secure link:\n${paymentLink}${pdfUrl ? `\n\nDownload PDF Invoice: ${pdfUrl}` : ''}\n\nThanks for choosing GrassRoots Mowing Co.\nGrassRoots Team\nops@grassrootsmowing.co`;
+        smsContent = `GrassRoots Mowing: Service complete! Invoice ${invoiceNumber || ''}: subtotal $${inv.subtotal.toFixed(2)}, GST $${inv.gstAmount.toFixed(2)}, total $${inv.totalIncludingGst.toFixed(2)} (inc. GST). Pay here: ${paymentLink}${pdfUrl ? `\nPDF: ${pdfUrl}` : ''}`;
         break;
+      }
 
       case 'payment-receipt':
         emailSubject = `Payment Receipt: ${invoiceNumber || 'Your Service'} - GrassRoots Mowing Co.`;
         emailContent = `Hi ${clientName},\n\nThank you for your payment of $${(amount || 0)}\n\nYour service at ${job?.address || 'TBD'} is now fully paid and closed.\n\nYou can view your receipt here: ${paymentLink}${pdfUrl ? `\n\nDownload PDF Receipt: ${pdfUrl}` : ''}\n\nThanks for choosing GrassRoots Mowing Co.\nGrassRoots Team\nops@grassrootsmowing.co`;
         smsContent = `GrassRoots Mowing: Payment received! Thank you for the $${(amount || 0)}. Receipt: ${paymentLink}${pdfUrl ? `\nPDF: ${pdfUrl}` : ''}`;
-        adminSmsContent = `✅ Payment receipt: $${(amount || 0)} from ${clientName}. Job: ${job?.id || invoiceNumber || 'N/A'}`;
+        adminSmsContent = `Γ£à Payment receipt: $${(amount || 0)} from ${clientName}. Job: ${job?.id || invoiceNumber || 'N/A'}`;
         break;
 
       case 'payment-reminder':
-        emailSubject = `Friendly Payment Reminder — Invoice ${invoiceNumber || 'Outstanding'}`;
+        emailSubject = `Friendly Payment Reminder ΓÇö Invoice ${invoiceNumber || 'Outstanding'}`;
         emailContent = settings.reminderTemplate
           ? replacePlaceholders(settings.reminderTemplate, { clientName, amount, invoiceNumber: invoiceNumber || '', paymentLink, pdfUrl })
-          : `Hi ${clientName},\n\nJust a friendly reminder that the following invoice is still outstanding:\n\n  Invoice:  ${invoiceNumber || 'N/A'}\n  Amount:   $${Number(amount || 0).toFixed(2)}\n${paymentLink ? `\nPay securely online:\n${paymentLink}\n` : ''}\nIf you have already paid, please disregard this message — and thank you!\n\nIf you have any questions, reply to this email or call us directly.\n\nThanks for choosing GrassRoots Mowing Co.,\nGrassRoots Team\nops@grassrootsmowing.co`;
-        smsContent = `GrassRoots Mowing: Friendly reminder — Invoice ${invoiceNumber || ''} for $${Number(amount || 0).toFixed(2)} is outstanding. Pay here: ${paymentLink}`;
-        // Admin confirmation — sent internally, not to the client
-        adminEmailSubject = `[ADMIN] Reminder dispatched → ${clientName}`;
+          : `Hi ${clientName},\n\nJust a friendly reminder that the following invoice is still outstanding:\n\n  Invoice:  ${invoiceNumber || 'N/A'}\n  Amount:   $${Number(amount || 0).toFixed(2)}\n${paymentLink ? `\nPay securely online:\n${paymentLink}\n` : ''}\nIf you have already paid, please disregard this message ΓÇö and thank you!\n\nIf you have any questions, reply to this email or call us directly.\n\nThanks for choosing GrassRoots Mowing Co.,\nGrassRoots Team\nops@grassrootsmowing.co`;
+        smsContent = `GrassRoots Mowing: Friendly reminder ΓÇö Invoice ${invoiceNumber || ''} for $${Number(amount || 0).toFixed(2)} is outstanding. Pay here: ${paymentLink}`;
+        // Admin confirmation ΓÇö sent internally, not to the client
+        adminEmailSubject = `[ADMIN] Reminder dispatched ΓåÆ ${clientName}`;
         adminEmailContent = `Reminder email successfully dispatched to ${clientName}.\n\nInvoice: ${invoiceNumber || 'N/A'}\nAmount: $${Number(amount || 0).toFixed(2)}\nClient email: ${clientEmail || 'unknown'}\nPayment link: ${paymentLink || 'none'}`;
         break;
 
@@ -489,11 +485,11 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
 
 
 
-    // ── GOOGLE REVIEW MULTIPLIER ─────────────────────────────────────────────
+    // ΓöÇΓöÇ GOOGLE REVIEW MULTIPLIER ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     // Fires an SMS 15 min after any confirmed payment (Stripe or manual).
     // Requires GOOGLE_PLACE_ID env var in Render environment settings.
     // Duplicate-safe: cancels any existing timer for the same ref before setting a new one.
-    // Note: timers live in memory — lost on server restart (acceptable for this use case).
+    // Note: timers live in memory ΓÇö lost on server restart (acceptable for this use case).
     const pendingReviewTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
     const scheduleReviewSms = (
@@ -505,7 +501,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
       const phone = toE164(clientPhone);
       const placeId = process.env.GOOGLE_PLACE_ID;
       if (!phone || !placeId) {
-        console.warn(`[ReviewSMS]: Skipped — phone=${!!phone}, GOOGLE_PLACE_ID set=${!!placeId}`);
+        console.warn(`[ReviewSMS]: Skipped ΓÇö phone=${!!phone}, GOOGLE_PLACE_ID set=${!!placeId}`);
         return;
       }
       // Cancel duplicate timer for same job/invoice
@@ -518,10 +514,10 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
         const firstName = (clientName || 'there').split(' ')[0];
         const reviewUrl = `https://search.google.com/local/writereview?placeid=${placeId}`;
         const body =
-          `Hi ${firstName} 👋 Thanks for choosing GrassRoots Mowing Co!\n\n` +
-          `If you're happy with the service, a quick Google review means a lot to a small local business 🌿\n\n` +
+          `Hi ${firstName} ≡ƒæï Thanks for choosing GrassRoots Mowing Co!\n\n` +
+          `If you're happy with the service, a quick Google review means a lot to a small local business ≡ƒî┐\n\n` +
           `${reviewUrl}\n\n` +
-          `— David & the GrassRoots Team`;
+          `ΓÇö David & the GrassRoots Team`;
         try {
           await sendSms(phone, body, 'review-reminder (client)');
         } catch (err: any) {
@@ -531,30 +527,30 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
       pendingReviewTimers.set(refId, timer);
       console.log(`[ReviewSMS]: Scheduled for ${phone} in ${Math.round(delayMs / 60000)}min (ref: ${refId})`);
     };
-    // ─────────────────────────────────────────────────────────────────────────
+    // ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
     const sendEmail = async (to: string, subject: string, text: string) => {
       const keyPresent = !!process.env.RESEND_API_KEY;
       const keyPrefix = process.env.RESEND_API_KEY?.slice(0, 3) ?? 'n/a';
       const fromAddr = process.env.RESEND_FROM_EMAIL || 'ops@grassrootsmowing.co';
-      console.log(`[Resend] Attempting send — keyPresent=${keyPresent}, prefix=${keyPrefix}, from=${fromAddr}, to=${to}`);
+      console.log(`[Resend] Attempting send ΓÇö keyPresent=${keyPresent}, prefix=${keyPrefix}, from=${fromAddr}, to=${to}`);
 
       if (!resend) {
-        throw new Error(`Resend not initialised — RESEND_API_KEY is missing or empty at runtime`);
+        throw new Error(`Resend not initialised ΓÇö RESEND_API_KEY is missing or empty at runtime`);
       }
       if (!to) {
         throw new Error('Resend: no recipient address');
       }
 
-      // Resend SDK v6 returns { data, error } — never throws
+      // Resend SDK v6 returns { data, error } ΓÇö never throws
       const { data, error } = await resend.emails.send({ from: fromAddr, to, subject, text });
 
       if (error) {
-        console.error(`[Resend] SEND FAILED — to=${to}, error=${JSON.stringify(error)}`);
+        console.error(`[Resend] SEND FAILED ΓÇö to=${to}, error=${JSON.stringify(error)}`);
         throw new Error(`Resend error: ${(error as any).message || JSON.stringify(error)}`);
       }
 
-      console.log(`[Resend] SEND OK — to=${to}, messageId=${data?.id}`);
+      console.log(`[Resend] SEND OK ΓÇö to=${to}, messageId=${data?.id}`);
       return data;
     };
 
@@ -629,7 +625,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
     }
   };
 
-  // Automation status endpoint — returns service connection state (key presence only, no values)
+  // Automation status endpoint ΓÇö returns service connection state (key presence only, no values)
   app.get("/api/automations/status", (_req, res) => {
     try {
       const resendKeyPresent = !!process.env.RESEND_API_KEY;
@@ -663,15 +659,15 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
       if (endpointSecret && sig) {
         event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
       } else {
-        // In production (RENDER env set), REJECT unsigned webhooks — no fallback.
+        // In production (RENDER env set), REJECT unsigned webhooks ΓÇö no fallback.
         // Without signature verification, anyone can forge payment events.
         if (process.env.RENDER) {
-          console.error("[Stripe Webhook]: REJECTED — STRIPE_WEBHOOK_SECRET not set on production. Set it in Render environment variables.");
+          console.error("[Stripe Webhook]: REJECTED ΓÇö STRIPE_WEBHOOK_SECRET not set on production. Set it in Render environment variables.");
           return res.status(400).send("Webhook Error: Signature verification required in production. Set STRIPE_WEBHOOK_SECRET.");
         }
         // Dev-only fallback (localhost only): parse without signature for local testing
         try {
-          console.warn("[Stripe Webhook]: No secret — dev fallback active (localhost only). UNSAFE for production.");
+          console.warn("[Stripe Webhook]: No secret ΓÇö dev fallback active (localhost only). UNSAFE for production.");
           event = JSON.parse(req.body.toString());
         } catch (parseErr) {
           console.error("[Stripe Webhook]: Failed to parse fallback payload:", parseErr);
@@ -693,7 +689,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
 
         console.log(`[Stripe Webhook]: Processing ${flowType || 'payment'} checkout. session=${session.id}, jobId=${jobId}, invoiceId=${invoiceId}`);
 
-        // ── IDEMPOTENCY CHECK — prevent double-processing same Stripe event ──
+        // ΓöÇΓöÇ IDEMPOTENCY CHECK ΓÇö prevent double-processing same Stripe event ΓöÇΓöÇ
         // Check if this session was already processed on the job or invoice
         let alreadyProcessed = false;
         if (invoiceId) {
@@ -703,7 +699,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
           }
         }
         if (alreadyProcessed) {
-          console.log(`[Stripe Webhook] DUPLICATE event for session ${session.id} — skipping`);
+          console.log(`[Stripe Webhook] DUPLICATE event for session ${session.id} ΓÇö skipping`);
           res.json({ received: true, duplicate: true });
           return;
         }
@@ -722,7 +718,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
             jobData = jobSnap.data();
 
             const invoiceNumber = jobData.invoiceNumber || invoiceId || jobId;
-            const activityEntry = { id: `stripe-${session.id.slice(-8)}`, timestamp: Date.now(), action: 'Payment received via Stripe', detail: `$${amount.toFixed(2)} — Invoice ${invoiceNumber}`, by: 'stripe', status: 'success' };
+            const activityEntry = { id: `stripe-${session.id.slice(-8)}`, timestamp: Date.now(), action: 'Payment received via Stripe', detail: `$${amount.toFixed(2)} ΓÇö Invoice ${invoiceNumber}`, by: 'stripe', status: 'success' };
 
             batch.update(jobRef, {
               paymentStatus: "paid",
@@ -764,7 +760,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
           });
         }
 
-        // Payment record — deduplicated by session.id
+        // Payment record ΓÇö deduplicated by session.id
         const paymentRef = db.collection("payments").doc(`stripe-${session.id}`);
         batch.set(paymentRef, {
           jobId: jobId || null,
@@ -835,7 +831,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
     res.json({ received: true });
   });
 
-  // Diagnostic Test Endpoint for SMS — calls Twilio directly and reports the real result.
+  // Diagnostic Test Endpoint for SMS ΓÇö calls Twilio directly and reports the real result.
   app.post("/api/admin/test-sms", async (req, res) => {
     const adminPhone = process.env.ADMIN_PHONE_NUMBER || process.env.ADMIN_PHONE;
     if (!adminPhone) {
@@ -866,7 +862,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
       const clientEmailExpected = !!(req.body.clientEmail);
       if (clientEmailExpected && results.email === 'failed') {
         return res.status(500).json({
-          error: 'Email delivery failed — check server logs for Resend error details',
+          error: 'Email delivery failed ΓÇö check server logs for Resend error details',
           results,
         });
       }
@@ -963,10 +959,10 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
     }
   });
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // ON THE WAY — sets status, sends Twilio SMS + email, logs activity
+  // ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ON THE WAY ΓÇö sets status, sends Twilio SMS + email, logs activity
   // Idempotent: safe to call again (resend only adds a new activity entry)
-  // ─────────────────────────────────────────────────────────────────────────
+  // ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   app.post("/api/jobs/:jobId/on-the-way", async (req, res) => {
     try {
       const { jobId } = req.params;
@@ -1036,7 +1032,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
       const activityEntry = {
         id: notifId,
         timestamp: Date.now(),
-        action: resend ? 'On My Way message resent' : 'On My Way — message sent to client',
+        action: resend ? 'On My Way message resent' : 'On My Way ΓÇö message sent to client',
         detail: smsResult.ok ? `SMS: ${smsResult.ok ? 'sent' : 'failed'}, Email: ${emailResult.ok ? 'sent' : 'failed'}` : 'SMS failed',
         by: triggeredBy || 'system',
         status: smsResult.ok ? 'success' : 'failed'
@@ -1053,10 +1049,10 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
     }
   });
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // COMPLETE JOB + AUTO INVOICE — accepts completion panel data from frontend
+  // ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // COMPLETE JOB + AUTO INVOICE ΓÇö accepts completion panel data from frontend
   // Idempotent: if finalActionProcessed is true, returns existing invoice data
-  // ─────────────────────────────────────────────────────────────────────────
+  // ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   app.post("/api/jobs/:jobId/complete", async (req, res) => {
     try {
       const { jobId } = req.params;
@@ -1097,13 +1093,16 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
       const completionAddOns: { description: string; amount: number }[] = Array.isArray(bodyAddOns) ? bodyAddOns : [];
       const addOnsTotal = completionAddOns.reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
       const discountAmount = Number(bodyDiscount) || 0;
-      const finalAmount = bodyFinalAmount != null
+      const subtotal = bodyFinalAmount != null
         ? Number(bodyFinalAmount)
-        : Math.max(0, baseAmount + addOnsTotal - discountAmount);
+        : computeFinalAmount(baseAmount, addOnsTotal, discountAmount);
 
-      if (isNaN(finalAmount) || finalAmount < 0) {
-        return res.status(400).json({ error: `Invalid final amount: ${finalAmount}` });
+      if (isNaN(subtotal) || subtotal < 0) {
+        return res.status(400).json({ error: `Invalid subtotal: ${subtotal}` });
       }
+
+      const gstBreakdown = computeGst(subtotal);
+      const finalAmount = gstBreakdown.totalIncludingGst;
 
       const amountInCents = Math.round(finalAmount * 100);
       const invoiceNumber = `INV-${Date.now().toString().slice(-6)}`;
@@ -1118,7 +1117,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
         if ((job.pricingSnapshot.urgencySurcharge || 0) > 0) lineItems.push({ description: `Urgency Surcharge`, amount: job.pricingSnapshot.urgencySurcharge });
         (job.pricingSnapshot.addOns || []).forEach((a: any) => lineItems.push({ description: `Add-on: ${a.name}`, amount: a.price }));
       } else {
-        lineItems.push({ description: `${job.servicePackage || 'Mowing Service'} — ${job.serviceGrade || 'Standard'} grade`, amount: baseAmount });
+        lineItems.push({ description: `${job.servicePackage || 'Mowing Service'} ΓÇö ${job.serviceGrade || 'Standard'} grade`, amount: baseAmount });
         (job.addOns || []).filter((a: any) => a.selected).forEach((a: any) => lineItems.push({ description: `Add-on: ${a.name}`, amount: a.price }));
       }
       completionAddOns.forEach(a => lineItems.push({ description: a.description, amount: a.amount }));
@@ -1140,6 +1139,10 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
         scheduledDate: job.scheduledDate || null,
         items: lineItems,
         totalAmount: finalAmount,
+        subtotal: gstBreakdown.subtotal,
+        gstRate: gstBreakdown.gstRate,
+        gstAmount: gstBreakdown.gstAmount,
+        totalIncludingGst: finalAmount,
         amountPaid: 0,
         balanceDue: finalAmount,
         baseAmount,
@@ -1173,7 +1176,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
               price_data: {
                 currency: "aud",
                 product_data: {
-                  name: `GrassRoots Mowing — Invoice ${invoiceNumber}`,
+                  name: `GrassRoots Mowing ΓÇö Invoice ${invoiceNumber}`,
                   description: `Service at ${job.address || 'your property'}. Ref: ${invoiceNumber}`,
                 },
                 unit_amount: amountInCents,
@@ -1193,6 +1196,10 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
               clientName: job.clientName || '',
               clientId: job.clientId || '',
               serviceAddress: job.address || '',
+              subtotal: String(gstBreakdown.subtotal),
+              gstAmount: String(gstBreakdown.gstAmount),
+              gstRate: '0.10',
+              totalIncludingGst: String(finalAmount),
             },
           });
           paymentLink = session.url || '';
@@ -1203,15 +1210,15 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
           stripeSetupFailed = true;
         }
       } else if (!stripe) {
-        console.warn('[CompleteJob] Stripe not initialised — STRIPE_SECRET_KEY missing');
+        console.warn('[CompleteJob] Stripe not initialised ΓÇö STRIPE_SECRET_KEY missing');
         stripeSetupFailed = true;
       }
 
-      // 6. Update job — mark completed + store all amounts
+      // 6. Update job ΓÇö mark completed + store all amounts
       const activityEntry = {
         id: `complete-${Date.now()}`,
         timestamp: Date.now(),
-        action: 'Job completed — invoice created',
+        action: 'Job completed ΓÇö invoice created',
         detail: `Invoice ${invoiceNumber} for $${finalAmount.toFixed(2)}`,
         by: completedBy || 'system',
         status: 'success'
@@ -1239,7 +1246,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
         activityLog: admin.firestore.FieldValue.arrayUnion(activityEntry),
       });
 
-      // 7. Build customer SMS — includes Stripe link + PayID
+      // 7. Build customer SMS ΓÇö includes Stripe link + PayID
       let smsResult: any = { ok: false, error: 'No phone' };
       let emailResult: any = { ok: false, error: 'No email' };
 
@@ -1247,9 +1254,10 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
       const address = job.location?.address || job.address || 'your property';
 
       if (job.clientPhone) {
+        const gstLine = `Subtotal $${gstBreakdown.subtotal.toFixed(2)}, GST $${gstBreakdown.gstAmount.toFixed(2)}, total $${finalAmount.toFixed(2)} (inc. GST)`;
         const invoiceSms = payidEmail
-          ? `Hi ${firstName}, your GrassRoots Mowing Co. service at ${address} is complete. Invoice ${invoiceNumber} for $${finalAmount.toFixed(2)} is ready.${paymentLink ? ` Pay by card: ${paymentLink}` : ''} Or pay by PayID: ${payidEmail} (ref: ${invoiceNumber}). Thank you.`
-          : `Hi ${firstName}, your GrassRoots Mowing Co. service at ${address} is complete. Invoice ${invoiceNumber} for $${finalAmount.toFixed(2)} is ready.${paymentLink ? ` Pay securely: ${paymentLink}` : ''} Thank you.`;
+          ? `Hi ${firstName}, your GrassRoots Mowing Co. service at ${address} is complete. Invoice ${invoiceNumber}: ${gstLine}.${paymentLink ? ` Pay by card: ${paymentLink}` : ''} Or pay by PayID: ${payidEmail} (ref: ${invoiceNumber}). Thank you.`
+          : `Hi ${firstName}, your GrassRoots Mowing Co. service at ${address} is complete. Invoice ${invoiceNumber}: ${gstLine}.${paymentLink ? ` Pay securely: ${paymentLink}` : ''} Thank you.`;
         smsResult = await sendSms(job.clientPhone, invoiceSms, 'invoice-sent (client)');
         if (smsResult.ok) await jobRef.update({ invoiceSmsId: smsResult.sid });
       }
@@ -1300,9 +1308,9 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
     }
   });
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // RESEND INVOICE — resends SMS + email for existing invoice
-  // ─────────────────────────────────────────────────────────────────────────
+  // ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // RESEND INVOICE ΓÇö resends SMS + email for existing invoice
+  // ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   app.post("/api/jobs/:jobId/resend-invoice", async (req, res) => {
     try {
       const { jobId } = req.params;
@@ -1327,8 +1335,8 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
 
       if (job.clientPhone) {
         const invoiceSms = payidEmail
-          ? `GrassRoots Mowing: Reminder — Invoice ${invoiceNumber} for $${finalAmount.toFixed(2)} is outstanding. Pay by card: ${paymentLink} or PayID: ${payidEmail} ref: ${invoiceNumber}.`
-          : `GrassRoots Mowing: Reminder — Invoice ${invoiceNumber} for $${finalAmount.toFixed(2)} is outstanding. Pay here: ${paymentLink}.`;
+          ? `GrassRoots Mowing: Reminder ΓÇö Invoice ${invoiceNumber} for $${finalAmount.toFixed(2)} is outstanding. Pay by card: ${paymentLink} or PayID: ${payidEmail} ref: ${invoiceNumber}.`
+          : `GrassRoots Mowing: Reminder ΓÇö Invoice ${invoiceNumber} for $${finalAmount.toFixed(2)} is outstanding. Pay here: ${paymentLink}.`;
         smsResult = await sendSms(job.clientPhone, invoiceSms, 'invoice-resend (client)');
       }
 
@@ -1353,10 +1361,10 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
     }
   });
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // MANUAL PAYMENT — records PayID / cash / EFT / other payment
+  // ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // MANUAL PAYMENT ΓÇö records PayID / cash / EFT / other payment
   // Creates payment record, updates invoice, sends receipt SMS + email
-  // ─────────────────────────────────────────────────────────────────────────
+  // ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   app.post("/api/jobs/:jobId/manual-payment", async (req, res) => {
     try {
       const { jobId } = req.params;
@@ -1381,10 +1389,8 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
       const invoiceNumber = invoice.invoiceNumber || job.invoiceNumber || job.invoiceId;
       const totalAmount = invoice.totalAmount || job.finalAmount || job.price || 0;
       const prevAmountPaid = invoice.amountPaid || 0;
-      const newAmountPaid = Math.min(prevAmountPaid + amount, totalAmount);
-      const newBalanceDue = Math.max(0, totalAmount - newAmountPaid);
-      const isPaid = newBalanceDue === 0;
-      const newInvoiceStatus = isPaid ? 'paid' : 'sent';
+      const { amountPaid: newAmountPaid, balanceDue: newBalanceDue, isPaid, status: newInvoiceStatus } =
+        applyManualPayment(totalAmount, prevAmountPaid, amount);
 
       const paymentId = `pay-${Date.now()}`;
 
@@ -1435,7 +1441,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
         jobUpdateData.status = 'paid';
         jobUpdateData.paidAt = Date.now();
       }
-      const manualPaymentActivity = { id: paymentId, timestamp: Date.now(), action: `Manual payment recorded — ${method}`, detail: `$${amount.toFixed(2)} via ${method}. Ref: ${reference || invoiceNumber}`, by: recordedBy || 'admin', status: 'success' };
+      const manualPaymentActivity = { id: paymentId, timestamp: Date.now(), action: `Manual payment recorded ΓÇö ${method}`, detail: `$${amount.toFixed(2)} via ${method}. Ref: ${reference || invoiceNumber}`, by: recordedBy || 'admin', status: 'success' };
       jobUpdateData.activityLog = admin.firestore.FieldValue.arrayUnion(manualPaymentActivity);
       batch.update(jobRef, jobUpdateData);
 
@@ -1480,10 +1486,10 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
     }
   });
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // DEV ONLY — Elevate anonymous user to admin in Firestore so Firestore rules
+  // ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // DEV ONLY ΓÇö Elevate anonymous user to admin in Firestore so Firestore rules
   // pass isAdmin() checks during local dev. This endpoint is a no-op in production.
-  // ─────────────────────────────────────────────────────────────────────────
+  // ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   app.post("/api/auth/dev-admin-activate", async (req, res) => {
     if (process.env.NODE_ENV === 'production') {
       return res.status(403).json({ error: "Not available in production" });
@@ -1744,7 +1750,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
     }
   });
 
-  // ── Manual Review SMS Trigger (admin dashboard use) ─────────────────────
+  // ΓöÇΓöÇ Manual Review SMS Trigger (admin dashboard use) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   // POST /api/trigger-review-sms
   // Body: { clientPhone, clientName, jobId?, delayMs? }
   // delayMs defaults to 15min. Pass 0 to send immediately (useful for testing).

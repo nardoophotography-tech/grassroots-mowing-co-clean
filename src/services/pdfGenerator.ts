@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Invoice, Job, BusinessSettings } from "../types";
+import { deriveGstFromInclusive } from "../utils/money";
 
 export async function generateInvoicePDF(invoice: Invoice, job: Job, settings: BusinessSettings): Promise<Uint8Array> {
   const doc = new jsPDF();
@@ -77,10 +78,18 @@ export async function generateInvoicePDF(invoice: Invoice, job: Job, settings: B
     }
   }
 
-  // Total
+  // Totals - always show Subtotal + GST (10%) + GST-inclusive total.
+  // Prices are stored GST-inclusive; derive the split for the tax summary.
+  const invTotal = (invoice as any).totalIncludingGst ?? invoice.totalAmount ?? snapshot?.total ?? 0;
+  const invSubtotal = (invoice as any).subtotal ?? snapshot?.subtotal ?? deriveGstFromInclusive(invTotal).subtotal;
+  const invGst = (invoice as any).gstAmount ?? snapshot?.gst ?? deriveGstFromInclusive(invTotal).gstAmount;
+  doc.setFontSize(10);
+  doc.setTextColor(80, 80, 80);
+  doc.text(`Subtotal (excl. GST): $${invSubtotal.toFixed(2)}`, 190, finalY + 5, { align: "right" });
+  doc.text(`GST (10%): $${invGst.toFixed(2)}`, 190, finalY + 11, { align: "right" });
   doc.setFontSize(16);
   doc.setTextColor(0, 0, 0);
-  doc.text(`TOTAL AMOUNT: $${(invoice.totalAmount || 0).toFixed(2)}`, 190, finalY + 15, { align: "right" });
+  doc.text(`TOTAL AMOUNT (inc. GST): $${invTotal.toFixed(2)}`, 190, finalY + 22, { align: "right" });
 
   // Payment Info
   if (invoice.status === 'paid') {
@@ -150,8 +159,10 @@ export async function generateQuotePDF(job: Job, settings: BusinessSettings): Pr
   const finalY = (doc as any).lastAutoTable.finalY + 15;
 
   doc.setFontSize(10);
-  doc.text(`Subtotal: $${(snapshot?.subtotal || (job.price / 1.1) || 0).toFixed(2)}`, 190, finalY, { align: "right" });
-  doc.text(`GST (10%): $${(snapshot?.gst || (job.price - (job.price / 1.1)) || 0).toFixed(2)}`, 190, finalY + 6, { align: "right" });
+  const qSubtotal = snapshot?.subtotal ?? deriveGstFromInclusive(job.price || 0).subtotal;
+  const qGst = snapshot?.gst ?? deriveGstFromInclusive(job.price || 0).gstAmount;
+  doc.text(`Subtotal: $${qSubtotal.toFixed(2)}`, 190, finalY, { align: "right" });
+  doc.text(`GST (10%): $${qGst.toFixed(2)}`, 190, finalY + 6, { align: "right" });
 
   doc.setFontSize(16);
   doc.setTextColor(0, 0, 0);
@@ -270,8 +281,17 @@ export async function generateReceiptPDF(invoice: Invoice, job: Job, settings: B
   doc.text(`Date Paid: ${new Date(invoice.paidAt || Date.now()).toLocaleDateString()}`, 20, 52);
   doc.text(`Source: ${invoice.paymentMethod?.toUpperCase() || 'Stripe'}`, 20, 59);
 
+  // GST breakdown on the receipt (amount paid is GST-inclusive).
+  const recTotal = (invoice as any).totalIncludingGst ?? invoice.totalAmount ?? 0;
+  const recSubtotal = (invoice as any).subtotal ?? deriveGstFromInclusive(recTotal).subtotal;
+  const recGst = (invoice as any).gstAmount ?? deriveGstFromInclusive(recTotal).gstAmount;
+  doc.setFontSize(10);
+  doc.setTextColor(80, 80, 80);
+  doc.text(`Subtotal (excl. GST): $${recSubtotal.toFixed(2)}`, 190, 70, { align: "right" });
+  doc.text(`GST (10%): $${recGst.toFixed(2)}`, 190, 76, { align: "right" });
   doc.setFontSize(16);
-  doc.text(`AMOUNT PAID: $${(invoice.totalAmount || 0).toFixed(2)}`, 190, 80, { align: "right" });
+  doc.setTextColor(0, 0, 0);
+  doc.text(`AMOUNT PAID (inc. GST): $${recTotal.toFixed(2)}`, 190, 86, { align: "right" });
 
   doc.setFontSize(10);
   doc.text("This document serves as proof of payment for services rendered.", 20, 100);

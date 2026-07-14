@@ -168,8 +168,15 @@ service cloud.firestore {
       allow get: if isWorkforce() || (isSignedIn() && resource.data.clientId == request.auth.uid);
       allow list: if isWorkforce() || (isSignedIn() && resource.data.clientId == request.auth.uid);
       allow create: if isValidJob(incoming());
-      allow update: if isWorkforce() || (isSignedIn() && existing().clientId == request.auth.uid) || 
-                    (incoming().diff(existing()).affectedKeys().hasOnly(['quoteStatus', 'quoteApprovedAt', 'quoteRejectedAt', 'status', 'updatedAt', 'paymentStatus', 'stripeSessionId', 'amountPaid']));
+      // Public quote approval/rejection (customer follows an emailed quote link, may be
+      // unauthenticated). Restricted to jobs that actually have an outstanding sent quote,
+      // and to the quote-transition fields only. Payment-integrity fields (paymentStatus,
+      // amountPaid, paidAt, stripeSessionId) are DELIBERATELY excluded — those are written
+      // exclusively by the backend Admin SDK (Stripe webhook / manual-payment), which
+      // bypasses these rules. This prevents anyone from forging a paid state.
+      allow update: if isWorkforce() || (isSignedIn() && existing().clientId == request.auth.uid) ||
+                    (existing().quoteStatus == 'sent' &&
+                     incoming().diff(existing()).affectedKeys().hasOnly(['quoteStatus', 'quoteApprovedAt', 'quoteRejectedAt', 'status', 'updatedAt', 'paymentMethod']));
       allow delete: if isAdmin();
     }
 
@@ -177,7 +184,11 @@ service cloud.firestore {
       allow get: if isWorkforce() || (isSignedIn() && resource.data.clientId == request.auth.uid);
       allow list: if isWorkforce() || (isSignedIn() && resource.data.clientId == request.auth.uid);
       allow create: if isWorkforce();
-      allow update: if isWorkforce() || (incoming().diff(existing()).affectedKeys().hasOnly(['status', 'paidAt', 'stripeSessionId']));
+      // Invoice payment state (status, paidAt, stripeSessionId, amountPaid) is written only
+      // by the backend Admin SDK (Stripe webhook / manual-payment / complete-job), which
+      // bypasses these rules. The previous unauthenticated affected-keys branch let anyone
+      // mark any invoice 'paid'; it has been removed. Invoice writes now require workforce.
+      allow update: if isWorkforce();
       allow delete: if isAdmin();
     }
 

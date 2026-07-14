@@ -16,12 +16,8 @@ import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, CheckCircle
 import { Job, BusinessSettings, BookingSettings } from '@/types';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
-import { CalendarBlock, isBlockActiveOnDate } from '@/data/blockoutStore';
-
-// day-of-week index → BookingSettings.workingDays key
-const DOW_TO_KEY: (keyof BookingSettings['workingDays'])[] = [
-  'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday',
-];
+import { CalendarBlock } from '@/data/blockoutStore';
+import { computeDayAvailability } from '@/utils/scheduling';
 
 interface ClientCalendarProps {
   suburb: string;
@@ -49,6 +45,12 @@ export const ClientCalendar: React.FC<ClientCalendarProps> = ({
   const [currentMonth, setCurrentMonth] = React.useState(new Date());
   const timeSelectionRef = React.useRef<HTMLDivElement>(null);
 
+  const isSlotEnabledBySettings = (slotId: string) => {
+    if (!bookingSettings?.timeSlots) return true;
+    const slot = bookingSettings.timeSlots.find(s => s.id === slotId);
+    return slot ? slot.enabled : true;
+  };
+
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(monthStart);
   const startDate = startOfWeek(monthStart);
@@ -56,125 +58,9 @@ export const ClientCalendar: React.FC<ClientCalendarProps> = ({
 
   const calendarDays = eachDayOfInterval({ start: startDate, end: endDate });
 
-  const MAX_JOBS_PER_DAY = bookingSettings?.maxBookingsPerDay ?? 6;
-
-  // Resolve per-slot maxBookings from bookingSettings (fallback to SuburbSchedule capacity)
-  const getSlotMax = (slotId: 'morning' | 'afternoon', schedule: any): number => {
-    if (bookingSettings?.timeSlots) {
-      const slotDef = bookingSettings.timeSlots.find(s => s.id === slotId);
-      if (slotDef) return slotDef.maxBookings;
-    }
-    return slotId === 'morning'
-      ? (schedule?.morningCapacity ?? 3)
-      : (schedule?.afternoonCapacity ?? 3);
-  };
-
-  const isSlotEnabledBySettings = (slotId: 'morning' | 'afternoon'): boolean => {
-    if (!bookingSettings?.timeSlots) return true;
-    const slotDef = bookingSettings.timeSlots.find(s => s.id === slotId);
-    return slotDef ? slotDef.enabled : true;
-  };
-
-  const getAvailability = (date: Date) => {
-    const dateStr = format(date, 'yyyy-MM-dd');
-
-    // ── Booking settings gates (checked before anything else) ──────────
-    if (bookingSettings) {
-      // 1. First available service date
-      if (dateStr < bookingSettings.firstAvailableServiceDate) {
-        return { morning: false, afternoon: false, isAvailable: false };
-      }
-
-      // 2. Working day check from bookingSettings.workingDays
-      const dow = getDay(date);
-      const dayKey = DOW_TO_KEY[dow];
-      if (!bookingSettings.workingDays[dayKey]) {
-        return { morning: false, afternoon: false, isAvailable: false };
-      }
-
-      // 3. Blocked full date from bookingSettings.blockedDates
-      const fullyBlocked = bookingSettings.blockedDates.some(b => b.date === dateStr);
-      if (fullyBlocked) {
-        return { morning: false, afternoon: false, isAvailable: false };
-      }
-    }
-
-    if (!settings || !suburb) return { morning: false, afternoon: false, isAvailable: false };
-
-    const schedule = settings.suburbSchedules.find(s => s.suburb === suburb);
-
-    // 4. Suburb schedule working-day check (only when no bookingSettings.workingDays)
-    if (!bookingSettings) {
-      const availableDays = schedule?.availableDays || [1, 2, 3, 4, 5];
-      const dayOfWeek = getDay(date);
-      if (!availableDays.includes(dayOfWeek)) {
-        return { morning: false, afternoon: false, isAvailable: false };
-      }
-    }
-
-    // 5. Suburb blocked date
-    if (schedule?.blockedDates && schedule.blockedDates.includes(dateStr)) {
-      return { morning: false, afternoon: false, isAvailable: false };
-    }
-
-    // 6. Calendar blockouts — full_day always blocks regardless of showPublic
-    if (blocks.length > 0) {
-      const hasFullDayBlock = blocks.some(
-        b => b.status === 'active' && isBlockActiveOnDate(b, dateStr) && b.slot === 'full_day'
-      );
-      if (hasFullDayBlock) {
-        return { morning: false, afternoon: false, isAvailable: false };
-      }
-    }
-
-    // 7. Global daily job limit
-    if (jobs.length > 0) {
-      const allDayJobs = jobs.filter(
-        j => j.scheduledDate && isSameDay(new Date(j.scheduledDate), date) && j.status !== 'cancelled'
-      );
-      if (allDayJobs.length >= MAX_JOBS_PER_DAY) {
-        return { morning: false, afternoon: false, isAvailable: false };
-      }
-    }
-
-    // 8. Per-slot capacity
-    const morningMax = getSlotMax('morning', schedule);
-    const afternoonMax = getSlotMax('afternoon', schedule);
-
-    const dayJobs = jobs.filter(j => j.scheduledDate && isSameDay(new Date(j.scheduledDate), date) && j.suburb === suburb);
-    const morningCount = dayJobs.filter(j => j.timeSlot === 'morning').length;
-    const afternoonCount = dayJobs.filter(j => j.timeSlot === 'afternoon').length;
-
-    let morningAvailable = isSlotEnabledBySettings('morning') && morningCount < morningMax;
-    let afternoonAvailable = isSlotEnabledBySettings('afternoon') && afternoonCount < afternoonMax;
-
-    // 9. bookingSettings slot-specific blockouts
-    if (bookingSettings?.blockedSlots) {
-      const dateSlotBlocks = bookingSettings.blockedSlots.filter(b => b.date === dateStr);
-      for (const b of dateSlotBlocks) {
-        if (b.slotId === 'morning') morningAvailable = false;
-        if (b.slotId === 'afternoon') afternoonAvailable = false;
-      }
-    }
-
-    // 10. Calendar blockout store — slot-specific (respects showPublic)
-    if (blocks.length > 0) {
-      const slotBlocks = blocks.filter(
-        b => b.status === 'active' && isBlockActiveOnDate(b, dateStr) && b.showPublic && b.slot !== 'full_day'
-      );
-      for (const block of slotBlocks) {
-        if (block.slot === 'morning') morningAvailable = false;
-        if (block.slot === 'afternoon') afternoonAvailable = false;
-        if (block.slot === 'flexible') { morningAvailable = false; afternoonAvailable = false; }
-      }
-    }
-
-    return {
-      morning: morningAvailable,
-      afternoon: afternoonAvailable,
-      isAvailable: morningAvailable || afternoonAvailable,
-    };
-  };
+  // Availability logic lives in src/utils/scheduling.ts (single source of truth, unit-tested).
+  const getAvailability = (date: Date) =>
+    computeDayAvailability(date, { suburb, jobs, settings, blocks, bookingSettings });
 
   const handleDateSelect = (date: string) => {
     onSelect(date, 'morning');

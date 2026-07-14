@@ -809,18 +809,39 @@ export const PricingManagement = () => {
                 <span className="text-white font-bold ml-auto">${(previewResult.gradeAdjustment || 0).toFixed(2)}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-clay/50 text-[10px] font-black uppercase tracking-[0.2em]">Add-On Net</span>
+                <span className="text-clay/50 text-[10px] font-black uppercase tracking-[0.2em]">Add-Ons</span>
                 <span className="text-white font-bold ml-auto">${(previewResult.addOnTotal || 0).toFixed(2)}</span>
               </div>
-              
+              {((previewResult.conditionSurcharge || 0) + (previewResult.urgencySurcharge || 0)) !== 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-clay/50 text-[10px] font-black uppercase tracking-[0.2em]">Condition / Urgency</span>
+                  <span className="text-white font-bold ml-auto">${((previewResult.conditionSurcharge || 0) + (previewResult.urgencySurcharge || 0)).toFixed(2)}</span>
+                </div>
+              )}
+              {(previewResult.discount || 0) !== 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-clay/50 text-[10px] font-black uppercase tracking-[0.2em]">Discounts</span>
+                  <span className="text-white font-bold ml-auto">-${Math.abs(previewResult.discount || 0).toFixed(2)}</span>
+                </div>
+              )}
+
+              <div className="flex justify-between items-center pt-3 border-t border-white/5">
+                <span className="text-clay/50 text-[10px] font-black uppercase tracking-[0.2em]">Subtotal</span>
+                <span className="text-white font-bold ml-auto">${(previewResult.subtotal || 0).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-clay/50 text-[10px] font-black uppercase tracking-[0.2em]">GST (10%)</span>
+                <span className="text-white font-bold ml-auto">${(previewResult.gst || 0).toFixed(2)}</span>
+              </div>
+
               <div className="mt-8 pt-8 border-t border-white/10">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">Estimated Final</p>
+                  <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">Estimated Final (inc. GST)</p>
                   {previewResult.isQuoteRequired && <Badge className="bg-secondary text-white border-none text-[8px] font-black uppercase tracking-widest px-2 py-0.5">Manual Quote Required</Badge>}
                 </div>
                 <div className="flex items-baseline gap-1">
                   <span className="text-clay/50 text-sm">$</span>
-                  <span className="text-5xl font-black text-white italic">{Math.round(previewResult.total)}</span>
+                  <span className="text-5xl font-black text-white italic">{(previewResult.total || 0).toFixed(2)}</span>
                 </div>
               </div>
             </div>

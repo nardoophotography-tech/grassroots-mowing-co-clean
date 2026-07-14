@@ -20,6 +20,7 @@ import { Mythos } from '@/lib/mythos';
 // ... (other imports)
 import { ClientType, ServicePackage, ServiceGrade, BillingType, RecurringSchedule, AddOn, ConditionFactors, PricingRules } from '@/types';
 import { calculateServicePrice, validateQuotePricing } from '@/services/pricingEngine';
+import { deriveGstFromInclusive } from '@/utils/money';
 
 import { PhotoUpload } from '@/components/PhotoUpload';
 import { LocationPicker } from '@/components/LocationPicker';
@@ -700,7 +701,16 @@ export const NewJob = () => {
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-ochre/20 flex flex-col md:flex-row gap-4 lg:left-64 z-20">
           <div className="flex-1 flex items-center justify-center md:justify-start px-4">
             <div className="flex flex-col">
-              <span className="text-[10px] font-black text-ochre uppercase tracking-widest">Estimated Total</span>
+              {(() => {
+                const g = deriveGstFromInclusive(totalPrice || 0);
+                return (
+                  <div className="flex gap-3 text-[9px] font-bold text-ochre/70 uppercase tracking-widest mb-0.5">
+                    <span>Subtotal ${g.subtotal.toFixed(2)}</span>
+                    <span>GST (10%) ${g.gstAmount.toFixed(2)}</span>
+                  </div>
+                );
+              })()}
+              <span className="text-[10px] font-black text-ochre uppercase tracking-widest">Estimated Total (inc. GST)</span>
               <span className="text-2xl font-black text-deep-red">${(totalPrice || 0).toFixed(2)}</span>
             </div>
           </div>

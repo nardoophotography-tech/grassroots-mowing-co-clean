@@ -103,6 +103,7 @@ export interface PricingSnapshot {
   discount: number;
   subtotal: number;
   gst: number;
+  gstRate?: number;
   total: number;
   squareFootage?: number;
   pricingVersionId?: string;
@@ -354,6 +355,14 @@ export interface Invoice {
   clientAddress: string;
   items: InvoiceItem[];
   totalAmount: number;
+  // GST breakdown (optional so historical invoices without these fields still load).
+  // totalIncludingGst mirrors totalAmount for GST-inclusive invoices.
+  subtotal?: number;
+  gstRate?: number;
+  gstAmount?: number;
+  totalIncludingGst?: number;
+  amountPaid?: number;
+  balanceDue?: number;
   pricingSnapshot?: PricingSnapshot;
   status: 'draft' | 'sent' | 'paid' | 'overdue' | 'pending-cash';
   paymentLink?: string;

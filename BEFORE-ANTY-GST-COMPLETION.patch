@@ -1,0 +1,1049 @@
+﻿diff --git a/'asset_management' b/'asset_management'
+deleted file mode 100644
+index d147ae9..0000000
+--- a/'asset_management'
++++ /dev/null
+@@ -1 +0,0 @@
+-   'ultimate-gold' -, 'real-estate' -
+diff --git a/'one_off' b/'one_off'
+deleted file mode 100644
+index 8f0870a..0000000
+--- a/'one_off'
++++ /dev/null
+@@ -1 +0,0 @@
+- - Fixed client type key mismatch: 'one-off' -
+diff --git a/firestore.rules b/firestore.rules
+index d4a4775..7704904 100644
+--- a/firestore.rules
++++ b/firestore.rules
+@@ -168,8 +168,15 @@ service cloud.firestore {
+       allow get: if isWorkforce() || (isSignedIn() && resource.data.clientId == request.auth.uid);
+       allow list: if isWorkforce() || (isSignedIn() && resource.data.clientId == request.auth.uid);
+       allow create: if isValidJob(incoming());
+-      allow update: if isWorkforce() || (isSignedIn() && existing().clientId == request.auth.uid) || 
+-                    (incoming().diff(existing()).affectedKeys().hasOnly(['quoteStatus', 'quoteApprovedAt', 'quoteRejectedAt', 'status', 'updatedAt', 'paymentStatus', 'stripeSessionId', 'amountPaid']));
++      // Public quote approval/rejection (customer follows an emailed quote link, may be
++      // unauthenticated). Restricted to jobs that actually have an outstanding sent quote,
++      // and to the quote-transition fields only. Payment-integrity fields (paymentStatus,
++      // amountPaid, paidAt, stripeSessionId) are DELIBERATELY excluded ΓÇö those are written
++      // exclusively by the backend Admin SDK (Stripe webhook / manual-payment), which
++      // bypasses these rules. This prevents anyone from forging a paid state.
++      allow update: if isWorkforce() || (isSignedIn() && existing().clientId == request.auth.uid) ||
++                    (existing().quoteStatus == 'sent' &&
++                     incoming().diff(existing()).affectedKeys().hasOnly(['quoteStatus', 'quoteApprovedAt', 'quoteRejectedAt', 'status', 'updatedAt', 'paymentMethod']));
+       allow delete: if isAdmin();
+     }
+ 
+@@ -177,7 +184,11 @@ service cloud.firestore {
+       allow get: if isWorkforce() || (isSignedIn() && resource.data.clientId == request.auth.uid);
+       allow list: if isWorkforce() || (isSignedIn() && resource.data.clientId == request.auth.uid);
+       allow create: if isWorkforce();
+-      allow update: if isWorkforce() || (incoming().diff(existing()).affectedKeys().hasOnly(['status', 'paidAt', 'stripeSessionId']));
++      // Invoice payment state (status, paidAt, stripeSessionId, amountPaid) is written only
++      // by the backend Admin SDK (Stripe webhook / manual-payment / complete-job), which
++      // bypasses these rules. The previous unauthenticated affected-keys branch let anyone
++      // mark any invoice 'paid'; it has been removed. Invoice writes now require workforce.
++      allow update: if isWorkforce();
+       allow delete: if isAdmin();
+     }
+ 
+diff --git a/package.json b/package.json
+index b0a7e84..41886b5 100644
+--- a/package.json
++++ b/package.json
+@@ -9,7 +9,9 @@
+     "start": "node dist/server.cjs",
+     "preview": "vite preview",
+     "clean": "node clean.cjs",
+-    "lint": "tsc --noEmit"
++    "lint": "tsc --noEmit",
++    "test": "npx --yes vitest@2.1.9 run",
++    "test:watch": "npx --yes vitest@2.1.9"
+   },
+   "dependencies": {
+     "@google/genai": "^1.29.0",
+diff --git a/server.ts b/server.ts
+index 958af0a..8bd63a8 100644
+--- a/server.ts
++++ b/server.ts
+@@ -11,6 +11,9 @@ import admin from "firebase-admin";
+ import { getFirestore } from "firebase-admin/firestore";
+ import fs from "fs";
+ import { generateInvoicePDF, generateReceiptPDF, generateQuotePDF, generateBookingPDF, generateServiceReportPDF } from "./src/services/pdfGenerator.js";
++import { toE164 } from "./src/utils/phone.js";
++import { computeFinalAmount, applyManualPayment } from "./src/utils/invoicing.js";
++import { deriveGstFromInclusive } from "./src/utils/money.js";
+ 
+ dotenv.config();
+ 
+@@ -103,17 +106,8 @@ async function verifyConnectivity() {
+ 
+ const bucket = admin.app().options.storageBucket ? admin.storage().bucket() : null;
+ 
+-// Helper for E.164 phone formatting
+-const toE164 = (phone: string): string => {
+-  if (!phone) return '';
+-  let cleaned = phone.replace(/\D/g, '');
+-  if (cleaned.startsWith('0') && cleaned.length === 10) {
+-    cleaned = '61' + cleaned.substring(1);
+-  } else if (cleaned.length === 9 && (cleaned.startsWith('4') || cleaned.startsWith('5'))) {
+-    cleaned = '61' + cleaned;
+-  }
+-  return '+' + cleaned;
+-};
++// E.164 phone formatting is provided by src/utils/phone.ts (imported above) so the
++// exact production logic is unit-tested.
+ 
+ const isESM = typeof import.meta !== 'undefined' && import.meta.url;
+ const _filename = isESM ? fileURLToPath(import.meta.url) : (typeof __filename !== 'undefined' ? __filename : '');
+@@ -456,11 +450,13 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
+           : `Service completed at ${job?.address || 'TBD'}. Download report: ${pdfUrl || paymentLink}`;
+         break;
+ 
+-      case 'invoice-sent':
++      case 'invoice-sent': {
++        const inv = deriveGstFromInclusive(Number(amount || job?.price || 0));
+         emailSubject = `Final Invoice: ${invoiceNumber || 'Your Service'} - GrassRoots Mowing Co.`;
+-        emailContent = `Hi ${clientName},\n\nYour service at ${job?.address || 'TBD'} is complete. We've generated your final invoice.\n\nAmount Due: $${(amount || job?.price || 0)}\n\nPlease pay using this secure link:\n${paymentLink}${pdfUrl ? `\n\nDownload PDF Invoice: ${pdfUrl}` : ''}\n\nThanks for choosing GrassRoots Mowing Co.\nGrassRoots Team\nops@grassrootsmowing.co`;
+-        smsContent = `GrassRoots Mowing: Service complete! Final invoice of $${(amount || job?.price || 0)} is ready. Pay here: ${paymentLink}${pdfUrl ? `\nPDF: ${pdfUrl}` : ''}`;
++        emailContent = `Hi ${clientName},\n\nYour service at ${job?.address || 'TBD'} is complete. We've generated your final invoice.\n\nSubtotal (excl. GST): $${inv.subtotal.toFixed(2)}\nGST (10%): $${inv.gstAmount.toFixed(2)}\nAmount Due (inc. GST): $${inv.totalIncludingGst.toFixed(2)}\n\nPlease pay using this secure link:\n${paymentLink}${pdfUrl ? `\n\nDownload PDF Invoice: ${pdfUrl}` : ''}\n\nThanks for choosing GrassRoots Mowing Co.\nGrassRoots Team\nops@grassrootsmowing.co`;
++        smsContent = `GrassRoots Mowing: Service complete! Invoice ${invoiceNumber || ''}: subtotal $${inv.subtotal.toFixed(2)}, GST $${inv.gstAmount.toFixed(2)}, total $${inv.totalIncludingGst.toFixed(2)} (inc. GST). Pay here: ${paymentLink}${pdfUrl ? `\nPDF: ${pdfUrl}` : ''}`;
+         break;
++      }
+ 
+       case 'payment-receipt':
+         emailSubject = `Payment Receipt: ${invoiceNumber || 'Your Service'} - GrassRoots Mowing Co.`;
+@@ -1099,7 +1095,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
+       const discountAmount = Number(bodyDiscount) || 0;
+       const finalAmount = bodyFinalAmount != null
+         ? Number(bodyFinalAmount)
+-        : Math.max(0, baseAmount + addOnsTotal - discountAmount);
++        : computeFinalAmount(baseAmount, addOnsTotal, discountAmount);
+ 
+       if (isNaN(finalAmount) || finalAmount < 0) {
+         return res.status(400).json({ error: `Invalid final amount: ${finalAmount}` });
+@@ -1108,6 +1104,10 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
+       const amountInCents = Math.round(finalAmount * 100);
+       const invoiceNumber = `INV-${Date.now().toString().slice(-6)}`;
+ 
++      // GST breakdown ΓÇö finalAmount is GST-inclusive; derive the split once and
++      // store it on the invoice so every screen/PDF/message reads the same figures.
++      const gstBreakdown = deriveGstFromInclusive(finalAmount);
++
+       // 2. Build invoice line items
+       const lineItems: { description: string; amount: number }[] = [];
+       if (job.pricingSnapshot) {
+@@ -1140,6 +1140,10 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
+         scheduledDate: job.scheduledDate || null,
+         items: lineItems,
+         totalAmount: finalAmount,
++        subtotal: gstBreakdown.subtotal,
++        gstRate: gstBreakdown.gstRate,
++        gstAmount: gstBreakdown.gstAmount,
++        totalIncludingGst: finalAmount,
+         amountPaid: 0,
+         balanceDue: finalAmount,
+         baseAmount,
+@@ -1193,6 +1197,10 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
+               clientName: job.clientName || '',
+               clientId: job.clientId || '',
+               serviceAddress: job.address || '',
++              subtotal: String(gstBreakdown.subtotal),
++              gstAmount: String(gstBreakdown.gstAmount),
++              gstRate: '0.10',
++              totalIncludingGst: String(finalAmount),
+             },
+           });
+           paymentLink = session.url || '';
+@@ -1247,9 +1255,10 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
+       const address = job.location?.address || job.address || 'your property';
+ 
+       if (job.clientPhone) {
++        const gstLine = `Subtotal $${gstBreakdown.subtotal.toFixed(2)}, GST $${gstBreakdown.gstAmount.toFixed(2)}, total $${finalAmount.toFixed(2)} (inc. GST)`;
+         const invoiceSms = payidEmail
+-          ? `Hi ${firstName}, your GrassRoots Mowing Co. service at ${address} is complete. Invoice ${invoiceNumber} for $${finalAmount.toFixed(2)} is ready.${paymentLink ? ` Pay by card: ${paymentLink}` : ''} Or pay by PayID: ${payidEmail} (ref: ${invoiceNumber}). Thank you.`
+-          : `Hi ${firstName}, your GrassRoots Mowing Co. service at ${address} is complete. Invoice ${invoiceNumber} for $${finalAmount.toFixed(2)} is ready.${paymentLink ? ` Pay securely: ${paymentLink}` : ''} Thank you.`;
++          ? `Hi ${firstName}, your GrassRoots Mowing Co. service at ${address} is complete. Invoice ${invoiceNumber}: ${gstLine}.${paymentLink ? ` Pay by card: ${paymentLink}` : ''} Or pay by PayID: ${payidEmail} (ref: ${invoiceNumber}). Thank you.`
++          : `Hi ${firstName}, your GrassRoots Mowing Co. service at ${address} is complete. Invoice ${invoiceNumber}: ${gstLine}.${paymentLink ? ` Pay securely: ${paymentLink}` : ''} Thank you.`;
+         smsResult = await sendSms(job.clientPhone, invoiceSms, 'invoice-sent (client)');
+         if (smsResult.ok) await jobRef.update({ invoiceSmsId: smsResult.sid });
+       }
+@@ -1381,10 +1390,8 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
+       const invoiceNumber = invoice.invoiceNumber || job.invoiceNumber || job.invoiceId;
+       const totalAmount = invoice.totalAmount || job.finalAmount || job.price || 0;
+       const prevAmountPaid = invoice.amountPaid || 0;
+-      const newAmountPaid = Math.min(prevAmountPaid + amount, totalAmount);
+-      const newBalanceDue = Math.max(0, totalAmount - newAmountPaid);
+-      const isPaid = newBalanceDue === 0;
+-      const newInvoiceStatus = isPaid ? 'paid' : 'sent';
++      const { amountPaid: newAmountPaid, balanceDue: newBalanceDue, isPaid, status: newInvoiceStatus } =
++        applyManualPayment(totalAmount, prevAmountPaid, amount);
+ 
+       const paymentId = `pay-${Date.now()}`;
+ 
+diff --git a/src/components/Calendar/ClientCalendar.tsx b/src/components/Calendar/ClientCalendar.tsx
+index 7d99518..d109cb8 100644
+--- a/src/components/Calendar/ClientCalendar.tsx
++++ b/src/components/Calendar/ClientCalendar.tsx
+@@ -16,12 +16,8 @@ import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, CheckCircle
+ import { Job, BusinessSettings, BookingSettings } from '@/types';
+ import { cn } from '@/lib/utils';
+ import { motion, AnimatePresence } from 'motion/react';
+-import { CalendarBlock, isBlockActiveOnDate } from '@/data/blockoutStore';
+-
+-// day-of-week index ΓåÆ BookingSettings.workingDays key
+-const DOW_TO_KEY: (keyof BookingSettings['workingDays'])[] = [
+-  'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday',
+-];
++import { CalendarBlock } from '@/data/blockoutStore';
++import { computeDayAvailability } from '@/utils/scheduling';
+ 
+ interface ClientCalendarProps {
+   suburb: string;
+@@ -56,125 +52,9 @@ export const ClientCalendar: React.FC<ClientCalendarProps> = ({
+ 
+   const calendarDays = eachDayOfInterval({ start: startDate, end: endDate });
+ 
+-  const MAX_JOBS_PER_DAY = bookingSettings?.maxBookingsPerDay ?? 6;
+-
+-  // Resolve per-slot maxBookings from bookingSettings (fallback to SuburbSchedule capacity)
+-  const getSlotMax = (slotId: 'morning' | 'afternoon', schedule: any): number => {
+-    if (bookingSettings?.timeSlots) {
+-      const slotDef = bookingSettings.timeSlots.find(s => s.id === slotId);
+-      if (slotDef) return slotDef.maxBookings;
+-    }
+-    return slotId === 'morning'
+-      ? (schedule?.morningCapacity ?? 3)
+-      : (schedule?.afternoonCapacity ?? 3);
+-  };
+-
+-  const isSlotEnabledBySettings = (slotId: 'morning' | 'afternoon'): boolean => {
+-    if (!bookingSettings?.timeSlots) return true;
+-    const slotDef = bookingSettings.timeSlots.find(s => s.id === slotId);
+-    return slotDef ? slotDef.enabled : true;
+-  };
+-
+-  const getAvailability = (date: Date) => {
+-    const dateStr = format(date, 'yyyy-MM-dd');
+-
+-    // ΓöÇΓöÇ Booking settings gates (checked before anything else) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+-    if (bookingSettings) {
+-      // 1. First available service date
+-      if (dateStr < bookingSettings.firstAvailableServiceDate) {
+-        return { morning: false, afternoon: false, isAvailable: false };
+-      }
+-
+-      // 2. Working day check from bookingSettings.workingDays
+-      const dow = getDay(date);
+-      const dayKey = DOW_TO_KEY[dow];
+-      if (!bookingSettings.workingDays[dayKey]) {
+-        return { morning: false, afternoon: false, isAvailable: false };
+-      }
+-
+-      // 3. Blocked full date from bookingSettings.blockedDates
+-      const fullyBlocked = bookingSettings.blockedDates.some(b => b.date === dateStr);
+-      if (fullyBlocked) {
+-        return { morning: false, afternoon: false, isAvailable: false };
+-      }
+-    }
+-
+-    if (!settings || !suburb) return { morning: false, afternoon: false, isAvailable: false };
+-
+-    const schedule = settings.suburbSchedules.find(s => s.suburb === suburb);
+-
+-    // 4. Suburb schedule working-day check (only when no bookingSettings.workingDays)
+-    if (!bookingSettings) {
+-      const availableDays = schedule?.availableDays || [1, 2, 3, 4, 5];
+-      const dayOfWeek = getDay(date);
+-      if (!availableDays.includes(dayOfWeek)) {
+-        return { morning: false, afternoon: false, isAvailable: false };
+-      }
+-    }
+-
+-    // 5. Suburb blocked date
+-    if (schedule?.blockedDates && schedule.blockedDates.includes(dateStr)) {
+-      return { morning: false, afternoon: false, isAvailable: false };
+-    }
+-
+-    // 6. Calendar blockouts ΓÇö full_day always blocks regardless of showPublic
+-    if (blocks.length > 0) {
+-      const hasFullDayBlock = blocks.some(
+-        b => b.status === 'active' && isBlockActiveOnDate(b, dateStr) && b.slot === 'full_day'
+-      );
+-      if (hasFullDayBlock) {
+-        return { morning: false, afternoon: false, isAvailable: false };
+-      }
+-    }
+-
+-    // 7. Global daily job limit
+-    if (jobs.length > 0) {
+-      const allDayJobs = jobs.filter(
+-        j => j.scheduledDate && isSameDay(new Date(j.scheduledDate), date) && j.status !== 'cancelled'
+-      );
+-      if (allDayJobs.length >= MAX_JOBS_PER_DAY) {
+-        return { morning: false, afternoon: false, isAvailable: false };
+-      }
+-    }
+-
+-    // 8. Per-slot capacity
+-    const morningMax = getSlotMax('morning', schedule);
+-    const afternoonMax = getSlotMax('afternoon', schedule);
+-
+-    const dayJobs = jobs.filter(j => j.scheduledDate && isSameDay(new Date(j.scheduledDate), date) && j.suburb === suburb);
+-    const morningCount = dayJobs.filter(j => j.timeSlot === 'morning').length;
+-    const afternoonCount = dayJobs.filter(j => j.timeSlot === 'afternoon').length;
+-
+-    let morningAvailable = isSlotEnabledBySettings('morning') && morningCount < morningMax;
+-    let afternoonAvailable = isSlotEnabledBySettings('afternoon') && afternoonCount < afternoonMax;
+-
+-    // 9. bookingSettings slot-specific blockouts
+-    if (bookingSettings?.blockedSlots) {
+-      const dateSlotBlocks = bookingSettings.blockedSlots.filter(b => b.date === dateStr);
+-      for (const b of dateSlotBlocks) {
+-        if (b.slotId === 'morning') morningAvailable = false;
+-        if (b.slotId === 'afternoon') afternoonAvailable = false;
+-      }
+-    }
+-
+-    // 10. Calendar blockout store ΓÇö slot-specific (respects showPublic)
+-    if (blocks.length > 0) {
+-      const slotBlocks = blocks.filter(
+-        b => b.status === 'active' && isBlockActiveOnDate(b, dateStr) && b.showPublic && b.slot !== 'full_day'
+-      );
+-      for (const block of slotBlocks) {
+-        if (block.slot === 'morning') morningAvailable = false;
+-        if (block.slot === 'afternoon') afternoonAvailable = false;
+-        if (block.slot === 'flexible') { morningAvailable = false; afternoonAvailable = false; }
+-      }
+-    }
+-
+-    return {
+-      morning: morningAvailable,
+-      afternoon: afternoonAvailable,
+-      isAvailable: morningAvailable || afternoonAvailable,
+-    };
+-  };
++  // Availability logic lives in src/utils/scheduling.ts (single source of truth, unit-tested).
++  const getAvailability = (date: Date) =>
++    computeDayAvailability(date, { suburb, jobs, settings, blocks, bookingSettings });
+ 
+   const handleDateSelect = (date: string) => {
+     onSelect(date, 'morning');
+diff --git a/src/data/blockoutStore.ts b/src/data/blockoutStore.ts
+index 120ec8a..b65d98a 100644
+--- a/src/data/blockoutStore.ts
++++ b/src/data/blockoutStore.ts
+@@ -1,5 +1,31 @@
+ import * as React from 'react';
+ import { auth } from '../firebase';
++// Pure types + block logic live in blockoutLogic.ts (no react/firebase) so they
++// can be imported by unit-tested modules. Re-exported here for existing callers.
++import {
++  type BlockSlot,
++  type BlockRepeat,
++  type WeekDay,
++  type CalendarBlock,
++  WEEKDAYS,
++  isBlockActiveOnDate,
++  getActiveBlocksForDate,
++  checkBlockConflict,
++  isSlotBlocked,
++  isDayFullyBlocked,
++  formatBlockLabel,
++} from './blockoutLogic';
++
++export {
++  WEEKDAYS,
++  isBlockActiveOnDate,
++  getActiveBlocksForDate,
++  checkBlockConflict,
++  isSlotBlocked,
++  isDayFullyBlocked,
++  formatBlockLabel,
++};
++export type { BlockSlot, BlockRepeat, WeekDay, CalendarBlock };
+ 
+ // ΓöÇΓöÇΓöÇ Firestore REST config ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+ // The app uses a named Firestore database. The JS SDK's write stream is
+@@ -74,56 +100,6 @@ function _decode(fields: Record<string, unknown>): Record<string, unknown> {
+   return out;
+ }
+ 
+-// ΓöÇΓöÇΓöÇ Types ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+-
+-export type BlockSlot = 'morning' | 'afternoon' | 'flexible' | 'full_day' | 'custom';
+-export type BlockRepeat = 'none' | 'weekly';
+-export type WeekDay =
+-  | 'monday'
+-  | 'tuesday'
+-  | 'wednesday'
+-  | 'thursday'
+-  | 'friday'
+-  | 'saturday'
+-  | 'sunday';
+-
+-/** Ordered list of weekdays for rendering pickers */
+-export const WEEKDAYS: { key: WeekDay; label: string; short: string }[] = [
+-  { key: 'monday',    label: 'Monday',    short: 'Mon' },
+-  { key: 'tuesday',   label: 'Tuesday',   short: 'Tue' },
+-  { key: 'wednesday', label: 'Wednesday', short: 'Wed' },
+-  { key: 'thursday',  label: 'Thursday',  short: 'Thu' },
+-  { key: 'friday',    label: 'Friday',    short: 'Fri' },
+-  { key: 'saturday',  label: 'Saturday',  short: 'Sat' },
+-  { key: 'sunday',    label: 'Sunday',    short: 'Sun' },
+-];
+-
+-/** Internal mapping: getDay() index -> WeekDay name */
+-const DAY_INDEX_TO_NAME: WeekDay[] = [
+-  'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday',
+-];
+-
+-export interface CalendarBlock {
+-  id: string;
+-  type: 'blockout';
+-  title: string;
+-  reason: string;
+-  publicLabel: string;
+-  showPublic: boolean;
+-  date: string;
+-  slot: BlockSlot;
+-  startTime?: string;
+-  endTime?: string;
+-  repeat?: BlockRepeat;
+-  repeatDays?: WeekDay[];
+-  repeatStartDate?: string;
+-  repeatEndDate?: string;
+-  createdAt: number;
+-  updatedAt: number;
+-  createdBy?: string;
+-  status: 'active' | 'deleted';
+-}
+-
+ const COLLECTION = 'calendar_blocks';
+ 
+ // ΓöÇΓöÇΓöÇ Module-level refresh signal ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+@@ -133,84 +109,6 @@ function _notifyRefresh() {
+   _refreshListeners.forEach((fn) => fn());
+ }
+ 
+-// ΓöÇΓöÇΓöÇ Helpers ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+-
+-export function isBlockActiveOnDate(block: CalendarBlock, date: string): boolean {
+-  if (block.status !== 'active') return false;
+-  const repeat = block.repeat ?? 'none';
+-  if (repeat === 'none') {
+-    return block.date === date;
+-  }
+-  if (repeat === 'weekly') {
+-    const repeatDays = block.repeatDays ?? [];
+-    if (repeatDays.length === 0) return false;
+-    const startDate = block.repeatStartDate ?? block.date;
+-    if (date < startDate) return false;
+-    if (block.repeatEndDate && date > block.repeatEndDate) return false;
+-    const d = new Date(date + 'T00:00:00');
+-    const dayName = DAY_INDEX_TO_NAME[d.getDay()];
+-    return repeatDays.includes(dayName);
+-  }
+-  return false;
+-}
+-
+-export function getActiveBlocksForDate(
+-  blocks: CalendarBlock[],
+-  date: string
+-): CalendarBlock[] {
+-  return blocks.filter((b) => isBlockActiveOnDate(b, date));
+-}
+-
+-export function checkBlockConflict(
+-  blocks: CalendarBlock[],
+-  date: string,
+-  runType: 'Morning Run' | 'Afternoon Run' | 'Flexible',
+-  time?: string
+-): CalendarBlock | null {
+-  const dayBlocks = getActiveBlocksForDate(blocks, date);
+-  for (const b of dayBlocks) {
+-    if (b.slot === 'full_day') return b;
+-    if (b.slot === 'morning' && runType === 'Morning Run') return b;
+-    if (b.slot === 'afternoon' && runType === 'Afternoon Run') return b;
+-    if (b.slot === 'flexible' && runType === 'Flexible') return b;
+-    if (b.slot === 'custom' && time && b.startTime && b.endTime) {
+-      if (time >= b.startTime && time <= b.endTime) return b;
+-    }
+-  }
+-  return null;
+-}
+-
+-export function isSlotBlocked(
+-  blocks: CalendarBlock[],
+-  date: string,
+-  slot: 'morning' | 'afternoon' | 'flexible'
+-): boolean {
+-  const dayBlocks = getActiveBlocksForDate(blocks, date);
+-  return dayBlocks.some(
+-    (b) =>
+-      b.slot === 'full_day' ||
+-      (b.slot === 'morning' && slot === 'morning') ||
+-      (b.slot === 'afternoon' && slot === 'afternoon') ||
+-      (b.slot === 'flexible' && slot === 'flexible')
+-  );
+-}
+-
+-export function isDayFullyBlocked(blocks: CalendarBlock[], date: string): boolean {
+-  return getActiveBlocksForDate(blocks, date).some((b) => b.slot === 'full_day');
+-}
+-
+-export function formatBlockLabel(
+-  b: Pick<CalendarBlock, 'slot' | 'startTime' | 'endTime'> & { repeat?: BlockRepeat }
+-): string {
+-  const suffix = b.repeat === 'weekly' ? ' ΓÇö WEEKLY' : '';
+-  if (b.slot === 'full_day') return 'FULL DAY BLOCKED' + suffix;
+-  if (b.slot === 'morning') return 'MORNING BLOCKED' + suffix;
+-  if (b.slot === 'afternoon') return 'AFTERNOON BLOCKED' + suffix;
+-  if (b.slot === 'flexible') return 'FLEXIBLE BLOCKED' + suffix;
+-  if (b.slot === 'custom') return 'BLOCKED ' + (b.startTime ?? '') + 'ΓÇô' + (b.endTime ?? '') + suffix;
+-  return 'BLOCKED' + suffix;
+-}
+-
+ // ΓöÇΓöÇΓöÇ Store ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+ 
+ export const blockoutStore = {
+@@ -331,7 +229,7 @@ export function useBlockouts(): CalendarBlock[] {
+     refresh();
+     _refreshListeners.add(refresh);
+     // Poll every 60 s so the public booking calendar picks up admin changes
+-    // (e.g. newly blocked    // (e.g. newly blocked days) without requiring a full page reload.
++    // (e.g. newly blocked days) without requiring a full page reload.
+     const interval = setInterval(refresh, 60_000);
+     return () => {
+       _refreshListeners.delete(refresh);
+diff --git a/src/pages/Booking.tsx b/src/pages/Booking.tsx
+index 02eeb6a..e11149d 100644
+--- a/src/pages/Booking.tsx
++++ b/src/pages/Booking.tsx
+@@ -505,7 +505,6 @@ export const Booking = () => {
+                 <div className="grid grid-cols-2 gap-2">
+                   {Object.entries(settings?.pricing?.base || {})
+                     .filter(([id]) => id !== 'custom')
+-                    .slice(0, 4)
+                     .map(([id]) => {
+                       const detail = settings?.pricing?.packageDetails?.[id];
+                       const priceResult = calculateBookingPrice(
+diff --git a/src/pages/Dashboards.tsx b/src/pages/Dashboards.tsx
+index 8631b20..6665802 100644
+--- a/src/pages/Dashboards.tsx
++++ b/src/pages/Dashboards.tsx
+@@ -95,7 +95,21 @@ const AdminDashboard = () => {
+   const currentMonth = new Date().getMonth();
+   const currentYear = new Date().getFullYear();
+   const jobIds = new Set(jobs.map(j => j.id));
+-  const monthRevenue = 0;
++  // Monthly Revenue: successful payments in the current month, summed from the
++  // payments collection (written only by the backend Admin SDK, so it cannot be
++  // forged by clients). Orphaned records ΓÇö a jobId that no longer maps to a real
++  // job ΓÇö are excluded; invoice-only payments (no jobId) are still counted.
++  const monthRevenue = payments
++    .filter(p => {
++      const status = (p.status as string) || '';
++      if (status !== 'successful' && status !== 'paid') return false;
++      if (!p.createdAt) return false;
++      const d = new Date(p.createdAt);
++      if (d.getMonth() !== currentMonth || d.getFullYear() !== currentYear) return false;
++      if (p.jobId && !jobIds.has(p.jobId)) return false;
++      return true;
++    })
++    .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+ 
+ 
+   const [isDiagnosticRunning, setIsDiagnosticRunning] = React.useState(false);
+@@ -1853,76 +1867,76 @@ const ClientDashboard = () => {
+               </div>
+             )}
+           </div>
+-              </CardContent>
+-      </Card>
+-    </div>
+-  );
+-};
+-
+-export const Dashboard = () => {
+-  const { profile, user, loading } = useAuth();
+-  const navigate = useNavigate();
+-
+-  if (loading) return <div className="p-8 text-center uppercase tracking-widest text-[10px] font-black animate-pulse">Loading Platform...</div>;
+-
+-  // Belt-and-suspenders: if the signed-in user's email is a known admin address,
+-  // always route to AdminDashboard regardless of what Firestore says.
+-  // This prevents a stale/corrupted profile from blocking owner access on mobile.
+-  const isAdminEmail = user?.email && ADMIN_EMAILS.includes(user.email);
+-  if (isAdminEmail) return <AdminDashboard />;
+-
+-  // Admin and staff roles also go straight through ΓÇö role is the primary check.
+-  if (profile?.role === 'admin') return <AdminDashboard />;
+-  if (profile?.role === 'staff') return <StaffDashboard />;
+-  if (profile?.role === 'client' && profile?.clientType === 'asset_management') return <RealEstateDashboard />;
+-  if (profile?.role === 'client') return <ClientDashboard />;
+-
+-  // Access Control: One-Off clients who don't have a recurring account see this.
+-  // This must only appear AFTER we've confirmed they are not admin/staff/returning/asset_management.
+-  if (profile?.clientType === 'one_off') {
+-    return (
+-      <div className="min-h-[60vh] flex flex-col items-center justify-center text-center p-8 bg-white/50 backdrop-blur-sm rounded-[40px] border border-ochre/10 shadow-xl">
+-        <div className="w-20 h-20 bg-ochre/10 rounded-full flex items-center justify-center mb-6">
+-          <Zap className="h-10 w-10 text-ochre" />
+-        </div>
+-        <h2 className="text-2xl font-serif text-deep-red mb-2">Upgrade Recommended</h2>
+-        <p className="text-sm text-charcoal/60 mb-8 max-w-sm">
+-          One-Off clients use Guest Protocol for fastest checkout. To access the Dashboard, Job History, and saved properties, please upgrade your account.
+-        </p>
+-        <div className="flex gap-4">
+-          <Button
+-            onClick={() => navigate('/packages')}
+-            className="bg-deep-red text-white hover:bg-deep-red/90 px-8 py-6 rounded-2xl font-bold uppercase tracking-widest text-xs"
+-          >
+-            Upgrade to Recurring
+-          </Button>
+-          <Button
+-            variant="outline"
+-            onClick={() => navigate('/')}
+-            className="border-ochre/20 text-ochre px-8 py-6 rounded-2xl font-bold uppercase tracking-widest text-xs"
+-          >
+-            Return Home
+-          </Button>
+-        </div>
+-      </div>
+-    );
+-  }
+-
+-  return (
+-    <div className="min-h-[60vh] flex flex-col items-center justify-center text-center p-8 bg-white/50 backdrop-blur-sm rounded-[40px] border border-ochre/10 shadow-xl">
+-      <div className="w-20 h-20 bg-ochre/10 rounded-full flex items-center justify-center mb-6">
+-        <LayoutDashboard className="h-10 w-10 text-ochre" />
+-      </div>
+-      <h2 className="text-2xl font-serif text-deep-red mb-2">Portal Access Required</h2>
+-      <p className="text-sm text-charcoal/60 mb-8 max-w-sm">
+-        We couldn't determine your account role. Please return to the homepage and select your intended portal.
+-      </p>
+-      <Button
+-        onClick={() => { window.location.href = '/'; }}
+-        className="bg-deep-red text-white hover:bg-deep-red/90 px-8 py-6 rounded-2xl font-bold uppercase tracking-widest text-xs"
+-      >
+-        Return to Landing Page
+-      </Button>
+-    </div>
+-  );
+-};
++              </CardContent>
++      </Card>
++    </div>
++  );
++};
++
++export const Dashboard = () => {
++  const { profile, user, loading } = useAuth();
++  const navigate = useNavigate();
++
++  if (loading) return <div className="p-8 text-center uppercase tracking-widest text-[10px] font-black animate-pulse">Loading Platform...</div>;
++
++  // Belt-and-suspenders: if the signed-in user's email is a known admin address,
++  // always route to AdminDashboard regardless of what Firestore says.
++  // This prevents a stale/corrupted profile from blocking owner access on mobile.
++  const isAdminEmail = user?.email && ADMIN_EMAILS.includes(user.email);
++  if (isAdminEmail) return <AdminDashboard />;
++
++  // Admin and staff roles also go straight through ΓÇö role is the primary check.
++  if (profile?.role === 'admin') return <AdminDashboard />;
++  if (profile?.role === 'staff') return <StaffDashboard />;
++  if (profile?.role === 'client' && profile?.clientType === 'asset_management') return <RealEstateDashboard />;
++  if (profile?.role === 'client') return <ClientDashboard />;
++
++  // Access Control: One-Off clients who don't have a recurring account see this.
++  // This must only appear AFTER we've confirmed they are not admin/staff/returning/asset_management.
++  if (profile?.clientType === 'one_off') {
++    return (
++      <div className="min-h-[60vh] flex flex-col items-center justify-center text-center p-8 bg-white/50 backdrop-blur-sm rounded-[40px] border border-ochre/10 shadow-xl">
++        <div className="w-20 h-20 bg-ochre/10 rounded-full flex items-center justify-center mb-6">
++          <Zap className="h-10 w-10 text-ochre" />
++        </div>
++        <h2 className="text-2xl font-serif text-deep-red mb-2">Upgrade Recommended</h2>
++        <p className="text-sm text-charcoal/60 mb-8 max-w-sm">
++          One-Off clients use Guest Protocol for fastest checkout. To access the Dashboard, Job History, and saved properties, please upgrade your account.
++        </p>
++        <div className="flex gap-4">
++          <Button
++            onClick={() => navigate('/packages')}
++            className="bg-deep-red text-white hover:bg-deep-red/90 px-8 py-6 rounded-2xl font-bold uppercase tracking-widest text-xs"
++          >
++            Upgrade to Recurring
++          </Button>
++          <Button
++            variant="outline"
++            onClick={() => navigate('/')}
++            className="border-ochre/20 text-ochre px-8 py-6 rounded-2xl font-bold uppercase tracking-widest text-xs"
++          >
++            Return Home
++          </Button>
++        </div>
++      </div>
++    );
++  }
++
++  return (
++    <div className="min-h-[60vh] flex flex-col items-center justify-center text-center p-8 bg-white/50 backdrop-blur-sm rounded-[40px] border border-ochre/10 shadow-xl">
++      <div className="w-20 h-20 bg-ochre/10 rounded-full flex items-center justify-center mb-6">
++        <LayoutDashboard className="h-10 w-10 text-ochre" />
++      </div>
++      <h2 className="text-2xl font-serif text-deep-red mb-2">Portal Access Required</h2>
++      <p className="text-sm text-charcoal/60 mb-8 max-w-sm">
++        We couldn't determine your account role. Please return to the homepage and select your intended portal.
++      </p>
++      <Button
++        onClick={() => { window.location.href = '/'; }}
++        className="bg-deep-red text-white hover:bg-deep-red/90 px-8 py-6 rounded-2xl font-bold uppercase tracking-widest text-xs"
++      >
++        Return to Landing Page
++      </Button>
++    </div>
++  );
++};
+diff --git a/src/pages/InvoicePayment.tsx b/src/pages/InvoicePayment.tsx
+index 7e7094b..9ec4b0a 100644
+--- a/src/pages/InvoicePayment.tsx
++++ b/src/pages/InvoicePayment.tsx
+@@ -9,6 +9,7 @@ import { GrassRootsLogo } from '../components/GrassRootsLogo';
+ import { CheckCircle2, ShieldCheck, CreditCard, ArrowLeft, Home } from 'lucide-react';
+ import { format } from 'date-fns';
+ import { toast } from 'react-hot-toast';
++import { deriveGstFromInclusive } from '../utils/money';
+ 
+ export const InvoicePayment = () => {
+   const { id } = useParams<{ id: string }>();
+@@ -199,10 +200,44 @@ export const InvoicePayment = () => {
+                   <span className="font-bold text-charcoal">${(item.amount || 0).toFixed(2)}</span>
+                 </div>
+               ))}
+-              <div className="flex justify-between pt-4 mt-4 border-t border-ochre/20">
+-                <span className="font-black text-charcoal uppercase text-xs tracking-widest">Total AUD</span>
+-                <span className="text-xl font-black text-deep-red">${(invoice.totalAmount || 0).toFixed(2)}</span>
+-              </div>
++              {(() => {
++                // Prices are stored GST-inclusive; derive the split so the visible
++                // rows always add up to the amount charged. Prefer stored fields.
++                const total = invoice.totalIncludingGst ?? invoice.totalAmount ?? 0;
++                const d = deriveGstFromInclusive(total);
++                const subtotal = invoice.subtotal ?? d.subtotal;
++                const gstAmount = invoice.gstAmount ?? d.gstAmount;
++                const amountPaid = invoice.amountPaid || 0;
++                const balanceDue = invoice.balanceDue != null ? invoice.balanceDue : Math.max(0, total - amountPaid);
++                return (
++                  <>
++                    <div className="flex justify-between pt-4 mt-4 border-t border-ochre/20 text-sm">
++                      <span className="text-charcoal/70">Subtotal (excl. GST)</span>
++                      <span className="font-bold text-charcoal">${subtotal.toFixed(2)}</span>
++                    </div>
++                    <div className="flex justify-between text-sm">
++                      <span className="text-charcoal/70">GST (10%)</span>
++                      <span className="font-bold text-charcoal">${gstAmount.toFixed(2)}</span>
++                    </div>
++                    <div className="flex justify-between pt-3 mt-1 border-t border-ochre/20">
++                      <span className="font-black text-charcoal uppercase text-xs tracking-widest">Total AUD (inc. GST)</span>
++                      <span className="text-xl font-black text-deep-red">${total.toFixed(2)}</span>
++                    </div>
++                    {amountPaid > 0 && (
++                      <>
++                        <div className="flex justify-between text-sm">
++                          <span className="text-charcoal/70">Amount Paid</span>
++                          <span className="font-bold text-green-600">-${amountPaid.toFixed(2)}</span>
++                        </div>
++                        <div className="flex justify-between">
++                          <span className="font-black text-charcoal uppercase text-xs tracking-widest">Balance Due</span>
++                          <span className="text-lg font-black text-deep-red">${balanceDue.toFixed(2)}</span>
++                        </div>
++                      </>
++                    )}
++                  </>
++                );
++              })()}
+             </div>
+ 
+             <div className="pt-8 space-y-4">
+diff --git a/src/pages/JobDetail.tsx b/src/pages/JobDetail.tsx
+index c0f9194..03db176 100644
+--- a/src/pages/JobDetail.tsx
++++ b/src/pages/JobDetail.tsx
+@@ -48,6 +48,7 @@ import { PaymentMethod, AddOn, JobIssue, ActivityEntry } from '@/types';
+ import { useAuth } from '@/contexts/AuthContext';
+ import { PasscodeModal } from '@/components/PasscodeModal';
+ import { PRICING_RULES } from '@/constants';
++import { deriveGstFromInclusive } from '@/utils/money';
+ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
+ import { InvoiceDownloadButton } from '@/components/InvoiceDownloadButton';
+ import { PhotoUpload } from '@/components/PhotoUpload';
+@@ -659,8 +660,25 @@ export const JobDetail = () => {
+                   <span className="font-bold">-${completionDiscountAmount.toFixed(2)}</span>
+                 </div>
+               )}
++              {(() => {
++                // Booked price is GST-inclusive; derive the split so rows add up to
++                // the final invoice total without changing the amount charged.
++                const g = deriveGstFromInclusive(completionFinalTotal);
++                return (
++                  <>
++                    <div className="flex justify-between text-sm pt-2 border-t border-ochre/10">
++                      <span className="text-charcoal/60 font-bold uppercase tracking-widest text-[10px]">Subtotal (excl. GST)</span>
++                      <span className="font-bold">${g.subtotal.toFixed(2)}</span>
++                    </div>
++                    <div className="flex justify-between text-sm">
++                      <span className="text-charcoal/60 font-bold uppercase tracking-widest text-[10px]">GST (10%)</span>
++                      <span className="font-bold">${g.gstAmount.toFixed(2)}</span>
++                    </div>
++                  </>
++                );
++              })()}
+               <div className="flex justify-between pt-2 border-t border-ochre/20">
+-                <span className="font-serif font-bold text-deep-red">Final Total</span>
++                <span className="font-serif font-bold text-deep-red">Final Total (inc. GST)</span>
+                 <span className="font-black text-deep-red text-xl">${completionFinalTotal.toFixed(2)}</span>
+               </div>
+             </div>
+diff --git a/src/pages/Login.tsx b/src/pages/Login.tsx
+index 12025e2..5855492 100644
+--- a/src/pages/Login.tsx
++++ b/src/pages/Login.tsx
+@@ -289,20 +289,6 @@ export const Login = () => {
+             </div>
+           </button>
+ 
+-          {/* Recurring Client */}
+-          <button
+-            onClick={() => navigate('/login?intendedRole=client')}
+-            className="w-full flex items-center gap-4 p-5 bg-ochre text-charcoal rounded-2xl hover:brightness-105 active:scale-95 transition-all shadow-lg text-left"
+-          >
+-            <div className="w-10 h-10 bg-black/10 rounded-xl flex items-center justify-center flex-shrink-0">
+-              <ClipboardList className="h-5 w-5" />
+-            </div>
+-            <div className="flex-1">
+-              <p className="font-black uppercase tracking-widest text-sm">Recurring Client Login</p>
+-              <p className="text-xs opacity-70 mt-0.5">Scheduled mowing &amp; property care</p>
+-            </div>
+-          </button>
+-
+           {/* Guest / Quick Booking */}
+           <button
+             onClick={() => navigate('/booking?type=one_off')}
+diff --git a/src/pages/NewJob.tsx b/src/pages/NewJob.tsx
+index c5ccc92..3783e53 100644
+--- a/src/pages/NewJob.tsx
++++ b/src/pages/NewJob.tsx
+@@ -20,6 +20,7 @@ import { Mythos } from '@/lib/mythos';
+ // ... (other imports)
+ import { ClientType, ServicePackage, ServiceGrade, BillingType, RecurringSchedule, AddOn, ConditionFactors, PricingRules } from '@/types';
+ import { calculateServicePrice, validateQuotePricing } from '@/services/pricingEngine';
++import { deriveGstFromInclusive } from '@/utils/money';
+ 
+ import { PhotoUpload } from '@/components/PhotoUpload';
+ import { LocationPicker } from '@/components/LocationPicker';
+@@ -700,7 +701,16 @@ export const NewJob = () => {
+         <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-ochre/20 flex flex-col md:flex-row gap-4 lg:left-64 z-20">
+           <div className="flex-1 flex items-center justify-center md:justify-start px-4">
+             <div className="flex flex-col">
+-              <span className="text-[10px] font-black text-ochre uppercase tracking-widest">Estimated Total</span>
++              {(() => {
++                const g = deriveGstFromInclusive(totalPrice || 0);
++                return (
++                  <div className="flex gap-3 text-[9px] font-bold text-ochre/70 uppercase tracking-widest mb-0.5">
++                    <span>Subtotal ${g.subtotal.toFixed(2)}</span>
++                    <span>GST (10%) ${g.gstAmount.toFixed(2)}</span>
++                  </div>
++                );
++              })()}
++              <span className="text-[10px] font-black text-ochre uppercase tracking-widest">Estimated Total (inc. GST)</span>
+               <span className="text-2xl font-black text-deep-red">${(totalPrice || 0).toFixed(2)}</span>
+             </div>
+           </div>
+diff --git a/src/pages/QuoteApproval.tsx b/src/pages/QuoteApproval.tsx
+index 6d4e5cf..20e253c 100644
+--- a/src/pages/QuoteApproval.tsx
++++ b/src/pages/QuoteApproval.tsx
+@@ -293,8 +293,26 @@ export const QuoteApproval = () => {
+                         <span className="font-bold text-deep-red">+${(snapshot.addOnTotal || 0).toFixed(2)}</span>
+                       </div>
+                     )}
++                    {(() => {
++                      // Always show Subtotal + GST. Fall back to deriving from an
++                      // inclusive total for historical snapshots without gst fields.
++                      const sub = snapshot.subtotal ?? (snapshot.total ? snapshot.total / (1 + (snapshot.gstRate ?? 0.10)) : 0);
++                      const gst = snapshot.gst ?? Math.max(0, (snapshot.total || 0) - sub);
++                      return (
++                        <>
++                          <div className="pt-3 border-t border-ochre/10 flex justify-between text-xs">
++                            <span className="text-charcoal/60">Subtotal (excl. GST)</span>
++                            <span className="font-bold text-charcoal">${sub.toFixed(2)}</span>
++                          </div>
++                          <div className="flex justify-between text-xs">
++                            <span className="text-charcoal/60">GST (10%)</span>
++                            <span className="font-bold text-charcoal">${gst.toFixed(2)}</span>
++                          </div>
++                        </>
++                      );
++                    })()}
+                     <div className="pt-4 border-t border-ochre/20 flex justify-between items-center">
+-                      <span className="text-sm font-black text-charcoal uppercase tracking-widest">Total Quote</span>
++                      <span className="text-sm font-black text-charcoal uppercase tracking-widest">Total Quote (inc. GST)</span>
+                       <span className="text-2xl font-black text-deep-red">${(snapshot.total || 0).toFixed(2)}</span>
+                     </div>
+                   </div>
+diff --git a/src/pages/admin/PricingManagement.tsx b/src/pages/admin/PricingManagement.tsx
+index 311c99b..25dbeda 100644
+--- a/src/pages/admin/PricingManagement.tsx
++++ b/src/pages/admin/PricingManagement.tsx
+@@ -809,18 +809,39 @@ export const PricingManagement = () => {
+                 <span className="text-white font-bold ml-auto">${(previewResult.gradeAdjustment || 0).toFixed(2)}</span>
+               </div>
+               <div className="flex justify-between items-center">
+-                <span className="text-clay/50 text-[10px] font-black uppercase tracking-[0.2em]">Add-On Net</span>
++                <span className="text-clay/50 text-[10px] font-black uppercase tracking-[0.2em]">Add-Ons</span>
+                 <span className="text-white font-bold ml-auto">${(previewResult.addOnTotal || 0).toFixed(2)}</span>
+               </div>
+-              
++              {((previewResult.conditionSurcharge || 0) + (previewResult.urgencySurcharge || 0)) !== 0 && (
++                <div className="flex justify-between items-center">
++                  <span className="text-clay/50 text-[10px] font-black uppercase tracking-[0.2em]">Condition / Urgency</span>
++                  <span className="text-white font-bold ml-auto">${((previewResult.conditionSurcharge || 0) + (previewResult.urgencySurcharge || 0)).toFixed(2)}</span>
++                </div>
++              )}
++              {(previewResult.discount || 0) !== 0 && (
++                <div className="flex justify-between items-center">
++                  <span className="text-clay/50 text-[10px] font-black uppercase tracking-[0.2em]">Discounts</span>
++                  <span className="text-white font-bold ml-auto">-${Math.abs(previewResult.discount || 0).toFixed(2)}</span>
++                </div>
++              )}
++
++              <div className="flex justify-between items-center pt-3 border-t border-white/5">
++                <span className="text-clay/50 text-[10px] font-black uppercase tracking-[0.2em]">Subtotal</span>
++                <span className="text-white font-bold ml-auto">${(previewResult.subtotal || 0).toFixed(2)}</span>
++              </div>
++              <div className="flex justify-between items-center">
++                <span className="text-clay/50 text-[10px] font-black uppercase tracking-[0.2em]">GST (10%)</span>
++                <span className="text-white font-bold ml-auto">${(previewResult.gst || 0).toFixed(2)}</span>
++              </div>
++
+               <div className="mt-8 pt-8 border-t border-white/10">
+                 <div className="flex items-center justify-between mb-2">
+-                  <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">Estimated Final</p>
++                  <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">Estimated Final (inc. GST)</p>
+                   {previewResult.isQuoteRequired && <Badge className="bg-secondary text-white border-none text-[8px] font-black uppercase tracking-widest px-2 py-0.5">Manual Quote Required</Badge>}
+                 </div>
+                 <div className="flex items-baseline gap-1">
+                   <span className="text-clay/50 text-sm">$</span>
+-                  <span className="text-5xl font-black text-white italic">{Math.round(previewResult.total)}</span>
++                  <span className="text-5xl font-black text-white italic">{(previewResult.total || 0).toFixed(2)}</span>
+                 </div>
+               </div>
+             </div>
+diff --git a/src/services/pdfGenerator.ts b/src/services/pdfGenerator.ts
+index c8637bd..9b23131 100644
+--- a/src/services/pdfGenerator.ts
++++ b/src/services/pdfGenerator.ts
+@@ -77,10 +77,18 @@ export async function generateInvoicePDF(invoice: Invoice, job: Job, settings: B
+     }
+   }
+ 
+-  // Total
++  // Totals ΓÇö always show Subtotal + GST (10%) + GST-inclusive total.
++  // Prices are stored GST-inclusive; derive the split for the tax summary.
++  const invTotal = (invoice as any).totalIncludingGst ?? invoice.totalAmount ?? snapshot?.total ?? 0;
++  const invSubtotal = (invoice as any).subtotal ?? snapshot?.subtotal ?? Math.round((invTotal / 1.1) * 100) / 100;
++  const invGst = (invoice as any).gstAmount ?? snapshot?.gst ?? Math.round((invTotal - invSubtotal) * 100) / 100;
++  doc.setFontSize(10);
++  doc.setTextColor(80, 80, 80);
++  doc.text(`Subtotal (excl. GST): $${invSubtotal.toFixed(2)}`, 190, finalY + 5, { align: "right" });
++  doc.text(`GST (10%): $${invGst.toFixed(2)}`, 190, finalY + 11, { align: "right" });
+   doc.setFontSize(16);
+   doc.setTextColor(0, 0, 0);
+-  doc.text(`TOTAL AMOUNT: $${(invoice.totalAmount || 0).toFixed(2)}`, 190, finalY + 15, { align: "right" });
++  doc.text(`TOTAL AMOUNT (inc. GST): $${invTotal.toFixed(2)}`, 190, finalY + 22, { align: "right" });
+ 
+   // Payment Info
+   if (invoice.status === 'paid') {
+@@ -270,8 +278,17 @@ export async function generateReceiptPDF(invoice: Invoice, job: Job, settings: B
+   doc.text(`Date Paid: ${new Date(invoice.paidAt || Date.now()).toLocaleDateString()}`, 20, 52);
+   doc.text(`Source: ${invoice.paymentMethod?.toUpperCase() || 'Stripe'}`, 20, 59);
+ 
++  // GST breakdown on the receipt (amount paid is GST-inclusive).
++  const recTotal = (invoice as any).totalIncludingGst ?? invoice.totalAmount ?? 0;
++  const recSubtotal = (invoice as any).subtotal ?? Math.round((recTotal / 1.1) * 100) / 100;
++  const recGst = (invoice as any).gstAmount ?? Math.round((recTotal - recSubtotal) * 100) / 100;
++  doc.setFontSize(10);
++  doc.setTextColor(80, 80, 80);
++  doc.text(`Subtotal (excl. GST): $${recSubtotal.toFixed(2)}`, 190, 70, { align: "right" });
++  doc.text(`GST (10%): $${recGst.toFixed(2)}`, 190, 76, { align: "right" });
+   doc.setFontSize(16);
+-  doc.text(`AMOUNT PAID: $${(invoice.totalAmount || 0).toFixed(2)}`, 190, 80, { align: "right" });
++  doc.setTextColor(0, 0, 0);
++  doc.text(`AMOUNT PAID (inc. GST): $${recTotal.toFixed(2)}`, 190, 86, { align: "right" });
+ 
+   doc.setFontSize(10);
+   doc.text("This document serves as proof of payment for services rendered.", 20, 100);
+diff --git a/src/services/pricingEngine.ts b/src/services/pricingEngine.ts
+index d5a50bf..2ced3c7 100644
+--- a/src/services/pricingEngine.ts
++++ b/src/services/pricingEngine.ts
+@@ -1,4 +1,5 @@
+ import { PricingRules, ConditionFactors, AddOn, ClientType, ServicePackage, ServiceGrade, PricingSnapshot, BillingType } from '../types';
++import { GST_RATE, computeGst } from '../utils/money';
+ 
+ export const calculateServicePrice = (
+   rules: PricingRules,
+@@ -56,10 +57,9 @@ export const calculateServicePrice = (
+   }));
+   const addOnTotal = addOnItems.reduce((sum, item) => sum + item.price, 0);
+ 
+-  // 7. Standardized Pricing Logic
+-  const subtotal = basePrice + tierAdjustment + gradeAdjustment + conditionSurcharge + urgencySurcharge + addOnTotal;
+-  const gst = subtotal * 0.1; // Standard 10% GST
+-  const total = subtotal + gst;
++  // 7. Standardized Pricing Logic ΓÇö GST via the shared money util (rounded to cents)
++  const rawSubtotal = basePrice + tierAdjustment + gradeAdjustment + conditionSurcharge + urgencySurcharge + addOnTotal;
++  const { subtotal, gstAmount: gst, totalIncludingGst: total } = computeGst(rawSubtotal);
+ 
+   // 8. Quote Requirement Checks
+   const isQuoteRequired = grade === 'extreme' || billingType === 'quote-required' || servicePackage === 'custom' || total <= 0;
+@@ -75,9 +75,10 @@ export const calculateServicePrice = (
+     addOns: addOnItems,
+     tierAdjustment,
+     tierName,
+-    discount: 0, 
++    discount: 0,
+     subtotal,
+     gst,
++    gstRate: GST_RATE,
+     total,
+     squareFootage,
+     isQuoteRequired
+diff --git a/src/types.ts b/src/types.ts
+index e013fcb..2c4d61b 100644
+--- a/src/types.ts
++++ b/src/types.ts
+@@ -103,6 +103,7 @@ export interface PricingSnapshot {
+   discount: number;
+   subtotal: number;
+   gst: number;
++  gstRate?: number;
+   total: number;
+   squareFootage?: number;
+   pricingVersionId?: string;
+@@ -354,6 +355,14 @@ export interface Invoice {
+   clientAddress: string;
+   items: InvoiceItem[];
+   totalAmount: number;
++  // GST breakdown (optional so historical invoices without these fields still load).
++  // totalIncludingGst mirrors totalAmount for GST-inclusive invoices.
++  subtotal?: number;
++  gstRate?: number;
++  gstAmount?: number;
++  totalIncludingGst?: number;
++  amountPaid?: number;
++  balanceDue?: number;
+   pricingSnapshot?: PricingSnapshot;
+   status: 'draft' | 'sent' | 'paid' | 'overdue' | 'pending-cash';
+   paymentLink?: string;
