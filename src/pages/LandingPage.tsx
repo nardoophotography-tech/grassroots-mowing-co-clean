@@ -273,7 +273,7 @@ export const LandingPage = () => {
               </Button>
 
               <Button
-                onClick={() => navigate('/login?intendedRole=returning')}
+                onClick={() => navigate('/login?intendedRole=client')}
                 style={{ backgroundColor: 'var(--color-gum-green)', color: '#ffffff' }}
                 className="h-16 sm:h-20 hover:brightness-110 font-black uppercase tracking-[0.2em] text-[11px] rounded-2xl italic flex flex-col items-center justify-center gap-1 border-0"
               >
@@ -284,7 +284,7 @@ export const LandingPage = () => {
               </Button>
 
               <Button
-                onClick={() => navigate('/login?intendedRole=asset_management')}
+                onClick={() => navigate('/login?intendedRole=client')}
                 style={{ backgroundColor: 'rgba(255,255,255,0.12)', color: '#ffffff', borderColor: 'rgba(255,255,255,0.3)' }}
                 className="h-16 sm:h-20 hover:bg-white/20 font-black uppercase tracking-[0.2em] text-[11px] rounded-2xl italic flex flex-col items-center justify-center gap-1 border"
               >
