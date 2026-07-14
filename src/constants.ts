@@ -51,12 +51,42 @@ export const PRICING_RULES = {
     'asset_management': 1.15,
   },
   packageDetails: {
-    'town_block': { name: 'Town Block', description: 'Standard small town block', active: true, displayOrder: 1, category: 'Small' },
-    'standard_yard': { name: 'Standard Yard', description: 'Popular family choice', active: true, displayOrder: 2, category: 'Medium' },
-    'corner_blocks': { name: 'Corner Blocks', description: 'Full care for larger properties', active: true, displayOrder: 3, category: 'Large' },
-    'large_lot_acreage': { name: 'Large Lot / Acreage', description: 'For big open spaces', active: true, displayOrder: 4, category: 'XL' },
-    'ultimate_property_gold': { name: 'Ultimate Property Gold', description: 'The absolute premium service', active: true, displayOrder: 5, category: 'Premium' },
-    'custom_quote': { name: 'Custom Quote', description: 'Tailored pricing for unique needs', active: true, displayOrder: 6, category: 'Special' },
+    'town_block': { 
+      name: 'Town Block', 
+      publicDescription: 'Includes mowing, whipper snipping and blowing. All other work is charged as an extra.',
+      description: 'Standard service includes lawn mowing, whipper snipping around edges and obstacles, and blowing paths and hard surfaces clean. Any additional work is charged separately as an add-on.',
+      active: true, displayOrder: 1, category: 'Small' 
+    },
+    'standard_yard': { 
+      name: 'Standard Yard', 
+      publicDescription: 'Includes mowing, whipper snipping and blowing. All other work is charged as an extra.',
+      description: 'Standard service includes lawn mowing, whipper snipping around edges and obstacles, and blowing paths and hard surfaces clean. Any additional work is charged separately as an add-on.',
+      active: true, displayOrder: 2, category: 'Medium' 
+    },
+    'corner_blocks': { 
+      name: 'Corner Blocks', 
+      publicDescription: 'Includes mowing, whipper snipping and blowing. All other work is charged as an extra.',
+      description: 'Standard service includes lawn mowing, whipper snipping around edges and obstacles, and blowing paths and hard surfaces clean. Any additional work is charged separately as an add-on.',
+      active: true, displayOrder: 3, category: 'Large' 
+    },
+    'large_lot_acreage': { 
+      name: 'Large Lot / Acreage', 
+      publicDescription: 'Includes mowing, whipper snipping and blowing. All other work is charged as an extra.',
+      description: 'Standard service includes lawn mowing, whipper snipping around edges and obstacles, and blowing paths and hard surfaces clean. Any additional work is charged separately as an add-on.',
+      active: true, displayOrder: 4, category: 'XL' 
+    },
+    'ultimate_property_gold': { 
+      name: 'Ultimate Property Gold', 
+      publicDescription: 'Includes mowing, whipper snipping and blowing. All other work is charged as an extra.',
+      description: 'Standard service includes lawn mowing, whipper snipping around edges and obstacles, and blowing paths and hard surfaces clean. Any additional work is charged separately as an add-on.',
+      active: true, displayOrder: 5, category: 'Premium' 
+    },
+    'custom_quote': { 
+      name: 'Custom Quote', 
+      publicDescription: 'Tailored pricing for unique needs.',
+      description: 'Request a custom inspection and quote for unique property requirements that fall outside our standard packages.',
+      active: true, displayOrder: 6, category: 'Special' 
+    },
   },
   grade: {
     'standard': 0,

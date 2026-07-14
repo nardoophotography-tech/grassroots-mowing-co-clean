@@ -585,7 +585,12 @@ export const Booking = () => {
                       </div>
                       <div className="flex justify-between text-[9px] font-bold text-clay uppercase italic">
                         <span>Service</span>
-                        <span className="text-charcoal">{est.packageName}</span>
+                        <div className="text-right flex flex-col items-end">
+                          <span className="text-charcoal">{est.packageName}</span>
+                          <span className="text-[10px] text-clay/80 normal-case mt-1 max-w-[200px] leading-tight">
+                            {settings?.pricing?.packageDetails?.[watchedValues.serviceType as keyof typeof settings.pricing.packageDetails]?.description}
+                          </span>
+                        </div>
                       </div>
                       <div className="flex justify-between text-[9px] font-bold text-clay uppercase italic">
                         <span>Date</span>
