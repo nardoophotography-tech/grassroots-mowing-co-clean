@@ -132,7 +132,7 @@ const StatusBadge = ({ status }: { status: MediaStatus }) => {
   );
 };
 
-const PlatformTag = ({ p }: { p: Platform }) => (
+const PlatformTag = ({ p, key }: { p: Platform; key?: React.Key }) => (
   <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-600 uppercase tracking-wide">
     {PLATFORM_LABELS[p]}
   </span>
@@ -148,6 +148,7 @@ const MediaCard = ({
   onStatusChange,
 }: {
   item: MediaItem;
+  key?: React.Key;
   onEdit: (item: MediaItem) => void;
   onDelete: (id: string) => void;
   onAdvance: (id: string) => void;

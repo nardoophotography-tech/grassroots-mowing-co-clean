@@ -5,6 +5,7 @@ interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {
   variant?: 'default' | 'secondary' | 'outline' | 'destructive' | 'success' | 'warning';
   className?: string;
   children?: React.ReactNode;
+  title?: string;
 }
 
 function Badge({ className, variant = 'default', ...props }: BadgeProps) {
