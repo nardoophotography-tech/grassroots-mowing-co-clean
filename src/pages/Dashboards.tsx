@@ -6,6 +6,8 @@ import { db } from '../firebase';
 import { collection, query, orderBy, onSnapshot, setDoc, doc, deleteDoc } from 'firebase/firestore';
 import { useJobs, useClients, useInvoices, useSettings, useAgencyStaff, usePayments } from '@/hooks/useFirebase';
 import { useAuth } from '@/contexts/AuthContext';
+import { PRICING_RULES } from '@/constants';
+import { calculateFinancialSummary } from '@/utils/finance';
 import { ADMIN_EMAILS } from '@/constants';
 import { calculateBookingPrice } from '@/utils/pricing';
 import { cn } from '@/lib/utils';
@@ -84,34 +86,17 @@ const AdminDashboard = () => {
 
   const quoteRequiredCount = filteredJobs.filter(j => j.status === 'quoted').length;
 
-  // Pending Payment: completed | invoiced_final
+  // Pending Payment: legacy jobs count (retained if needed for logic elsewhere)
   const pendingPaymentJobsCount = filteredJobs.filter(j => 
     ['completed', 'invoiced_final'].includes(j.status)
   ).length;
 
-  // Monthly Revenue: successful payments this month that have a matching real job.
-  // The jobId cross-check filters out any orphaned test/dev payment records in Firestore
-  // that were created without a corresponding job (e.g. from Stripe webhook testing).
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
-  const jobIds = new Set(jobs.map(j => j.id));
-  // Monthly Revenue: successful payments in the current month, summed from the
-  // payments collection (written only by the backend Admin SDK, so it cannot be
-  // forged by clients). Orphaned records — a jobId that no longer maps to a real
-  // job — are excluded; invoice-only payments (no jobId) are still counted.
-  const monthRevenue = payments
-    .filter(p => {
-      const status = (p.status as string) || '';
-      if (status !== 'successful' && status !== 'paid') return false;
-      if (!p.createdAt) return false;
-      const d = new Date(p.createdAt);
-      if (d.getMonth() !== currentMonth || d.getFullYear() !== currentYear) return false;
-      if (p.jobId && !jobIds.has(p.jobId)) return false;
-      return true;
-    })
-    .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  // Single source of truth for financial data
+  const financialSummary = React.useMemo(() => {
+    return calculateFinancialSummary(invoices, payments, new Date());
+  }, [invoices, payments]);
 
-
+  const monthRevenue = financialSummary.monthlyRevenue;
   const [isDiagnosticRunning, setIsDiagnosticRunning] = React.useState(false);
   const [stripeStatus, setStripeStatus] = React.useState<'checking' | 'connected' | 'error'>(settings?.stripeConnected ? 'connected' : 'error');
 
@@ -265,10 +250,10 @@ const AdminDashboard = () => {
     return [
       { label: 'Active Tasks', value: activeCount, icon: MapPin, to: '/jobs' },
       { label: 'New Quotes', value: quoteCount, icon: FileText, to: '/jobs?filter=quoted' },
-      { label: 'Unpaid Invoices', value: pendingPaymentCount, icon: Clock, to: '/invoices' },
+      { label: 'Unpaid Invoices', value: financialSummary.unpaidInvoiceCount, icon: Clock, to: '/invoices' },
       { label: 'Monthly Revenue', value: `$${monthRevenue.toLocaleString()}`, icon: DollarSign, to: '/invoices' },
     ];
-  }, [filteredJobs, quoteRequiredCount, pendingPaymentJobsCount, monthRevenue]);
+  }, [filteredJobs, quoteRequiredCount, financialSummary.unpaidInvoiceCount, monthRevenue]);
 
   const recentBookings = React.useMemo(() => {
     return [...jobs]

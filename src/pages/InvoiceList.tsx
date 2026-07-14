@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useInvoices, useJobs } from '@/hooks/useFirebase';
+import { useInvoices, useJobs, usePayments } from '@/hooks/useFirebase';
+import { calculateFinancialSummary } from '@/utils/finance';
 import { useAuth } from '@/contexts/AuthContext';
 import { ADMIN_EMAILS } from '../constants';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
@@ -31,6 +32,12 @@ export const InvoiceList = () => {
   const { user, profile } = useAuth();
   const { invoices, loading, markAsPaid, deleteInvoice } = useInvoices();
   const { jobs } = useJobs();
+  const { payments } = usePayments();
+
+  const financialSummary = React.useMemo(() => {
+    return calculateFinancialSummary(invoices, payments, new Date());
+  }, [invoices, payments]);
+
   const [searchTerm, setSearchTerm] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState<string>('all');
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
@@ -191,7 +198,7 @@ export const InvoiceList = () => {
             </div>
             <div>
               <p className="text-xs text-blue-600 font-bold uppercase">Total Invoiced</p>
-              <p className="text-2xl font-bold text-blue-900">${invoices.reduce((sum, inv) => sum + inv.totalAmount, 0).toFixed(2)}</p>
+              <p className="text-2xl font-bold text-blue-900">${financialSummary.totalInvoiced.toFixed(2)}</p>
             </div>
           </CardContent>
         </Card>
@@ -202,7 +209,7 @@ export const InvoiceList = () => {
             </div>
             <div>
               <p className="text-xs text-green-600 font-bold uppercase">Total Paid</p>
-              <p className="text-2xl font-bold text-green-900">${invoices.filter(i => i.status === 'paid').reduce((sum, inv) => sum + inv.totalAmount, 0).toFixed(2)}</p>
+              <p className="text-2xl font-bold text-green-900">${financialSummary.totalPaid.toFixed(2)}</p>
             </div>
           </CardContent>
         </Card>
@@ -213,7 +220,7 @@ export const InvoiceList = () => {
             </div>
             <div>
               <p className="text-xs text-orange-600 font-bold uppercase">Outstanding</p>
-              <p className="text-2xl font-bold text-orange-900">${invoices.filter(i => i.status !== 'paid').reduce((sum, inv) => sum + inv.totalAmount, 0).toFixed(2)}</p>
+              <p className="text-2xl font-bold text-orange-900">${financialSummary.totalOutstanding.toFixed(2)}</p>
             </div>
           </CardContent>
         </Card>
