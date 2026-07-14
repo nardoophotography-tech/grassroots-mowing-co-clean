@@ -22,9 +22,15 @@ export function calculateFinancialSummary(
   let refinedTotalPaid = 0;
   let refinedMonthlyRevenue = 0;
 
+  const validInvoiceIds = new Set((invoices || []).map(i => i.id));
+  const validJobIds = new Set((invoices || []).map(i => i.jobId).filter(Boolean));
+
   const validPaymentRecords = Array.isArray(payments) ? payments.filter(p => {
     const s = String(p.status || '').toLowerCase();
-    return ['successful', 'succeeded', 'paid'].includes(s);
+    const isSuccess = ['successful', 'succeeded', 'paid'].includes(s);
+    const matchesInvoice = (p.invoiceId && validInvoiceIds.has(p.invoiceId)) || 
+                           (p.jobId && validJobIds.has(p.jobId));
+    return isSuccess && matchesInvoice;
   }) : [];
 
   // Process explicit payments collection
