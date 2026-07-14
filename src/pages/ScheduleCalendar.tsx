@@ -1266,8 +1266,8 @@ export const ScheduleCalendar = () => {
 
       {/* ── Existing Schedule Entry Modal ──────────────────────────────── */}
       {formOpen && (
-        <div className="fixed inset-0 z-[80] bg-black/40 flex items-start justify-center overflow-y-auto p-4">
-          <form onSubmit={save} className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl mt-10 mb-10">
+        <div className="fixed inset-0 z-[80] bg-black/40 flex items-center justify-center p-4">
+          <form onSubmit={save} className="bg-white rounded-[2rem] shadow-2xl w-[calc(100vw-24px)] max-w-2xl max-h-[90vh] overflow-y-auto flex flex-col">
             <div className="flex items-center justify-between p-6 border-b border-stone-100">
               <h2 className="text-xl font-black italic uppercase text-charcoal">
                 {editingId ? 'Edit Schedule Entry' : 'New Schedule Entry'}
@@ -1383,8 +1383,8 @@ export const ScheduleCalendar = () => {
       )}
 
       {blockoutFormOpen && (
-        <div className="fixed inset-0 z-[90] bg-black/40 flex items-start justify-center overflow-y-auto p-4">
-          <form onSubmit={saveBlockout} className="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl mt-10 mb-10">
+        <div className="fixed inset-0 z-[90] bg-black/40 flex items-center justify-center p-4">
+          <form onSubmit={saveBlockout} className="bg-white rounded-[2rem] shadow-2xl w-[calc(100vw-24px)] max-w-xl max-h-[90vh] overflow-y-auto flex flex-col">
             <div className="flex items-center justify-between p-6 border-b border-stone-100">
               <h2 className="text-xl font-black italic uppercase text-charcoal flex items-center gap-2">
                 <Ban className="h-5 w-5 text-stone-600" />
@@ -1615,8 +1615,8 @@ export const ScheduleCalendar = () => {
 
       {/* ── Private Job Form Modal ──────────────────────────────────── */}
       {privateJobFormOpen && (
-        <div className="fixed inset-0 z-[90] bg-black/40 flex items-start justify-center overflow-y-auto p-4">
-          <form onSubmit={savePrivateJob} className="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl mt-10 mb-10">
+        <div className="fixed inset-0 z-[90] bg-black/40 flex items-center justify-center p-4">
+          <form onSubmit={savePrivateJob} className="bg-white rounded-[2rem] shadow-2xl w-[calc(100vw-24px)] max-w-xl max-h-[90vh] overflow-y-auto flex flex-col">
             <div className="flex items-center justify-between p-6 border-b border-stone-100">
               <h2 className="text-xl font-black italic uppercase text-charcoal flex items-center gap-2">
                 <Lock className="h-5 w-5 text-violet-600" />

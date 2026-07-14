@@ -28,7 +28,7 @@ const Dialog = ({ open, onOpenChange, children, title, description }: DialogProp
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-lg rounded-xl border border-gray-200 bg-white p-6 shadow-lg"
+              className="relative w-[calc(100vw-24px)] max-w-lg max-h-[90vh] rounded-xl border border-gray-200 bg-white p-6 shadow-lg overflow-y-auto flex flex-col"
             >
               <button
                 onClick={() => onOpenChange(false)}

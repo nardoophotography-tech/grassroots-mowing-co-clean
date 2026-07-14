@@ -260,6 +260,17 @@ export const Sidebar = ({ isOpen, onClose, variant = 'sidebar' }: { isOpen: bool
 
   const isActuallyMobile = isMobile || variant === 'drawer';
   
+  React.useEffect(() => {
+    if (isOpen && isActuallyMobile) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen, isActuallyMobile]);
+
   const clientType: ClientType = profile?.clientType || 'one_off';
   const role = profile?.role;
 

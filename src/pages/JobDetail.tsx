@@ -573,7 +573,7 @@ export const JobDetail = () => {
 
   const renderCompletionPanel = () => (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-deep-red/30 backdrop-blur-md">
-      <Card className="w-full max-w-lg sm:rounded-2xl rounded-t-2xl overflow-hidden shadow-2xl border-ochre/20 max-h-[90vh] flex flex-col">
+      <Card className="w-[calc(100vw-24px)] max-w-lg sm:rounded-2xl rounded-t-2xl overflow-hidden shadow-2xl border-ochre/20 max-h-[90vh] flex flex-col overflow-y-auto">
         <CardHeader className="bg-deep-red text-white flex flex-row items-center justify-between shrink-0">
           <CardTitle className="font-serif text-lg">Complete Job</CardTitle>
           <Button variant="ghost" size="sm" className="text-white hover:bg-white/10 h-8 w-8 p-0 rounded-lg"
@@ -716,7 +716,7 @@ export const JobDetail = () => {
 
   const renderManualPaymentModal = () => (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-deep-red/40 backdrop-blur-md">
-      <Card className="w-full max-w-md rounded-2xl overflow-hidden shadow-2xl border-ochre/20">
+      <Card className="w-[calc(100vw-24px)] max-w-md rounded-2xl overflow-hidden shadow-2xl border-ochre/20 max-h-[90vh] flex flex-col overflow-y-auto">
         <CardHeader className="bg-ochre/10 border-b border-ochre/20 flex flex-row items-center justify-between">
           <CardTitle className="font-serif text-deep-red">Record Manual Payment</CardTitle>
           <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg" onClick={() => setShowManualPayment(false)}>
@@ -1177,7 +1177,7 @@ export const JobDetail = () => {
       {/* Pre-set add-on selection modal */}
       {showAddOnModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-deep-red/20 backdrop-blur-md">
-          <Card className="w-full max-w-md border-ochre/20 shadow-2xl rounded-2xl overflow-hidden">
+          <Card className="w-[calc(100vw-24px)] max-w-md border-ochre/20 shadow-2xl rounded-2xl overflow-hidden max-h-[90vh] flex flex-col overflow-y-auto">
             <CardHeader className="bg-ochre/10 border-b border-ochre/20 px-5 py-4 flex items-center justify-between flex-row">
               <h3 className="font-bold text-lg text-charcoal font-serif">Add Service Add-On</h3>
               <Button variant="ghost" size="sm" onClick={() => setShowAddOnModal(false)}>X</Button>
@@ -1222,7 +1222,7 @@ export const JobDetail = () => {
       {/* Delete confirmation */}
       {showDeleteConfirm && createPortal(
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-deep-red/40 backdrop-blur-md">
-          <Card className="w-full max-w-sm border-ochre/20 shadow-2xl rounded-2xl overflow-hidden">
+          <Card className="w-[calc(100vw-24px)] max-w-sm border-ochre/20 shadow-2xl rounded-2xl overflow-hidden max-h-[90vh] flex flex-col overflow-y-auto">
             <CardHeader className="bg-deep-red/10 border-b border-deep-red/10 text-center">
               <div className="mx-auto w-12 h-12 rounded-full bg-deep-red/10 flex items-center justify-center mb-2">
                 <AlertCircle className="h-6 w-6 text-deep-red" />
@@ -1243,7 +1243,7 @@ export const JobDetail = () => {
       {/* Price override modal */}
       {showOverrideModal && createPortal(
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-deep-red/20 backdrop-blur-md">
-          <Card className="w-full max-w-sm border-ochre/20 shadow-2xl rounded-2xl overflow-hidden">
+          <Card className="w-[calc(100vw-24px)] max-w-sm border-ochre/20 shadow-2xl rounded-2xl overflow-hidden max-h-[90vh] flex flex-col overflow-y-auto">
             <CardHeader className="bg-ochre/5 border-b border-ochre/10">
               <CardTitle className="font-serif text-deep-red">Admin Price Override</CardTitle>
             </CardHeader>
@@ -1267,7 +1267,7 @@ export const JobDetail = () => {
 
       {showOverrideConfirm && createPortal(
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-deep-red/40 backdrop-blur-md">
-          <Card className="w-full max-w-sm border-ochre/20 shadow-2xl rounded-2xl overflow-hidden">
+          <Card className="w-[calc(100vw-24px)] max-w-sm border-ochre/20 shadow-2xl rounded-2xl overflow-hidden max-h-[90vh] flex flex-col overflow-y-auto">
             <CardHeader className="bg-ochre/5 border-b border-ochre/10 text-center">
               <div className="mx-auto w-12 h-12 rounded-full bg-ochre/10 flex items-center justify-center mb-2">
                 <DollarSign className="h-6 w-6 text-deep-red" />

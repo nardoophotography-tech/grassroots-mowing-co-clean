@@ -429,7 +429,7 @@ export const PricingManagement = () => {
       <div className="grid lg:grid-cols-4 gap-8">
         <div className="lg:col-span-3 space-y-8">
           <div className="bg-surface rounded-3xl border border-border shadow-premium overflow-hidden">
-            <div className="flex border-b border-border p-3 gap-2 bg-background/50">
+            <div className="flex border-b border-border p-3 gap-2 bg-background/50 overflow-x-auto hide-scrollbar">
               {[
                 { id: 'base', icon: Package, label: 'Packages' },
                 { id: 'tiers', icon: TrendingUp, label: 'Client Tiers' },
@@ -437,14 +437,14 @@ export const PricingManagement = () => {
                 { id: 'conditions', icon: Settings, label: 'Conditions' },
                 { id: 'history', icon: History, label: 'History' }
               ].map(t => (
-                <button 
-                  key={t.id}
-                  onClick={() => setTab(t.id as any)}
-                  className={cn(
-                    "flex-1 flex items-center justify-center gap-3 py-4 px-6 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all",
-                    tab === t.id ? "bg-surface text-primary shadow-premium ring-1 ring-border italic" : "text-clay hover:text-charcoal hover:bg-background"
-                  )}
-                >
+                  <button 
+                    key={t.id}
+                    onClick={() => setTab(t.id as any)}
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-2 sm:gap-3 py-3 sm:py-4 px-4 sm:px-6 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all whitespace-nowrap flex-shrink-0",
+                      tab === t.id ? "bg-surface text-primary shadow-premium ring-1 ring-border italic" : "text-clay hover:text-charcoal hover:bg-background"
+                    )}
+                  >
                   <t.icon className="h-5 w-5" />
                   {t.label}
                 </button>

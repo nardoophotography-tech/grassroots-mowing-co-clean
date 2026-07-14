@@ -384,7 +384,7 @@ export const Booking = () => {
             <p className="text-primary font-black mb-2 uppercase tracking-[0.3em] text-[10px]">{settings?.serviceLocation || 'Mount Isa'} Local Service</p>
             <div className="flex items-center justify-center gap-2 mt-3">
               <AboriginalFlagBadge height={14} />
-              <span className="text-[8px] font-black uppercase tracking-[0.25em] italic" style={{ color: 'var(--color-yellow-ochre)' }}>Aboriginal-led â€¢ Respect for Country</span>
+              <span className="text-[8px] font-black uppercase tracking-[0.25em] italic" style={{ color: 'var(--color-yellow-ochre)' }}>Aboriginal-led • Respect for Country</span>
             </div>
           </div>
         </div>
@@ -407,30 +407,30 @@ export const Booking = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 pt-4 px-4 pb-6">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-clay/50 font-black uppercase text-[8px] tracking-[0.2em] italic">Full Name</Label>
-                    <Input {...register('name')} className="h-10 text-xs font-bold rounded-xl" placeholder="John Doe" />
+                    <Input {...register('name')} className="w-full h-11 text-xs font-bold rounded-xl" placeholder="John Doe" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-clay/50 font-black uppercase text-[8px] tracking-[0.2em] italic">Mobile</Label>
-                    <Input {...register('phone')} className="h-10 text-xs font-bold rounded-xl" placeholder="0400..." />
+                    <Input {...register('phone')} className="w-full h-11 text-xs font-bold rounded-xl" placeholder="0400..." />
                   </div>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-clay/50 font-black uppercase text-[8px] tracking-[0.2em] italic">Email</Label>
-                  <Input {...register('email')} className="h-10 text-xs font-bold rounded-xl" placeholder="email@region.co" />
+                  <Input {...register('email')} className="w-full h-11 text-xs font-bold rounded-xl" placeholder="email@region.co" />
                 </div>
                 
                 <div className="space-y-3 pt-2">
                   <div className="space-y-1">
                     <Label className="text-clay/50 font-black uppercase text-[8px] tracking-[0.2em] italic">Property address</Label>
-                    <Input value={manualAddress} onChange={(e) => setManualAddress(e.target.value)} className="h-10 text-xs font-bold rounded-xl" placeholder="e.g. 12 Simpson Street" />
+                    <Input value={manualAddress} onChange={(e) => setManualAddress(e.target.value)} className="w-full h-11 text-xs font-bold rounded-xl" placeholder="e.g. 12 Simpson Street" />
                   </div>
 
                   <div className="space-y-1">
                     <Label className="text-clay/50 font-black uppercase text-[8px] tracking-[0.2em] italic">Suburb</Label>
-                    <Input {...register('suburb')} className="h-10 text-xs font-bold rounded-xl" placeholder="e.g. Mount Isa" />
+                    <Input {...register('suburb')} className="w-full h-11 text-xs font-bold rounded-xl" placeholder="e.g. Mount Isa" />
                   </div>
 
                   <div className="space-y-1">

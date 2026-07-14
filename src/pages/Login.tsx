@@ -415,7 +415,7 @@ export const Login = () => {
                       <Input
                         id="displayName"
                         placeholder="Full Name"
-                        className={`pl-10 h-14 rounded-2xl ${
+                        className={`w-full pl-10 h-14 rounded-2xl ${
                           intendedRole === 'client'
                             ? 'bg-stone-800 border-stone-700 text-white placeholder:text-stone-600'
                             : 'bg-white border-ochre/10'
@@ -447,7 +447,7 @@ export const Login = () => {
                       id="email"
                       type="email"
                       placeholder="name@grassroots.com"
-                      className={`pl-10 h-14 rounded-2xl ${
+                      className={`w-full pl-10 h-14 rounded-2xl ${
                         intendedRole === 'client'
                           ? 'bg-stone-800 border-stone-700 text-white placeholder:text-stone-600'
                           : 'bg-white border-ochre/10'
@@ -478,7 +478,7 @@ export const Login = () => {
                       id="password"
                       type="password"
                       placeholder="••••••••"
-                      className={`pl-10 h-14 rounded-2xl ${
+                      className={`w-full pl-10 h-14 rounded-2xl ${
                         intendedRole === 'client'
                           ? 'bg-stone-800 border-stone-700 text-white placeholder:text-stone-600'
                           : 'bg-white border-ochre/10'

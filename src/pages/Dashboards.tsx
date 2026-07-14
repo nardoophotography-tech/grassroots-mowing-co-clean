@@ -788,7 +788,7 @@ const AdminDashboard = () => {
     {/* ── Quick-Book Modal ─────────────────────────────────────────── */}
     {showQuickBook && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setShowQuickBook(false)}>
-        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md relative" onClick={e => e.stopPropagation()}>
+        <div className="bg-white rounded-3xl shadow-2xl w-[calc(100vw-24px)] max-w-md max-h-[90vh] overflow-y-auto relative flex flex-col" onClick={e => e.stopPropagation()}>
           {/* Header */}
           <div className="bg-primary rounded-t-3xl p-6 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -808,16 +808,16 @@ const AdminDashboard = () => {
           {/* Form */}
           <div className="p-6 space-y-4">
             {/* Name + Phone */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label className="text-[9px] font-black uppercase tracking-widest text-clay">Customer Name *</Label>
-                <Input value={quickBookForm.name} onChange={e => setQuickBookForm(f => ({ ...f, name: e.target.value }))} placeholder="John Smith" className="mt-1 h-10 text-xs" />
+                <Input value={quickBookForm.name} onChange={e => setQuickBookForm(f => ({ ...f, name: e.target.value }))} placeholder="John Smith" className="mt-1 w-full h-11 text-xs" />
               </div>
               <div>
                 <Label className="text-[9px] font-black uppercase tracking-widest text-clay">Phone</Label>
                 <div className="relative mt-1">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-clay/40" />
-                  <Input value={quickBookForm.phone} onChange={e => setQuickBookForm(f => ({ ...f, phone: e.target.value }))} placeholder="0400 123 456" className="h-10 text-xs pl-8" />
+                  <Input value={quickBookForm.phone} onChange={e => setQuickBookForm(f => ({ ...f, phone: e.target.value }))} placeholder="0400 123 456" className="w-full h-11 text-xs pl-8" />
                 </div>
               </div>
             </div>
@@ -825,18 +825,18 @@ const AdminDashboard = () => {
             {/* Address */}
             <div>
               <Label className="text-[9px] font-black uppercase tracking-widest text-clay">Property Address *</Label>
-              <Input value={quickBookForm.address} onChange={e => setQuickBookForm(f => ({ ...f, address: e.target.value }))} placeholder="12 Simpson Street, Mount Isa" className="mt-1 h-10 text-xs" />
+              <Input value={quickBookForm.address} onChange={e => setQuickBookForm(f => ({ ...f, address: e.target.value }))} placeholder="12 Simpson Street, Mount Isa" className="mt-1 w-full h-11 text-xs" />
             </div>
 
             {/* Date + Time */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label className="text-[9px] font-black uppercase tracking-widest text-clay">Date *</Label>
-                <Input type="date" value={quickBookForm.date} onChange={e => setQuickBookForm(f => ({ ...f, date: e.target.value }))} className="mt-1 h-10 text-xs" />
+                <Input type="date" value={quickBookForm.date} onChange={e => setQuickBookForm(f => ({ ...f, date: e.target.value }))} className="mt-1 w-full h-11 text-xs" />
               </div>
               <div>
                 <Label className="text-[9px] font-black uppercase tracking-widest text-clay">Time Slot</Label>
-                <select value={quickBookForm.timeSlot} onChange={e => setQuickBookForm(f => ({ ...f, timeSlot: e.target.value }))} className="mt-1 w-full h-10 px-3 rounded-md border border-border text-xs font-bold bg-background text-charcoal focus:outline-none focus:ring-2 focus:ring-primary">
+                <select value={quickBookForm.timeSlot} onChange={e => setQuickBookForm(f => ({ ...f, timeSlot: e.target.value }))} className="mt-1 w-full h-11 px-3 rounded-md border border-border text-xs font-bold bg-background text-charcoal focus:outline-none focus:ring-2 focus:ring-primary">
                   <option value="morning">Morning Run</option>
                   <option value="afternoon">Afternoon Run</option>
                 </select>
@@ -844,10 +844,10 @@ const AdminDashboard = () => {
             </div>
 
             {/* Service + Client Type */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label className="text-[9px] font-black uppercase tracking-widest text-clay">Service</Label>
-                <select value={quickBookForm.service} onChange={e => setQuickBookForm(f => ({ ...f, service: e.target.value }))} className="mt-1 w-full h-10 px-3 rounded-md border border-border text-xs font-bold bg-background text-charcoal focus:outline-none focus:ring-2 focus:ring-primary">
+                <select value={quickBookForm.service} onChange={e => setQuickBookForm(f => ({ ...f, service: e.target.value }))} className="mt-1 w-full h-11 px-3 rounded-md border border-border text-xs font-bold bg-background text-charcoal focus:outline-none focus:ring-2 focus:ring-primary">
                   {Object.keys(settings?.pricing?.base || {}).map(pkg => (
                     <option key={pkg} value={pkg}>{settings?.pricing?.packageDetails?.[pkg]?.name || pkg}</option>
                   ))}
@@ -855,7 +855,7 @@ const AdminDashboard = () => {
               </div>
               <div>
                 <Label className="text-[9px] font-black uppercase tracking-widest text-clay">Client Type</Label>
-                <select value={quickBookForm.clientType} onChange={e => setQuickBookForm(f => ({ ...f, clientType: e.target.value }))} className="mt-1 w-full h-10 px-3 rounded-md border border-border text-xs font-bold bg-background text-charcoal focus:outline-none focus:ring-2 focus:ring-primary">
+                <select value={quickBookForm.clientType} onChange={e => setQuickBookForm(f => ({ ...f, clientType: e.target.value }))} className="mt-1 w-full h-11 px-3 rounded-md border border-border text-xs font-bold bg-background text-charcoal focus:outline-none focus:ring-2 focus:ring-primary">
                   <option value="one_off">One-Off</option>
                   <option value="returning">Returning Client</option>
                   <option value="premium">Premium Member</option>
