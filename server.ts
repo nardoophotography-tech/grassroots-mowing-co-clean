@@ -276,6 +276,18 @@ async function startServer() {
     }
   };
 
+  // Direct email helper for standalone sends (payment-link resend etc.).
+  // The template-driven sendEmail lives inside handleNotification; this one is
+  // for simple transactional messages. Never logs the API key.
+  const sendEmailDirect = async (to: string, subject: string, text: string) => {
+    if (!resend) throw new Error('Email service not configured (RESEND_API_KEY missing)');
+    if (!to) throw new Error('No recipient email address');
+    const fromAddr = process.env.RESEND_FROM_EMAIL || 'ops@grassrootsmowing.co';
+    const { data, error } = await resend.emails.send({ from: fromAddr, to, subject, text });
+    if (error) throw new Error((error as any).message || JSON.stringify(error));
+    return data;
+  };
+
   // Notification Handler Function
   const handleNotification = async (payload: any) => {
     if (!payload || typeof payload !== 'object') {
@@ -1365,6 +1377,175 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
   // MANUAL PAYMENT ΓÇö records PayID / cash / EFT / other payment
   // Creates payment record, updates invoice, sends receipt SMS + email
   // ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ------------------------------------------------------------------------
+  // RESEND PAYMENT LINK - sends ONLY the payment link (not the full invoice).
+  // Link source priority: saved invoice URL -> saved job URL -> live Stripe
+  // session (verified still open) -> new Checkout session ONLY when nothing
+  // usable exists. Duplicate-send-safe: in-flight guard per job; never creates
+  // a new Stripe session while a valid link exists.
+  // ------------------------------------------------------------------------
+  const paymentLinkSendsInFlight = new Set<string>();
+  app.post("/api/jobs/:jobId/resend-payment-link", async (req, res) => {
+    const { jobId } = req.params;
+    const { triggeredBy } = req.body || {};
+
+    if (paymentLinkSendsInFlight.has(jobId)) {
+      return res.status(429).json({ error: "A payment-link send for this job is already in progress" });
+    }
+    paymentLinkSendsInFlight.add(jobId);
+
+    try {
+      // 1. Load job + invoice
+      const jobRef = db.collection("jobs").doc(jobId);
+      const jobSnap = await jobRef.get();
+      if (!jobSnap.exists) return res.status(404).json({ error: "Job not found" });
+      const job = jobSnap.data() as any;
+
+      if (!job.invoiceId) return res.status(400).json({ error: "No invoice exists for this job yet. Complete the job first." });
+
+      const invoiceRef = db.collection("invoices").doc(job.invoiceId);
+      const invoiceSnap = await invoiceRef.get();
+      if (!invoiceSnap.exists) return res.status(404).json({ error: "Invoice record could not be loaded" });
+      const invoice = invoiceSnap.data() as any;
+
+      // 2. Confirm unpaid
+      if (invoice.status === 'paid' || job.paymentStatus === 'paid') {
+        return res.status(400).json({ error: "This invoice is already paid - no payment link needed" });
+      }
+
+      const invoiceNumber = invoice.invoiceNumber || job.invoiceNumber || job.invoiceId;
+      const totalAmount = Number(invoice.totalAmount ?? job.finalAmount ?? job.price ?? 0);
+      const balanceDue = Number(invoice.balanceDue ?? Math.max(0, totalAmount - (invoice.amountPaid || 0)));
+
+      // Financial sanity check: the stored total is authoritative for the charge,
+      // but if it disagrees with the sum of the invoice line items (e.g. a mistyped
+      // Final Job Amount at completion producing "$100 base / $5.50 total"), surface
+      // a warning to the admin instead of silently sending a suspicious amount.
+      const lineItemsTotal = Array.isArray(invoice.items)
+        ? invoice.items.reduce((sum: number, i: any) => sum + (Number(i.amount) || 0), 0)
+        : null;
+      const amountMismatchWarning = (lineItemsTotal != null && Math.abs(lineItemsTotal - totalAmount) > 0.01)
+        ? `Invoice total $${totalAmount.toFixed(2)} does not match its line items ($${lineItemsTotal.toFixed(2)}). Check the invoice before the customer pays.`
+        : null;
+
+      // 3. Contact methods
+      const clientPhone = job.clientPhone || invoice.clientPhone || '';
+      const clientEmail = job.clientEmail || invoice.clientEmail || '';
+      if (!clientPhone && !clientEmail) {
+        return res.status(400).json({ error: "No customer phone or email on this invoice - add contact details first" });
+      }
+
+      // 4. Resolve payment URL - reuse before create
+      let paymentUrl = '';
+      let linkSource = '';
+      if (invoice.paymentLink) { paymentUrl = invoice.paymentLink; linkSource = 'invoice.paymentLink'; }
+      else if (job.paymentLink) { paymentUrl = job.paymentLink; linkSource = 'job.paymentLink'; }
+
+      const savedSessionId = invoice.stripeCheckoutSessionId || job.stripeCheckoutSessionId || '';
+      if (stripe && savedSessionId) {
+        try {
+          const session = await stripe.checkout.sessions.retrieve(savedSessionId);
+          if (session.status === 'open' && session.url) {
+            paymentUrl = session.url;
+            linkSource = 'stripe.session (verified open)';
+          } else if (session.status === 'expired') {
+            paymentUrl = '';
+            linkSource = '';
+          }
+        } catch (verifyErr: any) {
+          console.warn(`[ResendPayLink] Session verify failed: ${verifyErr.message} - using saved URL if present`);
+        }
+      }
+
+      if (!paymentUrl) {
+        if (!stripe) return res.status(500).json({ error: "No saved payment link and Stripe is not configured" });
+        if (balanceDue <= 0) return res.status(400).json({ error: "Balance due is $0 - nothing to pay" });
+        try {
+          const baseUrl = process.env.APP_URL || process.env.VITE_APP_URL || 'http://localhost:3000';
+          const session = await stripe.checkout.sessions.create({
+            payment_method_types: ["card"],
+            line_items: [{
+              price_data: {
+                currency: "aud",
+                product_data: {
+                  name: `GrassRoots Mowing - Invoice ${invoiceNumber}`,
+                  description: `Service at ${job.address || 'your property'}. Ref: ${invoiceNumber}`,
+                },
+                unit_amount: Math.round(balanceDue * 100),
+              },
+              quantity: 1,
+            }],
+            mode: "payment",
+            customer_email: clientEmail || undefined,
+            success_url: `${baseUrl}/invoices?success=true&invoiceId=${job.invoiceId}`,
+            cancel_url: `${baseUrl}/jobs/${jobId}`,
+            metadata: { jobId, invoiceId: job.invoiceId, invoiceNumber, flowType: 'resend_payment_link' },
+          });
+          paymentUrl = session.url || '';
+          linkSource = 'stripe.session (new - previous missing/expired)';
+          await invoiceRef.update({ paymentLink: paymentUrl, stripeCheckoutSessionId: session.id, updatedAt: Date.now() });
+          await jobRef.update({ paymentLink: paymentUrl, stripeCheckoutSessionId: session.id, updatedAt: Date.now() });
+        } catch (stripeErr: any) {
+          console.error(`[ResendPayLink] Stripe session create failed: ${stripeErr.message}`);
+          return res.status(502).json({ error: "Stripe could not create a payment link. Try again shortly." });
+        }
+      }
+
+      if (!paymentUrl) return res.status(500).json({ error: "Could not resolve a payment link for this invoice" });
+
+      // 5-7. Send SMS and/or email
+      let smsResult: any = { attempted: false, ok: false, error: 'No phone on record' };
+      let emailResult: any = { attempted: false, ok: false, error: 'No email on record' };
+
+      if (clientPhone) {
+        const sms = await sendSms(clientPhone, `GrassRoots Mowing Co: Your payment link for invoice ${invoiceNumber} is ready: ${paymentUrl}`, 'resend-payment-link (client)');
+        smsResult = { attempted: true, ok: !!sms.ok, error: sms.ok ? null : sms.error };
+      }
+
+      if (clientEmail) {
+        try {
+          await sendEmailDirect(
+            clientEmail,
+            `Payment link for invoice ${invoiceNumber}`,
+            `Hi ${job.clientName || 'there'},\n\nHere is the payment link for your GrassRoots Mowing Co invoice:\n${paymentUrl}\n\nInvoice: ${invoiceNumber}\nAmount due: $${balanceDue.toFixed(2)}\n\nThank you,\nGrassRoots Mowing Co`
+          );
+          emailResult = { attempted: true, ok: true, error: null };
+        } catch (emailErr: any) {
+          emailResult = { attempted: true, ok: false, error: emailErr.message };
+        }
+      }
+
+      const anySuccess = smsResult.ok || emailResult.ok;
+
+      // 8. Audit trail - activity log + invoice send record (no secrets logged)
+      const auditEntry = {
+        id: `paylink-${Date.now()}`,
+        timestamp: Date.now(),
+        action: 'Payment link resent',
+        detail: `Invoice ${invoiceNumber} | source: ${linkSource} | SMS: ${smsResult.attempted ? (smsResult.ok ? 'sent' : 'failed') : 'n/a'} | Email: ${emailResult.attempted ? (emailResult.ok ? 'sent' : 'failed') : 'n/a'}`,
+        by: triggeredBy || 'admin',
+        status: anySuccess ? 'success' : 'failed',
+      };
+      await jobRef.update({ activityLog: admin.firestore.FieldValue.arrayUnion(auditEntry), updatedAt: Date.now() });
+      await invoiceRef.update({
+        lastPaymentLinkSentAt: Date.now(),
+        lastPaymentLinkSentBy: triggeredBy || 'admin',
+        lastPaymentLinkSource: linkSource,
+        lastPaymentLinkSms: smsResult.attempted ? (smsResult.ok ? 'sent' : `failed: ${smsResult.error}`) : 'not-attempted',
+        lastPaymentLinkEmail: emailResult.attempted ? (emailResult.ok ? 'sent' : `failed: ${emailResult.error}`) : 'not-attempted',
+        updatedAt: Date.now(),
+      });
+
+      // 9. Accurate (possibly partial) result
+      res.json({ ok: anySuccess, linkSource, paymentLink: paymentUrl, balanceDue, invoiceNumber, smsResult, emailResult, amountMismatchWarning });
+    } catch (err: any) {
+      console.error("[ResendPayLink Error]:", err.message);
+      res.status(500).json({ error: err.message });
+    } finally {
+      paymentLinkSendsInFlight.delete(jobId);
+    }
+  });
+
   app.post("/api/jobs/:jobId/manual-payment", async (req, res) => {
     try {
       const { jobId } = req.params;

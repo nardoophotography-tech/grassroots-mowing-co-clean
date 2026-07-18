@@ -113,6 +113,9 @@ export const JobDetail = () => {
   const [workflowMsg, setWorkflowMsg] = React.useState('');
   const [onTheWayResult, setOnTheWayResult] = React.useState<any>(null);
 
+  // ── Resend payment link state ──
+  const [payLinkState, setPayLinkState] = React.useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
+
   // ── Completion panel ──
   const [showCompletionPanel, setShowCompletionPanel] = React.useState(false);
   const [completionAmount, setCompletionAmount] = React.useState('');
@@ -295,6 +298,41 @@ export const JobDetail = () => {
     }
   };
 
+  // Resend ONLY the payment link (SMS + email). Separate from Resend Invoice,
+  // which sends the full invoice. Double-click-safe via payLinkState guard;
+  // the server also holds a per-job in-flight lock.
+  const handleResendPaymentLink = async () => {
+    if (payLinkState === 'sending') return;
+    setPayLinkState('sending');
+    try {
+      const res = await fetch(`/api/jobs/${job.id}/resend-payment-link`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ triggeredBy: authUser?.uid }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send payment link');
+
+      const smsTxt = data.smsResult?.attempted ? (data.smsResult.ok ? 'SMS ✓' : 'SMS ✗') : null;
+      const emailTxt = data.emailResult?.attempted ? (data.emailResult.ok ? 'Email ✓' : 'Email ✗') : null;
+      const summary = [smsTxt, emailTxt].filter(Boolean).join(', ');
+
+      if (data.ok) {
+        setPayLinkState('sent');
+        toast.success(`Payment link sent — ${summary}`);
+        if (data.amountMismatchWarning) {
+          toast(data.amountMismatchWarning, { icon: '⚠️', duration: 8000 });
+        }
+      } else {
+        setPayLinkState('failed');
+        toast.error(`Payment link could not be delivered — ${summary || 'no channel succeeded'}`);
+      }
+    } catch (err: any) {
+      setPayLinkState('failed');
+      toast.error(err.message);
+    }
+  };
+
   // ─────────────────────────────────────────────────────────────────────────
   // LEGACY / ADMIN HANDLERS (kept unchanged)
   // ─────────────────────────────────────────────────────────────────────────
@@ -442,6 +480,29 @@ export const JobDetail = () => {
               <Copy className="mr-2 h-3 w-3" /> Copy Payment Link
             </Button>
           )}
+
+          {/* Resend payment link — link-only send, separate from Resend Invoice */}
+          <Button
+            variant="outline"
+            className={
+              payLinkState === 'sent'
+                ? 'w-full border-green-300 text-green-700 font-bold uppercase text-[10px] tracking-widest h-10'
+                : payLinkState === 'failed'
+                  ? 'w-full border-deep-red/30 text-deep-red font-bold uppercase text-[10px] tracking-widest h-10'
+                  : 'w-full border-ochre/20 text-ochre font-bold uppercase text-[10px] tracking-widest h-10'
+            }
+            onClick={handleResendPaymentLink}
+            disabled={payLinkState === 'sending'}>
+            {payLinkState === 'sending' ? (
+              <><RefreshCw className="mr-2 h-3 w-3 animate-spin" /> Sending…</>
+            ) : payLinkState === 'sent' ? (
+              <><CheckCircle className="mr-2 h-3 w-3" /> Payment Link Sent</>
+            ) : payLinkState === 'failed' ? (
+              <><RefreshCw className="mr-2 h-3 w-3" /> Retry Payment Link</>
+            ) : (
+              <><Send className="mr-2 h-3 w-3" /> Resend Payment Link</>
+            )}
+          </Button>
 
           {/* View invoice */}
           {invoice && (
