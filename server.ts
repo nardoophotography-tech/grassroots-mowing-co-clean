@@ -1441,19 +1441,32 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
       if (invoice.paymentLink) { paymentUrl = invoice.paymentLink; linkSource = 'invoice.paymentLink'; }
       else if (job.paymentLink) { paymentUrl = job.paymentLink; linkSource = 'job.paymentLink'; }
 
-      const savedSessionId = invoice.stripeCheckoutSessionId || job.stripeCheckoutSessionId || '';
+      let savedSessionId = invoice.stripeCheckoutSessionId || job.stripeCheckoutSessionId || '';
+      // Legacy invoices saved only the URL, not the session id — recover it from
+      // the URL itself (checkout.stripe.com/c/pay/cs_live_XXX...) so old links
+      // still get verified instead of being trusted blindly.
+      if (!savedSessionId && paymentUrl) {
+        const m = paymentUrl.match(/(cs_(?:live|test)_[A-Za-z0-9]+)/);
+        if (m) savedSessionId = m[1];
+      }
       if (stripe && savedSessionId) {
         try {
           const session = await stripe.checkout.sessions.retrieve(savedSessionId);
           if (session.status === 'open' && session.url) {
             paymentUrl = session.url;
             linkSource = 'stripe.session (verified open)';
-          } else if (session.status === 'expired') {
+          } else {
+            // expired, completed, or URL-less session — unusable for payment.
+            // Never send it; force creation of a fresh session below.
             paymentUrl = '';
             linkSource = '';
+            console.log(`[ResendPayLink] Saved session ${savedSessionId} status=${session.status} - creating fresh session`);
           }
         } catch (verifyErr: any) {
-          console.warn(`[ResendPayLink] Session verify failed: ${verifyErr.message} - using saved URL if present`);
+          // Cannot verify (network/permissions): do NOT risk sending a dead link.
+          paymentUrl = '';
+          linkSource = '';
+          console.warn(`[ResendPayLink] Session verify failed: ${verifyErr.message} - creating fresh session`);
         }
       }
 
