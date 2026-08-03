@@ -27,8 +27,11 @@ export const Login = () => {
   React.useEffect(() => {
     const handleRoleRedirect = async () => {
       if (user) {
-        // If they have a profile, go to dashboard
-        if (profile) {
+        // If they have a profile, go to dashboard.
+        // Anonymous sessions are excluded: the /dashboard route requires
+        // `!user.isAnonymous`, so redirecting them here would bounce straight
+        // back to /login and loop forever.
+        if (profile && !user.isAnonymous) {
           // Never downgrade admin or staff roles via intendedRole — they are
           // operational users and their role must not be overwritten by a
           // client-facing URL parameter (e.g. ?intendedRole=returning).
