@@ -38,7 +38,8 @@ import {
   Building2,
   Target,
   Truck,
-  History
+  History,
+  Share2
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Navbar } from '@/components/Navbar';
@@ -209,6 +210,32 @@ export const LandingPage = () => {
     { name: 'Full Yearly Analysis & Planning', price: pricing.addOns?.['yearly-analysis'] || 0, icon: ClipboardList },
   ];
 
+  // Share the app with a mate — native share sheet on mobile, clipboard copy on desktop.
+  const handleShareApp = async () => {
+    const shareUrl = window.location.origin;
+    const businessName = settings?.businessName || 'GrassRoots Mowing Co.';
+    const shareTitle = `${businessName} — Aboriginal-led lawn care`;
+    const shareText = `Check out ${businessName} — Aboriginal-led community lawn care for ${settings?.serviceLocation || 'Mount Isa'}. Book a service or add the app to your home screen:`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: shareTitle, text: shareText, url: shareUrl });
+        return;
+      } catch (err: any) {
+        // User tapped cancel on the share sheet — stay silent, don't fall through to a copy toast.
+        if (err?.name === 'AbortError') return;
+        // Any other share failure falls through to the clipboard path below.
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(`${shareText} ${shareUrl}`);
+      toast.success('Link copied — paste it to a mate!');
+    } catch {
+      toast.error('Could not copy the link. Please copy it from your address bar.');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#FDFCFB] selection:bg-primary/20 selection:text-primary">
       <nav className="sticky top-0 z-50 backdrop-blur-md border-b px-4 sm:px-6 py-4 shadow-sm" style={{ backgroundColor: 'rgba(17,17,17,0.92)', borderColor: 'rgba(255,255,255,0.1)' }}>
@@ -297,6 +324,20 @@ export const LandingPage = () => {
                    <Building2 size={16} /> ASSET MANAGERS
                 </div>
                 <span className="text-[8px] opacity-80 tracking-[0.3em] font-medium italic">Agency portal • Bulk invoicing</span>
+              </Button>
+            </div>
+
+            {/* Share the app with a mate */}
+            <div className="mt-4 flex justify-center">
+              <Button
+                variant="ghost"
+                onClick={handleShareApp}
+                aria-label="Share GrassRoots Mowing Co. with a friend"
+                style={{ backgroundColor: 'rgba(255,255,255,0.08)', color: '#ffffff', borderColor: 'rgba(255,255,255,0.25)' }}
+                className="h-12 px-6 rounded-full border hover:bg-white/20 font-black uppercase tracking-[0.2em] text-[10px] italic flex items-center gap-2"
+              >
+                <Share2 size={14} />
+                Share with a mate
               </Button>
             </div>
           </motion.div>

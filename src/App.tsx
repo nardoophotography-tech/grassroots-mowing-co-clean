@@ -281,6 +281,7 @@ export default function App() {
     <Router>
       <AuthProvider>
         <AppContent />
+        <Toaster />
       </AuthProvider>
     </Router>
   );
