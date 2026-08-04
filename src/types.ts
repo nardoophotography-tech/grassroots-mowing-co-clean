@@ -335,6 +335,19 @@ export interface BusinessSettings {
   messageTemplate: string;
   paymentLinkTemplate: string;
   receiptTemplate: string;
+  /**
+   * PayID payment details shown to customers wherever payment info is given.
+   * Single source of truth: the Firestore `settings/business` document.
+   * Editable without a code change or redeploy.
+   */
+  payId?: {
+    heading: string;
+    instruction: string;
+    phone: string;
+    alternatives: string;
+    /** Shortened single-line form used for SMS only, to limit segment count. */
+    smsText?: string;
+  };
   suburbSchedules: SuburbSchedule[];
   stripeConnected: boolean;
   stripeAccountId?: string;

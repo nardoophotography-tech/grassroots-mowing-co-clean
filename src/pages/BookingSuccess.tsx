@@ -5,6 +5,7 @@ import { motion } from 'motion/react';
 import { Button } from '@/components/ui/Button';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/firebase';
+import { PaymentOptions } from '@/components/PaymentOptions';
 
 export const BookingSuccess = () => {
   const [searchParams] = useSearchParams();
@@ -123,6 +124,8 @@ export const BookingSuccess = () => {
             )}
           </div>
         </div>
+
+        {!isPaid && <PaymentOptions className="mb-8 text-left" />}
 
         <div className="space-y-3">
           {data?.invoicePdfUrl ? (

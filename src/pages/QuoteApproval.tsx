@@ -14,6 +14,7 @@ import { notificationService } from '@/services/notificationService';
 
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/firebase';
+import { PaymentOptions } from '@/components/PaymentOptions';
 
 export const QuoteApproval = () => {
   const { jobId } = useParams();
@@ -333,6 +334,8 @@ export const QuoteApproval = () => {
                     Download PDF Quote
                   </Button>
                 )}
+
+                <PaymentOptions className="mt-4" />
 
                 <div className="bg-ochre/5 p-4 rounded-xl border border-ochre/10 mt-4">
                   <div className="flex gap-2 mb-2">

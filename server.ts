@@ -478,11 +478,13 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
         break;
 
       case 'payment-reminder':
-        emailSubject = `Friendly Payment Reminder ΓÇö Invoice ${invoiceNumber || 'Outstanding'}`;
+        emailSubject = `Friendly Payment Reminder - Invoice ${invoiceNumber || 'Outstanding'}`;
         emailContent = settings.reminderTemplate
           ? replacePlaceholders(settings.reminderTemplate, { clientName, amount, invoiceNumber: invoiceNumber || '', paymentLink, pdfUrl })
-          : `Hi ${clientName},\n\nJust a friendly reminder that the following invoice is still outstanding:\n\n  Invoice:  ${invoiceNumber || 'N/A'}\n  Amount:   $${Number(amount || 0).toFixed(2)}\n${paymentLink ? `\nPay securely online:\n${paymentLink}\n` : ''}\nIf you have already paid, please disregard this message ΓÇö and thank you!\n\nIf you have any questions, reply to this email or call us directly.\n\nThanks for choosing GrassRoots Mowing Co.,\nGrassRoots Team\nops@grassrootsmowing.co`;
-        smsContent = `GrassRoots Mowing: Friendly reminder ΓÇö Invoice ${invoiceNumber || ''} for $${Number(amount || 0).toFixed(2)} is outstanding. Pay here: ${paymentLink}`;
+          : `Hi ${clientName},\n\nJust a friendly reminder that the following invoice is still outstanding:\n\n  Invoice:  ${invoiceNumber || 'N/A'}\n  Amount:   $${Number(amount || 0).toFixed(2)}\n${paymentLink ? `\nPay securely online:\n${paymentLink}\n` : ''}\nIf you have already paid, please disregard this message - and thank you!\n\nIf you have any questions, reply to this email or call us directly.\n\nThanks for choosing GrassRoots Mowing Co.,\nGrassRoots Team\nops@grassrootsmowing.co`;
+        // Plain ASCII hyphen: keeps this SMS in GSM-7 and avoids the corrupted
+        // dash characters that were previously rendering as garbage for customers.
+        smsContent = `GrassRoots Mowing: Friendly reminder - Invoice ${invoiceNumber || ''} for $${Number(amount || 0).toFixed(2)} is outstanding. Pay here: ${paymentLink}`;
         // Admin confirmation ΓÇö sent internally, not to the client
         adminEmailSubject = `[ADMIN] Reminder dispatched ΓåÆ ${clientName}`;
         adminEmailContent = `Reminder email successfully dispatched to ${clientName}.\n\nInvoice: ${invoiceNumber || 'N/A'}\nAmount: $${Number(amount || 0).toFixed(2)}\nClient email: ${clientEmail || 'unknown'}\nPayment link: ${paymentLink || 'none'}`;
@@ -493,6 +495,35 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
         emailContent = `Hi ${clientName},\n\nYou've been invited to join the GrassRoots Mowing Co team!\n\nPlease complete your securely encrypted onboarding profile, including bank details, TFN, Super, and sign your employment agreement using this link:\n\n${paymentLink}\n\nThanks,\nManagement`;
         smsContent = `Hi ${clientName}, you've been invited to join GrassRoots Mowing Co! Please complete your secure onboarding profile using this link: ${paymentLink}`;
         break;
+    }
+
+    // ── PAYID PAYMENT OPTIONS ────────────────────────────────────────────
+    // Appends the preferred PayID details to customer-facing messages that ask
+    // for payment (quotes, completion, invoices, reminders).
+    // Display only: this does NOT change payment processing or the existing
+    // payment-link system — the link and cash remain exactly as they were.
+    // Deliberately excluded: payment-successful / payment-receipt (already
+    // paid), job-scheduled, team-en-route and staff-invite (not payment requests).
+    if (['quote-sent', 'completed', 'invoice-sent', 'payment-reminder'].includes(stage)) {
+      // Read from the Firestore settings/business document (single source of truth).
+      const payId = (settings as any)?.payId || {};
+      // Full four-line wording for EMAIL.
+      const payIdBlock = [
+        payId.heading || 'Preferred payment method: PayID',
+        payId.instruction || 'If you have PayID set up with your bank, you can make payment using this phone number:',
+        payId.phone || '0404 231 448',
+        payId.alternatives || 'Customers can alternatively use the existing payment link or pay by cash.',
+      ].join('\n');
+
+      // Shortened single-line wording for SMS only, to limit segment count/cost.
+      const payIdSms = payId.smsText
+        || 'Preferred payment: PayID 0404 231 448. You can also use the payment link or pay cash.';
+
+      // Guard against duplication if a Firestore template already includes the PayID text.
+      const alreadyHasPayId = (s: string) => s.includes(payId.phone || '0404 231 448');
+
+      if (emailContent && !alreadyHasPayId(emailContent)) emailContent = `${emailContent}\n\n${payIdBlock}`;
+      if (smsContent && !alreadyHasPayId(smsContent)) smsContent = `${smsContent}\n\n${payIdSms}`;
     }
 
 
@@ -526,10 +557,10 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
         const firstName = (clientName || 'there').split(' ')[0];
         const reviewUrl = `https://search.google.com/local/writereview?placeid=${placeId}`;
         const body =
-          `Hi ${firstName} ≡ƒæï Thanks for choosing GrassRoots Mowing Co!\n\n` +
-          `If you're happy with the service, a quick Google review means a lot to a small local business ≡ƒî┐\n\n` +
+          `Hi ${firstName}, thanks for choosing GrassRoots Mowing Co!\n\n` +
+          `If you're happy with the service, a quick Google review means a lot to a small local business.\n\n` +
           `${reviewUrl}\n\n` +
-          `ΓÇö David & the GrassRoots Team`;
+          `- David & the GrassRoots Team`;
         try {
           await sendSms(phone, body, 'review-reminder (client)');
         } catch (err: any) {
@@ -1129,7 +1160,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
         if ((job.pricingSnapshot.urgencySurcharge || 0) > 0) lineItems.push({ description: `Urgency Surcharge`, amount: job.pricingSnapshot.urgencySurcharge });
         (job.pricingSnapshot.addOns || []).forEach((a: any) => lineItems.push({ description: `Add-on: ${a.name}`, amount: a.price }));
       } else {
-        lineItems.push({ description: `${job.servicePackage || 'Mowing Service'} ΓÇö ${job.serviceGrade || 'Standard'} grade`, amount: baseAmount });
+        lineItems.push({ description: `${job.servicePackage || 'Mowing Service'} - ${job.serviceGrade || 'Standard'} grade`, amount: baseAmount });
         (job.addOns || []).filter((a: any) => a.selected).forEach((a: any) => lineItems.push({ description: `Add-on: ${a.name}`, amount: a.price }));
       }
       completionAddOns.forEach(a => lineItems.push({ description: a.description, amount: a.amount }));
@@ -1188,7 +1219,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
               price_data: {
                 currency: "aud",
                 product_data: {
-                  name: `GrassRoots Mowing ΓÇö Invoice ${invoiceNumber}`,
+                  name: `GrassRoots Mowing - Invoice ${invoiceNumber}`,
                   description: `Service at ${job.address || 'your property'}. Ref: ${invoiceNumber}`,
                 },
                 unit_amount: amountInCents,
@@ -1267,9 +1298,9 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
 
       if (job.clientPhone) {
         const gstLine = `Subtotal $${gstBreakdown.subtotal.toFixed(2)}, GST $${gstBreakdown.gstAmount.toFixed(2)}, total $${finalAmount.toFixed(2)} (inc. GST)`;
-        const invoiceSms = payidEmail
-          ? `Hi ${firstName}, your GrassRoots Mowing Co. service at ${address} is complete. Invoice ${invoiceNumber}: ${gstLine}.${paymentLink ? ` Pay by card: ${paymentLink}` : ''} Or pay by PayID: ${payidEmail} (ref: ${invoiceNumber}). Thank you.`
-          : `Hi ${firstName}, your GrassRoots Mowing Co. service at ${address} is complete. Invoice ${invoiceNumber}: ${gstLine}.${paymentLink ? ` Pay securely: ${paymentLink}` : ''} Thank you.`;
+        // PayID is the phone number from Firebase settings only. The legacy
+        // email-based PayID branch is intentionally not used in customer SMS.
+        const invoiceSms = `Hi ${firstName}, your GrassRoots Mowing Co. service at ${address} is complete. Invoice ${invoiceNumber}: ${gstLine}.${paymentLink ? ` Pay securely: ${paymentLink}` : ''} Thank you.\n\n${payIdSms}`;
         smsResult = await sendSms(job.clientPhone, invoiceSms, 'invoice-sent (client)');
         if (smsResult.ok) await jobRef.update({ invoiceSmsId: smsResult.sid });
       }
@@ -1346,9 +1377,9 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
       let emailResult: any = { ok: false, error: 'No email' };
 
       if (job.clientPhone) {
-        const invoiceSms = payidEmail
-          ? `GrassRoots Mowing: Reminder ΓÇö Invoice ${invoiceNumber} for $${finalAmount.toFixed(2)} is outstanding. Pay by card: ${paymentLink} or PayID: ${payidEmail} ref: ${invoiceNumber}.`
-          : `GrassRoots Mowing: Reminder ΓÇö Invoice ${invoiceNumber} for $${finalAmount.toFixed(2)} is outstanding. Pay here: ${paymentLink}.`;
+        // PayID is the phone number from Firebase settings only. The legacy
+        // email-based PayID branch is intentionally not used in customer SMS.
+        const invoiceSms = `GrassRoots Mowing: Reminder - Invoice ${invoiceNumber} for $${finalAmount.toFixed(2)} is outstanding. Pay here: ${paymentLink}.\n\n${payIdSms}`;
         smsResult = await sendSms(job.clientPhone, invoiceSms, 'invoice-resend (client)');
       }
 
@@ -1510,8 +1541,30 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
       let smsResult: any = { attempted: false, ok: false, error: 'No phone on record' };
       let emailResult: any = { attempted: false, ok: false, error: 'No email on record' };
 
+      // Preferred payment method appended below. Display only — the payment
+      // link above is unchanged and still the same Stripe link as before.
+      // Read from the Firestore settings/business document (single source of truth).
+      let payIdSettings: any = {};
+      try {
+        const payIdSettingsDoc = await db.collection("settings").doc("business").get();
+        payIdSettings = (payIdSettingsDoc.exists ? payIdSettingsDoc.data() : {})?.payId || {};
+      } catch {
+        payIdSettings = {};
+      }
+      // Full four-line wording for EMAIL.
+      const payIdBlock = [
+        payIdSettings.heading || 'Preferred payment method: PayID',
+        payIdSettings.instruction || 'If you have PayID set up with your bank, you can make payment using this phone number:',
+        payIdSettings.phone || '0404 231 448',
+        payIdSettings.alternatives || 'Customers can alternatively use the existing payment link or pay by cash.',
+      ].join('\n');
+
+      // Shortened single-line wording for SMS only, to limit segment count/cost.
+      const payIdSms = payIdSettings.smsText
+        || 'Preferred payment: PayID 0404 231 448. You can also use the payment link or pay cash.';
+
       if (clientPhone) {
-        const sms = await sendSms(clientPhone, `GrassRoots Mowing Co: Your payment link for invoice ${invoiceNumber} is ready: ${paymentUrl}`, 'resend-payment-link (client)');
+        const sms = await sendSms(clientPhone, `GrassRoots Mowing Co: Your payment link for invoice ${invoiceNumber} is ready: ${paymentUrl}\n\n${payIdSms}`, 'resend-payment-link (client)');
         smsResult = { attempted: true, ok: !!sms.ok, error: sms.ok ? null : sms.error };
       }
 
@@ -1520,7 +1573,7 @@ Total: $${(quoteSnapshot.total || 0).toFixed(2)}
           await sendEmailDirect(
             clientEmail,
             `Payment link for invoice ${invoiceNumber}`,
-            `Hi ${job.clientName || 'there'},\n\nHere is the payment link for your GrassRoots Mowing Co invoice:\n${paymentUrl}\n\nInvoice: ${invoiceNumber}\nAmount due: $${balanceDue.toFixed(2)}\n\nThank you,\nGrassRoots Mowing Co`
+            `Hi ${job.clientName || 'there'},\n\nHere is the payment link for your GrassRoots Mowing Co invoice:\n${paymentUrl}\n\nInvoice: ${invoiceNumber}\nAmount due: $${balanceDue.toFixed(2)}\n\n${payIdBlock}\n\nThank you,\nGrassRoots Mowing Co`
           );
           emailResult = { attempted: true, ok: true, error: null };
         } catch (emailErr: any) {

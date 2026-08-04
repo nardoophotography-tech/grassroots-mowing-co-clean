@@ -202,6 +202,51 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   'bank-transfer': 'Bank Transfer',
 };
 
+/**
+ * PayID payment options shown wherever customers receive payment details.
+ *
+ * SINGLE SOURCE OF TRUTH: the Firestore `settings/business` document (`payId`).
+ * The values below are ONLY a fallback, used if that document has not been
+ * populated yet. Always read via `getPaymentOptions(settings)` so the Firebase
+ * values win.
+ *
+ * Display only — does not process payments and does not alter the payment-link system.
+ */
+export const DEFAULT_PAYID_OPTIONS = {
+  heading: 'Preferred payment method: PayID',
+  instruction:
+    'If you have PayID set up with your bank, you can make payment using this phone number:',
+  phone: '0404 231 448',
+  alternatives: 'Customers can alternatively use the existing payment link or pay by cash.',
+  /** Short single-line form — SMS only, to keep segment counts (and cost) down. */
+  smsText: 'Preferred payment: PayID 0404 231 448. You can also use the payment link or pay cash.',
+};
+
+/** Resolves the PayID details from Firebase settings, falling back to the defaults above. */
+export const getPaymentOptions = (settings?: { payId?: Partial<typeof DEFAULT_PAYID_OPTIONS> } | null) => ({
+  heading: settings?.payId?.heading || DEFAULT_PAYID_OPTIONS.heading,
+  instruction: settings?.payId?.instruction || DEFAULT_PAYID_OPTIONS.instruction,
+  phone: settings?.payId?.phone || DEFAULT_PAYID_OPTIONS.phone,
+  alternatives: settings?.payId?.alternatives || DEFAULT_PAYID_OPTIONS.alternatives,
+  smsText: settings?.payId?.smsText || DEFAULT_PAYID_OPTIONS.smsText,
+});
+
+/**
+ * Short single-line PayID text for SMS only.
+ * Pages, PDFs and emails continue to use the full four-line wording.
+ */
+export const getPaymentOptionsSmsText = (
+  settings?: { payId?: Partial<typeof DEFAULT_PAYID_OPTIONS> } | null
+) => getPaymentOptions(settings).smsText;
+
+/** Full multi-line block for email, PDFs and any non-JSX context. */
+export const getPaymentOptionsText = (
+  settings?: { payId?: Partial<typeof DEFAULT_PAYID_OPTIONS> } | null
+) => {
+  const o = getPaymentOptions(settings);
+  return [o.heading, o.instruction, o.phone, o.alternatives].join('\n');
+};
+
 export const CLIENT_TYPE_LABELS: Record<string, string> = {
   'one_off': 'One-Off Client',
   'returning': 'Returning Client',
@@ -226,6 +271,7 @@ export const DEFAULT_SETTINGS: BusinessSettings = {
   messageTemplate: "Hi [Client Name], I've just finished the previous job and will be with you soon.",
   paymentLinkTemplate: "Hi [Client Name], your lawn service is complete. You can pay here: [Link]",
   receiptTemplate: "Hi [Client Name], thanks for your payment via [Method]. Your receipt is attached.",
+  payId: { ...DEFAULT_PAYID_OPTIONS },
   suburbSchedules: SUBURBS.map(suburb => ({
     suburb,
     availableDays: [0, 1, 2, 3, 4, 5, 6], // Sun-Sat

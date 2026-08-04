@@ -28,6 +28,7 @@ import { calculateServicePrice } from '@/services/pricingEngine';
 import { calculateBookingPrice } from '@/utils/pricing';
 import { notificationService } from '@/services/notificationService';
 import { GrassRootsGuardian } from '@/components/GrassRootsGuardian';
+import { PaymentOptions } from '@/components/PaymentOptions';
 
 const bookingSchema = z.object({
   name: z.string().min(2, 'Name is required'),
@@ -656,6 +657,8 @@ export const Booking = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 pt-6 px-4 pb-6 text-center">
+                <PaymentOptions className="text-left" />
+
                 <div className="grid grid-cols-2 gap-3">
                    <button type="button" onClick={() => setPaymentMethod('cash')} className={cn("p-6 rounded-2xl border-2 flex flex-col items-center gap-2", paymentMethod === 'cash' ? "border-secondary bg-secondary/5" : "border-border")}>
                      <DollarSign size={24} />

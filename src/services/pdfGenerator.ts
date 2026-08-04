@@ -2,6 +2,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Invoice, Job, BusinessSettings } from "../types";
 import { deriveGstFromInclusive } from "../utils/money";
+import { getPaymentOptions } from "../constants";
 
 export async function generateInvoicePDF(invoice: Invoice, job: Job, settings: BusinessSettings): Promise<Uint8Array> {
   const doc = new jsPDF();
@@ -96,9 +97,23 @@ export async function generateInvoicePDF(invoice: Invoice, job: Job, settings: B
      doc.setTextColor(0, 128, 0);
      doc.text("PAID", 190, finalY + 25, { align: "right" });
   } else {
+     // Preferred method: PayID (from Firebase settings). Shown above the
+     // existing payment link, which is unchanged.
+     const payOpts = getPaymentOptions(settings);
+     doc.setFontSize(10);
+     doc.setTextColor(0, 0, 0);
+     doc.text(payOpts.heading, 20, finalY + 32);
+     doc.setFontSize(9);
+     doc.text(payOpts.instruction, 20, finalY + 38, { maxWidth: 170 });
+     doc.setFontSize(11);
+     doc.text(payOpts.phone, 20, finalY + 44);
+     doc.setFontSize(8);
+     doc.setTextColor(90, 90, 90);
+     doc.text(payOpts.alternatives, 20, finalY + 50, { maxWidth: 170 });
+
      doc.setFontSize(10);
      doc.setTextColor(139, 0, 0);
-     doc.text(`Link: ${invoice.paymentLink}`, 20, finalY + 35);
+     doc.text(`Link: ${invoice.paymentLink}`, 20, finalY + 58);
   }
 
   // Footer
@@ -167,6 +182,20 @@ export async function generateQuotePDF(job: Job, settings: BusinessSettings): Pr
   doc.setFontSize(16);
   doc.setTextColor(0, 0, 0);
   doc.text(`TOTAL PRICE: $${(snapshot?.total || job.price || 0).toFixed(2)}`, 190, finalY + 15, { align: "right" });
+
+  // Preferred method: PayID (from Firebase settings).
+  // Display only — the payment link and cash remain available.
+  const qPayOpts = getPaymentOptions(settings);
+  doc.setFontSize(10);
+  doc.setTextColor(0, 0, 0);
+  doc.text(qPayOpts.heading, 20, finalY + 28);
+  doc.setFontSize(9);
+  doc.text(qPayOpts.instruction, 20, finalY + 34, { maxWidth: 170 });
+  doc.setFontSize(11);
+  doc.text(qPayOpts.phone, 20, finalY + 40);
+  doc.setFontSize(8);
+  doc.setTextColor(90, 90, 90);
+  doc.text(qPayOpts.alternatives, 20, finalY + 46, { maxWidth: 170 });
 
   doc.setFontSize(9);
   doc.setTextColor(100, 100, 100);

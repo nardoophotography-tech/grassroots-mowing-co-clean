@@ -10,6 +10,7 @@ import { CheckCircle2, ShieldCheck, CreditCard, ArrowLeft, Home } from 'lucide-r
 import { format } from 'date-fns';
 import { toast } from 'react-hot-toast';
 import { deriveGstFromInclusive } from '../utils/money';
+import { PaymentOptions } from '../components/PaymentOptions';
 
 export const InvoicePayment = () => {
   const { id } = useParams<{ id: string }>();
@@ -239,6 +240,8 @@ export const InvoicePayment = () => {
                 );
               })()}
             </div>
+
+            <PaymentOptions className="mt-8" />
 
             <div className="pt-8 space-y-4">
               {invoice.invoicePdfUrl && (
